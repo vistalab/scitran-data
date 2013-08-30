@@ -36,7 +36,7 @@ class NIMSNifti(nimsdata.NIMSData):
             self.imagedata = nifti.get_data()
             #super(NIMSNifti, self).__init__()
         except Exception as e:
-            raise NIMSNiftiError(e)
+            raise NIMSNiftiError(str(e))
 
     @staticmethod
     def write(metadata, imagedata, outbase, notes=''):
@@ -50,29 +50,24 @@ class NIMSNifti(nimsdata.NIMSData):
         if metadata.bvals is not None and metadata.bvecs is not None:
             filepath = outbase + '.bval'
             with open(filepath, 'w') as bvals_file:
-                bvals_file.write(' '.join(['%f' % value for value in metadata.bvals]))
+                bvals_file.write(' '.join(['%0.1f' % value for value in metadata.bvals]))
             log.debug('generated %s' % os.path.basename(filepath))
             filepath = outbase + '.bvec'
             with open(filepath, 'w') as bvecs_file:
-                bvecs_file.write(' '.join(['%f' % value for value in metadata.bvecs[0,:]]) + '\n')
-                bvecs_file.write(' '.join(['%f' % value for value in metadata.bvecs[1,:]]) + '\n')
-                bvecs_file.write(' '.join(['%f' % value for value in metadata.bvecs[2,:]]) + '\n')
+                bvecs_file.write(' '.join(['%0.4f' % value for value in metadata.bvecs[0,:]]) + '\n')
+                bvecs_file.write(' '.join(['%0.4f' % value for value in metadata.bvecs[1,:]]) + '\n')
+                bvecs_file.write(' '.join(['%0.4f' % value for value in metadata.bvecs[2,:]]) + '\n')
             log.debug('generated %s' % os.path.basename(filepath))
 
-        qto_xyz = np.zeros((4,4))
-        qto_xyz[0,0:3] = (-metadata.row_cosines[0], -metadata.col_cosines[0], metadata.slice_norm[0])
-        qto_xyz[1,0:3] = (-metadata.row_cosines[1], -metadata.col_cosines[1], metadata.slice_norm[1])
-        qto_xyz[2,0:3] = ( metadata.row_cosines[2],  metadata.col_cosines[2], metadata.slice_norm[2])
-        qto_xyz[:,3] = np.append(metadata.image_position, 1).T
-        qto_xyz[0:3,0:3] = np.dot(qto_xyz[0:3,0:3], np.diag(metadata.mm_per_vox))
-
+        # Don't trust metatdata.num_slices, since the # of resulting slices might not match the # acquired.
+        num_slices = imagedata.shape[2]
         nii_header = nibabel.Nifti1Header()
         nii_header.set_xyzt_units('mm', 'sec')
-        nii_header.set_qform(qto_xyz, 'scanner')
-        nii_header.set_sform(qto_xyz, 'scanner')
+        nii_header.set_qform(metadata.qto_xyz, 'scanner')
+        nii_header.set_sform(metadata.qto_xyz, 'scanner')
         nii_header.set_dim_info(*([1, 0, 2] if metadata.phase_encode == 0 else [0, 1, 2]))
         nii_header['slice_start'] = 0
-        nii_header['slice_end'] = metadata.num_slices - 1
+        nii_header['slice_end'] = num_slices - 1
         nii_header['slice_duration'] = metadata.slice_duration
         nii_header['slice_code'] = metadata.slice_order
         if np.iscomplexobj(imagedata):

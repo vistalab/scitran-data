@@ -78,7 +78,7 @@ def generate_montage(niftipath):
     for im_num in range(data.shape[2]):
         slice_r, slice_c = im_num/num_cols * data.shape[0], im_num%num_cols * data.shape[1]
         montage[slice_r:slice_r + data.shape[0], slice_c:slice_c + data.shape[1]] = data[:, :, im_num]
-    return NIMSMontage(None, montage, nifti.metadata)
+    return NIMSMontage(None, montage, nifti)
 
 
 class NIMSMontageError(nimsdata.NIMSDataError):
