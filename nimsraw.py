@@ -6,7 +6,6 @@
 import os
 import abc
 import gzip
-import scipy.io
 import time
 import shlex
 import shutil
@@ -17,10 +16,10 @@ import datetime
 import subprocess
 import numpy as np
 
+import pfile
 import nimsutil
 import nimsimage
 import nimsnifti
-import pfheader
 
 log = logging.getLogger('nimsraw')
 
@@ -59,15 +58,17 @@ class NIMSPFile(NIMSRaw):
     filetype = u'pfile'
     parse_priority = 5
 
+    file_fields = NIMSRaw.file_fields + [
+            ('canonical_name', 'pfilename'),
+            ]
+
     # TODO: Simplify init, just to parse the header
     def __init__(self, filepath, num_virtual_coils=16):
         try:
             with open(filepath,'rb') as fp:
                 self.compressed = (fp.read(2) == '\x1f\x8b')
-            fp = gzip.open(filepath, 'rb') if self.compressed else open(filepath, 'rb')
-            self._hdr = pfheader.get_header(fp)
-            fp.close()
-        except (IOError, pfheader.PFHeaderError) as e:
+            self._hdr = pfile.parse(filepath, self.compressed)
+        except (IOError, pfile.PFileError) as e:
             raise NIMSPFileError(str(e))
         self.filepath = os.path.abspath(filepath)
         self.dirpath = os.path.dirname(self.filepath)
@@ -78,6 +79,7 @@ class NIMSPFile(NIMSRaw):
         self.num_vcoils = num_virtual_coils
         self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0])
         self.psd_type = nimsimage.infer_psd_type(self.psd_name)
+        self.pfilename = 'P%05d' % self._hdr.rec.run_int
         self.exam_no = self._hdr.exam.ex_no
         self.series_no = self._hdr.series.se_no
         self.acq_no = self._hdr.image.scanactno
@@ -104,7 +106,7 @@ class NIMSPFile(NIMSRaw):
         # Note: the freq/phase dir isn't meaningful for spiral trajectories.
         self.phase_encode = 1 if self._hdr.image.freq_dir == 0 else 0
         self.mt_offset_hz = self._hdr.image.offsetfreq
-        self.num_slices = self._hdr.rec.nslices
+        self.num_slices = self._hdr.image.slquant
         self.num_averages = self._hdr.image.averages
         self.num_echos = self._hdr.rec.nechoes
         self.receive_coil_name = self._hdr.image.cname.strip('\x00')
@@ -127,7 +129,7 @@ class NIMSPFile(NIMSRaw):
         self.deltaTE = 0.0
         self.scale_data = False
         # Compute the voxel size rather than use image.pixsize_X/Y
-        self.mm_per_vox = np.array([self.fov[0] / self.size_y, self.fov[1] / self.size_y, self._hdr.image.slthick + self._hdr.image.scanspacing])
+        self.mm_per_vox = [self.fov[0] / self.size_y, self.fov[1] / self.size_y, self._hdr.image.slthick + self._hdr.image.scanspacing]
         image_tlhc = np.array([self._hdr.image.tlhc_R, self._hdr.image.tlhc_A, self._hdr.image.tlhc_S])
         image_trhc = np.array([self._hdr.image.trhc_R, self._hdr.image.trhc_A, self._hdr.image.trhc_S])
         image_brhc = np.array([self._hdr.image.brhc_R, self._hdr.image.brhc_A, self._hdr.image.brhc_S])
@@ -245,17 +247,19 @@ class NIMSPFile(NIMSRaw):
         tensor_file = os.path.join(self.dirpath, '_'+self.basename+'_tensor.dat')
         with open(tensor_file) as fp:
             uid = fp.readline().rstrip()
-            ndirs = int(fp.readline().rstrip())
+            ndirs = int('0'+fp.readline().rstrip())
             bvecs = np.fromfile(fp, sep=' ')
         if uid != self._hdr.series.series_uid:
             raise NIMSPFileError('tensor file UID does not match PFile UID!')
         if ndirs != self.dwi_numdirs or self.dwi_numdirs != bvecs.size / 3.:
-            raise NIMSPFileError('tensor file numdirs does not match PFile header numdirs!')
-        num_nondwi = self.num_timepoints_available - self.dwi_numdirs # FIXME: assumes that all the non-dwi images are acquired first.
-        bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
-        bvecs = np.hstack((np.zeros((3,num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
-        self.bvecs,self.bvals = nimsimage.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
-        return bvecs, bvals
+            log.warning('tensor file numdirs does not match PFile header numdirs!')
+            self.bvecs = None
+            self.bvals = None
+        else:
+            num_nondwi = self.num_timepoints_available - self.dwi_numdirs # FIXME: assumes that all the non-dwi images are acquired first.
+            bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
+            bvecs = np.hstack((np.zeros((3,num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
+            self.bvecs,self.bvals = nimsimage.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
 
     @property
     def recon_func(self):
@@ -278,12 +282,12 @@ class NIMSPFile(NIMSRaw):
 
     def load_all_metadata(self):
         if self.is_dwi:
-            self.bvecs,self.bvals = self.get_bvecs_bvals()
+            self.get_bvecs_bvals()
         super(NIMSPFile, self).load_all_metadata()
 
     def convert(self, outbase, tempdir=None, num_jobs=8):
         self.load_all_metadata()
-        self.get_imagedata()
+        self.get_imagedata(tempdir, num_jobs)
         result = (None, None)
         if self.imagedata is not None:  # catches, for example, HO Shims
             if self.reverse_slice_order:
@@ -312,7 +316,7 @@ class NIMSPFile(NIMSRaw):
                 nimsnifti.NIMSNifti.write(self, self.fm_data, outbase + '_B0')
         return result
 
-    def get_imagedata(self):
+    def get_imagedata(self, tempdir, num_jobs):
         if self.recon_func:
             self.recon_func(tempdir=tempdir, num_jobs=num_jobs)
         else:
@@ -321,6 +325,7 @@ class NIMSPFile(NIMSRaw):
     def load_imagedata_from_file(self, filepath):
         """ Load raw image data from a file and do some sanity checking on num slices, matrix size, etc. """
         # TODO: confirm that the voxel reordering is necessary. Maybe lean on the recon folks to standardize their voxel order?
+        import scipy.io
         mat = scipy.io.loadmat(filepath)
         if 'd' in mat:
             sz = mat['d_size'].flatten().astype(int)
@@ -352,13 +357,13 @@ class NIMSPFile(NIMSRaw):
             self.num_timepoints = self.imagedata.shape[3]
         self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echoes?
 
-    def recon_hoshim(self, tempdir=None, num_jobs=1, executable=None):
+    def recon_hoshim(self, tempdir, num_jobs):
         log.debug('Cannot recon HO SHIM data')
 
-    def recon_basic(self, tempdir=None, num_jobs=1, executable=None):
+    def recon_basic(self, tempdir, num_jobs):
         log.debug('Cannot recon BASIC data')
 
-    def recon_spirec(self, tempdir=None, num_jobs=1, executable='spirec'):
+    def recon_spirec(self, tempdir, num_jobs):
         """Do spiral image reconstruction and populate self.imagedata."""
         with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
             if self.compressed:
@@ -369,7 +374,7 @@ class NIMSPFile(NIMSRaw):
             else:
                 pfile_path = self.filepath
             basepath = os.path.join(temp_dirpath, 'recon')
-            cmd = '%s -l --rotate -90 --magfile --savefmap2 --b0navigator -r %s -t %s' % (executable, pfile_path, 'recon')
+            cmd = 'spirec -l --rotate -90 --magfile --savefmap2 --b0navigator -r %s -t %s' % (pfile_path, 'recon')
             log.debug(cmd)
             subprocess.call(shlex.split(cmd), cwd=temp_dirpath, stdout=open('/dev/null', 'w'))  # run spirec to generate .mag and fieldmap files
 
@@ -377,7 +382,7 @@ class NIMSPFile(NIMSRaw):
             if os.path.exists(basepath+'.B0freq2') and os.path.getsize(basepath+'.B0freq2')>0:
                 self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size_x,self.size_y,self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
 
-    def recon_mux_epi(self, tempdir=None, num_jobs=8, executable='octave', timepoints=[]):
+    def recon_mux_epi(self, tempdir, num_jobs, timepoints=[]):
         """Do mux_epi image reconstruction and populate self.imagedata."""
         ref_file  = os.path.join(self.dirpath, '_'+self.basename+'_ref.dat')
         vrgf_file = os.path.join(self.dirpath, '_'+self.basename+'_vrgf.dat')
@@ -405,8 +410,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
-                            % (executable, recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
+                    cmd = ('octave --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
+                            % (recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -422,10 +427,12 @@ class NIMSPFile(NIMSRaw):
             for slice_num in range(1, self.num_slices):
                 new_img = self.load_imagedata_from_file("%s_%03d.mat" % (outname, slice_num))
                 # Allow for a partial last timepoint. This sometimes happens when the user aborts.
-                img[...,0:new_img.shape[-1]] += new_img
+                t = min(img.shape[-1], new_img.shape[-1])
+                img[...,0:t] += new_img[...,0:t]
+
             self.update_imagedata(img)
 
-    def recon_mrs(self, tempdir=None, num_jobs=1, executable=None):
+    def recon_mrs(self, tempdir, num_jobs):
         """Currently just loads raw spectro data into self.imagedata so that we can save it in a nifti."""
         # Reorder the data to be in [frame, num_frames, slices, passes (repeats), echos, coils]
         # This roughly complies with the nifti standard of x,y,z,time,[then whatever].

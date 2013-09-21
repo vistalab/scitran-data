@@ -161,7 +161,7 @@ class NIMSDicom(nimsimage.NIMSImage):
 
     def get_imagedata(self):
         if self.dcm_list == None:
-            self.load_dicoms()
+            self.load_all_metadata()
         slice_loc = [getelem(dcm, 'SliceLocation') for dcm in self.dcm_list]
         imagedata = np.dstack([np.swapaxes(dcm.pixel_array, 0, 1) for dcm in self.dcm_list])
         dims = np.array((self.size_y, self.size_x, self.num_slices, self.num_timepoints))
@@ -278,7 +278,6 @@ class NIMSDicom(nimsimage.NIMSImage):
             self.bvecs,self.bvals = nimsimage.adjust_bvecs(self.bvecs, self.bvals, self.scanner_type, rot)
         self.qto_xyz = nimsimage.build_affine(rot, self.mm_per_vox, self.origin)
         super(NIMSDicom, self).load_all_metadata()
-        return
 
     def load_dicoms(self):
         if os.path.isfile(self.filepath) and tarfile.is_tarfile(self.filepath):     # compressed tarball
@@ -297,7 +296,7 @@ class NIMSDicom(nimsimage.NIMSImage):
             return
         result = (None, None)
         if self.image_type == TYPE_SCREEN:
-            for i, dcm in enumerate(self.load_all_dicoms()):
+            for i, dcm in enumerate(self.load_dicoms()):
                 result = ('bitmap', nimspng.NIMSPNG.write(self, dcm.pixel_array, outbase + '_%d' % (i+1)))
         elif 'PRIMARY' in self.image_type:
             imagedata = self.get_imagedata()
