@@ -10,7 +10,6 @@ import time
 import shlex
 import shutil
 import logging
-import nibabel
 import argparse
 import datetime
 import subprocess
@@ -346,8 +345,8 @@ class NIMSPFile(NIMSRaw):
             log.warning('Image matrix discrepancy. Fixing the header, assuming imagedata is correct...')
             self.size_x = self.imagedata.shape[0]
             self.size_y = self.imagedata.shape[1]
-            self.mm_per_vox[0] = float(self.fov[0] / self.size_x)
-            self.mm_per_vox[1] = float(self.fov[1] / self.size_y)
+            self.mm_per_vox[0] = self.fov[0] / self.size_x
+            self.mm_per_vox[1] = self.fov[1] / self.size_y
         if self.imagedata.shape[2] != self.num_slices * self.num_bands:
             log.warning('Image slice count discrepancy. Fixing the header, assuming imagedata is correct...')
             self.num_slices = self.imagedata.shape[2]
@@ -383,6 +382,7 @@ class NIMSPFile(NIMSRaw):
                 self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size_x,self.size_y,self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
 
     def recon_mux_epi(self, tempdir, num_jobs, timepoints=[]):
+        start_sec = time.time()
         """Do mux_epi image reconstruction and populate self.imagedata."""
         ref_file  = os.path.join(self.dirpath, '_'+self.basename+'_ref.dat')
         vrgf_file = os.path.join(self.dirpath, '_'+self.basename+'_vrgf.dat')
@@ -394,9 +394,12 @@ class NIMSPFile(NIMSRaw):
                 shutil.copy(ref_file, os.path.join(temp_dirpath, os.path.basename(ref_file)))
                 shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(vrgf_file)))
                 pfile_path = os.path.join(temp_dirpath, self.basename)
-                with open(pfile_path, 'wb') as fd:
-                    with gzip.open(self.filepath, 'rb') as gzfile:
-                        fd.writelines(gzfile)
+                #with open(pfile_path, 'wb') as fd:
+                #    with gzip.open(self.filepath, 'rb') as gzfile:
+                #        fd.writelines(gzfile)
+                # The following with pigz is ~4x faster than the python code above (with gzip, it's about 2.5x faster)
+                #subprocess.call('pigz -d -c %s > %s' % (self.filepath, pfile_path), shell=True)
+                subprocess.call('gzip -d -c %s > %s' % (self.filepath, pfile_path), shell=True)
             else:
                 pfile_path = self.filepath
             recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mux_epi_recon'))
@@ -412,6 +415,10 @@ class NIMSPFile(NIMSRaw):
                     # Use 'str' on timepoints so that an empty array will produce '[]'
                     cmd = ('octave --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
                             % (recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
+                    # FIXME!!! cpu_num needs to be gleaned more efficiently for all use-cases
+                    #cpu_num = slice_num
+                    #cmd = ('numactl -l --physcpubind=%d -- octave --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
+                    #        % (cpu_num, recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -431,6 +438,10 @@ class NIMSPFile(NIMSRaw):
                 img[...,0:t] += new_img[...,0:t]
 
             self.update_imagedata(img)
+            elapsed = time.time() - start_sec
+            log.info('Mux recon of %s with %d v-coils finished in %0.2f minutes using %d jobs.'
+                      % (self.filepath, self.num_vcoils,  elapsed/60., min(num_jobs, self.num_slices)))
+
 
     def recon_mrs(self, tempdir, num_jobs):
         """Currently just loads raw spectro data into self.imagedata so that we can save it in a nifti."""
