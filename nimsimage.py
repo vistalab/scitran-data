@@ -186,6 +186,7 @@ class NIMSImage(nimsdata.NIMSData):
     @abc.abstractmethod
     def __init__(self):
         super(NIMSImage, self).__init__()
+        self.default_subj_code = 'ex' + str(self.exam_no)
 
     @abc.abstractmethod
     def load_all_metadata(self):
