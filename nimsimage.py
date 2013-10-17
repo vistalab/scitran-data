@@ -172,7 +172,7 @@ class NIMSImage(nimsdata.NIMSData):
             ('size_x', 'size_x'),
             ('size_y', 'size_y'),
             ('fov', 'fov'),
-            ('scan_type', 'scan_type'),
+            ('datatype', 'scan_type'),
             ('num_bands', 'num_bands'),
             ('duration', 'duration'),
             ('prescribed_duration', 'prescribed_duration'),
