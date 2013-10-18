@@ -64,7 +64,7 @@ class NIMSDicom(nimsimage.NIMSImage):
     priority = 0
     parse_priority = 9
 
-    def __init__(self, dcm_path):
+    def __init__(self, dcm_path, metadata_only=True):
         self.filepath = dcm_path
         def acq_date(hdr):
             if 'AcquisitionDate' in hdr:    return hdr.AcquisitionDate
@@ -82,12 +82,12 @@ class NIMSDicom(nimsimage.NIMSImage):
                 self.compressed = True
                 with tarfile.open(self.filepath) as archive:
                     archive.next()  # skip over top-level directory
-                    self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(archive.next()).read()), stop_before_pixels=True)
+                    self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(archive.next()).read()), stop_before_pixels=metadata_only)
             else:
                 # directory of dicoms or single file
                 self.compressed = False
                 dcm_path = self.filepath if os.path.isfile(self.filepath) else os.path.join(self.filepath, os.listdir(self.filepath)[0])
-                self._hdr = dicom.read_file(dcm_path, stop_before_pixels=True)
+                self._hdr = dicom.read_file(dcm_path, stop_before_pixels=metadata_only)
         except Exception as e:
             raise NIMSDicomError(str(e))
 
@@ -160,6 +160,11 @@ class NIMSDicom(nimsimage.NIMSImage):
         self.scan_type = self.infer_scan_type()
         self.dcm_list = None
         super(NIMSDicom, self).__init__()
+
+    def write_anonymized_file(self, filepath):
+        self._hdr.PatientName = ''
+        self._hdr.PatientBirthDate = self._hdr.PatientBirthDate[:6] + '15' if self._hdr.PatientBirthDate else ''
+        self._hdr.save_as(filepath)
 
     def get_imagedata(self):
         if self.dcm_list == None:
