@@ -27,6 +27,24 @@ def unpack_uid(uid):
     """Convert packed PFile UID to standard DICOM UID."""
     return ''.join([str(i-1) if i < 11 else '.' for pair in [(ord(c) >> 4, ord(c) & 15) for c in uid] for i in pair if i > 0])
 
+def is_compressed(filepath):
+    with open(filepath,'rb') as fp:
+        compressed = (fp.read(2) == '\x1f\x8b')
+    return compressed
+
+def uncompress(filepath, tempdir):
+    newpath = os.path.join(tempdir, os.path.basename(filepath)[:-3])
+    # The following with pigz is ~4x faster than the python code above (with gzip, it's about 2.5x faster)
+    if os.path.isfile('/usr/bin/pigz'):
+        subprocess.call('pigz -d -c %s > %s' % (filepath, newpath), shell=True)
+    elif os.path.isfile('/usr/bin/gzip') or os.path.isfile('/bin/gzip'):
+        subprocess.call('gzip -d -c %s > %s' % (filepath, newpath), shell=True)
+    else:
+        with open(newpath, 'wb') as fd:
+            with gzip.open(filepath, 'rb') as gzfile:
+                fd.writelines(gzfile)
+    return newpath
+
 
 class NIMSRawError(nimsimage.NIMSImageError):
     pass
@@ -64,8 +82,7 @@ class NIMSPFile(NIMSRaw):
     # TODO: Simplify init, just to parse the header
     def __init__(self, filepath, num_virtual_coils=16):
         try:
-            with open(filepath,'rb') as fp:
-                self.compressed = (fp.read(2) == '\x1f\x8b')
+            self.compressed = is_compressed(filepath)
             self._hdr = pfile.parse(filepath, self.compressed)
         except (IOError, pfile.PFileError) as e:
             raise NIMSPFileError(str(e))
@@ -209,7 +226,7 @@ class NIMSPFile(NIMSRaw):
             self.slice_order = nimsimage.SLICE_ORDER_SEQ_INC
         elif self._hdr.series.se_sortorder == 1:
             self.slice_order = nimsimage.SLICE_ORDER_ALT_INC
-        slice_norm = np.array([self._hdr.image.norm_R, self._hdr.image.norm_A, self._hdr.image.norm_S])
+        slice_norm = np.array([-self._hdr.image.norm_R, -self._hdr.image.norm_A, self._hdr.image.norm_S])
         # This is either the first slice tlhc (image_tlhc) or the last slice tlhc. How to decide?
         # And is it related to wheather I have to negate the slice_norm?
         # Tuned this empirically by comparing spiral and EPI data with the same Rx.
@@ -227,12 +244,16 @@ class NIMSPFile(NIMSRaw):
             self.reverse_slice_order = False
         if self.num_bands > 1:
             image_position = image_position - slice_norm * self.band_spacing_mm * (self.num_bands - 1.0) / 2.0
+
+        #origin = image_position * np.array([-1, -1, 1])
+        # Fix the half-voxel offset. Apparently, the p-file convention specifies coords at the
+        # corner of a voxel. But DICOM/NIFTI convention is the voxel center. So offset by a half-voxel.
+        origin = image_position + (row_cosines+col_cosines)*(np.array(self.mm_per_vox)/2)
         # The DICOM standard defines these two unit vectors in an LPS coordinate frame, but we'll
         # need RAS (+x is right, +y is anterior, +z is superior) for NIFTI. So, we compute them
         # such that self.row_cosines points to the right and self.col_cosines points up.
         row_cosines[0:2] = -row_cosines[0:2]
         col_cosines[0:2] = -col_cosines[0:2]
-        origin = image_position[0] * np.array([-1, -1, 1])
         if self.is_dwi and self.dwi_bvalue==0:
             log.warning('the data appear to be diffusion-weighted, but image.b_value is 0!')
         # The bvals/bvecs will get set later
@@ -240,6 +261,7 @@ class NIMSPFile(NIMSRaw):
         self.image_rotation = nimsimage.compute_rotation(row_cosines, col_cosines, slice_norm)
         self.qto_xyz = nimsimage.build_affine(self.image_rotation, self.mm_per_vox, origin)
         self.scan_type = self.infer_scan_type()
+        self.aux_files = None
         super(NIMSPFile, self).__init__()
 
     def get_bvecs_bvals(self):
@@ -284,9 +306,20 @@ class NIMSPFile(NIMSRaw):
             self.get_bvecs_bvals()
         super(NIMSPFile, self).load_all_metadata()
 
-    def convert(self, outbase, tempdir=None, num_jobs=8):
+    def prep_convert(self):
+        if self.psd_type == 'muxepi' and self.num_mux_cal_cycle<2:
+            # Mux scan without internal calibration-- request other mux scans be handed to convert
+            # to see if we can find a suitable calibration scan.
+            aux_data = { 'psd': self.psd_name }
+        else:
+            aux_data = None
+        return aux_data
+
+    def convert(self, outbase, tempdir=None, num_jobs=8, aux_files=None):
         self.load_all_metadata()
-        self.get_imagedata(tempdir, num_jobs)
+        self.aux_files = aux_files
+        if self.imagedata is None:
+            self.get_imagedata(tempdir, num_jobs)
         result = (None, None)
         if self.imagedata is not None:  # catches, for example, HO Shims
             if self.reverse_slice_order:
@@ -329,9 +362,9 @@ class NIMSPFile(NIMSRaw):
         if 'd' in mat:
             sz = mat['d_size'].flatten().astype(int)
             slice_locs = mat['sl_loc'].flatten().astype(int) - 1
-            imagedata = np.zeros(sz)
+            imagedata = np.zeros(sz, np.int16)
             raw = np.atleast_3d(mat['d'])
-            imagedata[:,:,slice_locs,...] = raw[::-1,...]
+            imagedata[:,:,slice_locs,...] = raw[::-1,...].round().clip(-32768, 32767).astype(np.int16)
         elif 'MIP_res' in mat:
             imagedata = np.atleast_3d(mat['MIP_res'])
             imagedata = imagedata.transpose((1,0,2,3))[::-1,::-1,:,:]
@@ -381,27 +414,51 @@ class NIMSPFile(NIMSRaw):
             if os.path.exists(basepath+'.B0freq2') and os.path.getsize(basepath+'.B0freq2')>0:
                 self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size_x,self.size_y,self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
 
-    def recon_mux_epi(self, tempdir, num_jobs, timepoints=[]):
+    def find_mux_cal_file(self):
+        cal_file = []
+        if self.num_mux_cal_cycle<2 and self.aux_files!=None and len(self.aux_files)>0:
+            candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_mux_cal_cycle>=2]
+            if len(candidates)==1:
+                cal_file = candidates[0][1].encode()
+            elif len(candidates)>1:
+                series_num_diff = np.array([c[0].series_no for c in candidates]) - self.series_no
+                closest = np.min(np.abs(series_num_diff))==np.abs(series_num_diff)
+                # there may be more than one. We prefer the prior scan:
+                closest = np.where(np.min(series_num_diff[closest])==series_num_diff)[0][0]
+                cal_file = candidates[closest][1].encode()
+        if len(cal_file)>0:
+            cal_compressed = is_compressed(cal_file)
+            cal_basename = cal_file[:-3] if cal_compressed else cal_file
+            cal_ref_file  = os.path.join(os.path.dirname(cal_basename), '_'+os.path.basename(cal_basename)+'_ref.dat')
+            cal_vrgf_file = os.path.join(os.path.dirname(cal_basename), '_'+os.path.basename(cal_basename)+'_vrgf.dat')
+        else:
+            cal_compressed = False
+            cal_ref_file = []
+            cal_vrgf_file = []
+        return cal_file,cal_ref_file,cal_vrgf_file,cal_compressed
+
+    def recon_mux_epi(self, tempdir, num_jobs, timepoints=[], octave_bin='octave'):
         start_sec = time.time()
         """Do mux_epi image reconstruction and populate self.imagedata."""
         ref_file  = os.path.join(self.dirpath, '_'+self.basename+'_ref.dat')
         vrgf_file = os.path.join(self.dirpath, '_'+self.basename+'_vrgf.dat')
         if not os.path.isfile(ref_file) or not os.path.isfile(vrgf_file):
             raise NIMSPFileError('dat files not found')
+        # See if external calibration data files are needed:
+        cal_file,cal_ref_file,cal_vrgf_file,cal_compressed = self.find_mux_cal_file()
+
         with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
             log.debug('Running %d v-coil mux recon on %s in tempdir %s with %d jobs.' % (self.num_vcoils, self.filepath, tempdir, num_jobs))
             if self.compressed:
                 shutil.copy(ref_file, os.path.join(temp_dirpath, os.path.basename(ref_file)))
                 shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(vrgf_file)))
-                pfile_path = os.path.join(temp_dirpath, self.basename)
-                #with open(pfile_path, 'wb') as fd:
-                #    with gzip.open(self.filepath, 'rb') as gzfile:
-                #        fd.writelines(gzfile)
-                # The following with pigz is ~4x faster than the python code above (with gzip, it's about 2.5x faster)
-                #subprocess.call('pigz -d -c %s > %s' % (self.filepath, pfile_path), shell=True)
-                subprocess.call('gzip -d -c %s > %s' % (self.filepath, pfile_path), shell=True)
+                pfile_path = uncompress(self.filepath, temp_dirpath)
             else:
                 pfile_path = self.filepath
+            if cal_file and cal_compressed:
+                shutil.copy(cal_ref_file, os.path.join(temp_dirpath, os.path.basename(cal_ref_file)))
+                shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(cal_vrgf_file)))
+                cal_file = uncompress(cal_file, temp_dirpath)
             recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mux_epi_recon'))
             outname = os.path.join(temp_dirpath, 'sl')
 
@@ -413,12 +470,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('octave --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
-                            % (recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
-                    # FIXME!!! cpu_num needs to be gleaned more efficiently for all use-cases
-                    #cpu_num = slice_num
-                    #cmd = ('numactl -l --physcpubind=%d -- octave --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", [], %d, %s, %d);\''
-                    #        % (cpu_num, recon_path, pfile_path, outname, slice_num, slice_num + 1, str(timepoints), self.num_vcoils))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d);\''
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, str(cal_file), slice_num + 1, str(timepoints), self.num_vcoils))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
