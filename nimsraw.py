@@ -434,8 +434,11 @@ class NIMSPFile(NIMSRaw):
             cal_vrgf_file = os.path.join(os.path.dirname(cal_basename), '_'+os.path.basename(cal_basename)+'_vrgf.dat')
         else:
             cal_compressed = False
-            cal_ref_file = []
-            cal_vrgf_file = []
+            cal_ref_file = ''
+            cal_vrgf_file = ''
+        # Make sure we return an empty string when none is found.
+        if not cal_file:
+            cal_file = ''
         return cal_file,cal_ref_file,cal_vrgf_file,cal_compressed
 
     def recon_mux_epi(self, tempdir, num_jobs, timepoints=[], octave_bin='octave'):
@@ -447,9 +450,12 @@ class NIMSPFile(NIMSRaw):
             raise NIMSPFileError('dat files not found')
         # See if external calibration data files are needed:
         cal_file,cal_ref_file,cal_vrgf_file,cal_compressed = self.find_mux_cal_file()
+        # HACK to force SENSE recon for caipi data
+        sense_recon = 1 if 'CAIPI' in self.series_desc else 0
 
         with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
-            log.debug('Running %d v-coil mux recon on %s in tempdir %s with %d jobs.' % (self.num_vcoils, self.filepath, tempdir, num_jobs))
+            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d).'
+                    % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon))
             if self.compressed:
                 shutil.copy(ref_file, os.path.join(temp_dirpath, os.path.basename(ref_file)))
                 shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(vrgf_file)))
@@ -471,8 +477,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, str(cal_file), slice_num + 1, str(timepoints), self.num_vcoils))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %d);\''
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, sense_recon))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -570,6 +576,7 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument('-t', '--tempdir', help='directory to use for scratch files (must exist and have lots of space!)')
         self.add_argument('-j', '--jobs', default=8, type=int, help='maximum number of processes to spawn')
         self.add_argument('-v', '--vcoils', default=0, type=int, help='number of virtual coils (0=all)')
+        self.add_argument('-c', '--auxfile', help='path to auxillary files (e.g., mux calibration p-files)')
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
@@ -577,5 +584,5 @@ if __name__ == '__main__':
     pf = NIMSPFile(args.pfile, num_virtual_coils=args.vcoils)
     if args.matfile:
         pf.update_imagedata(pf.load_imagedata_from_file(args.matfile))
-    pf.convert(args.outbase or os.path.basename(args.pfile), tempdir=args.tempdir, num_jobs=args.jobs)
+    pf.convert(args.outbase or os.path.basename(args.pfile), tempdir=args.tempdir, num_jobs=args.jobs, aux_files=[args.auxfile])
 
