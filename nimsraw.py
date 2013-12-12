@@ -120,7 +120,9 @@ class NIMSPFile(NIMSRaw):
         self.flip_angle = float(self._hdr.image.mr_flip)
         self.pixel_bandwidth = self._hdr.rec.bw
         # Note: the freq/phase dir isn't meaningful for spiral trajectories.
-        self.phase_encode = 1 if self._hdr.image.freq_dir == 0 else 0
+        # GE numbers the dims 1,2, so freq_dir==1 is the first dim. We'll use
+        # the convention where first dim = 0, second dim = 1, etc. for phase_encode.
+        self.phase_encode = 1 if self._hdr.image.freq_dir==1 else 0
         self.mt_offset_hz = self._hdr.image.offsetfreq
         self.num_slices = self._hdr.image.slquant
         self.num_averages = self._hdr.image.averages
@@ -132,9 +134,7 @@ class NIMSPFile(NIMSRaw):
         self.scanner_name = self._hdr.exam.hospname.strip('\x00') + ' ' + self._hdr.exam.ex_sysid.strip('\x00')
         self.scanner_type = 'GE MEDICAL' # FIXME
         self.acquisition_type = ''
-        self.size_x = self._hdr.image.dim_X  # imatrix_X
-        self.size_y = self._hdr.image.dim_Y  # imatrix_Y
-        self.size = [self.size_x, self.size_y]
+        self.size = [self._hdr.image.dim_X, self._hdr.image.dim_Y]  # imatrix_Y
         self.fov = [self._hdr.image.dfov, self._hdr.image.dfov_rect]
         self.scan_type = self._hdr.image.psd_iname.strip('\x00')
         self.num_bands = 1
@@ -146,7 +146,7 @@ class NIMSPFile(NIMSRaw):
         self.deltaTE = 0.0
         self.scale_data = False
         # Compute the voxel size rather than use image.pixsize_X/Y
-        self.mm_per_vox = [self.fov[0] / self.size_y, self.fov[1] / self.size_y, self._hdr.image.slthick + self._hdr.image.scanspacing]
+        self.mm_per_vox = [self.fov[0] / self.size[0], self.fov[1] / self.size[1], self._hdr.image.slthick + self._hdr.image.scanspacing]
         image_tlhc = np.array([self._hdr.image.tlhc_R, self._hdr.image.tlhc_A, self._hdr.image.tlhc_S])
         image_trhc = np.array([self._hdr.image.trhc_R, self._hdr.image.trhc_A, self._hdr.image.trhc_S])
         image_brhc = np.array([self._hdr.image.brhc_R, self._hdr.image.brhc_A, self._hdr.image.brhc_S])
@@ -164,13 +164,14 @@ class NIMSPFile(NIMSRaw):
             # this isn't guaranteed to be correct, as Atsushi's recon does whatever it
             # damn well pleases. Maybe we could add a check to infer the image size,
             # assuming it's square?
-            self.size_x = self.size_y = self._hdr.rec.im_size
+            self.size[0] = self.size[1] = self._hdr.rec.im_size
+            self.mm_per_vox[0:2] = [self.fov[0] / self.size[0]] * 2
         elif self.psd_type == 'basic':
             # first 6 are ref scans, so ignore those. Also, two acquired timepoints are used
             # to generate each reconned time point.
             self.num_timepoints = (self._hdr.rec.npasses * self._hdr.rec.nechoes - 6) / 2
             self.num_timepoints_available = self.num_timepoints
-            self.num_echoes = 1
+            self.num_echos = 1
         elif self.psd_type == 'muxepi':
             self.num_bands = int(self._hdr.rec.user6)
             self.num_mux_cal_cycle = int(self._hdr.rec.user7)
@@ -181,10 +182,12 @@ class NIMSPFile(NIMSRaw):
         elif self.psd_type == 'mrs':
             self._hdr.image.scanspacing = 0.
             self.mm_per_vox = [self._hdr.rec.roileny, self._hdr.rec.roilenx, self._hdr.rec.roilenz]
-            image_tlhc = np.array([self._hdr.image.ctr_R, self._hdr.image.ctr_A, self._hdr.image.ctr_S])
-            image_trhc = image_tlhc + [self.mm_per_vox[0], 0., 0.]
-            image_brhc = image_trhc + [0., self.mm_per_vox[2], 0.]
-        # Tread carefully! Most of the stuff down here depends on various field being corrected in the
+            image_tlhc = np.array((-self._hdr.rec.roilocx - self.mm_per_vox[0]/2.,
+                                    self._hdr.rec.roilocy + self.mm_per_vox[1]/2.,
+                                    self._hdr.rec.roilocz - self.mm_per_vox[1]/2.))
+            image_trhc = image_tlhc - [self.mm_per_vox[0], 0., 0.]
+            image_brhc = image_trhc + [0., self.mm_per_vox[1], 0.]
+        # Tread carefully! Most of the stuff down here depends on various fields being corrected in the
         # sequence-specific set of hacks just above. So, move things with care!
 
         # Note: the following is true for single-shot planar acquisitions (EPI and 1-shot spiral).
@@ -212,7 +215,7 @@ class NIMSPFile(NIMSRaw):
         self.caipi = self._hdr.rec.user13   # true: CAIPIRINHA-type acquisition; false: Direct aliasing of simultaneous slices.
         self.cap_blip_start = self._hdr.rec.user14   # Starting index of the kz blips. 0~(mux-1) correspond to -kmax~kmax.
         self.cap_blip_inc = self._hdr.rec.user15   # Increment of the kz blip index for adjacent acquired ky lines.
-        self.slice_duration = self.tr * 1000 / self.num_slices
+        self.slice_duration = self.tr / self.num_slices
         lr_diff = image_trhc - image_tlhc
         si_diff = image_trhc - image_brhc
         if not np.all(lr_diff==0) and not np.all(si_diff==0):
@@ -375,12 +378,11 @@ class NIMSPFile(NIMSRaw):
 
     def update_imagedata(self, imagedata):
         self.imagedata = imagedata
-        if self.imagedata.shape[0] != self.size_x or self.imagedata.shape[1] != self.size_y:
+        if self.imagedata.shape[0] != self.size[0] or self.imagedata.shape[1] != self.size[1]:
             log.warning('Image matrix discrepancy. Fixing the header, assuming imagedata is correct...')
-            self.size_x = self.imagedata.shape[0]
-            self.size_y = self.imagedata.shape[1]
-            self.mm_per_vox[0] = self.fov[0] / self.size_x
-            self.mm_per_vox[1] = self.fov[1] / self.size_y
+            self.size = [self.imagedata.shape[0], self.imagedata.shape[1]]
+            self.mm_per_vox[0] = self.fov[0] / self.size[0]
+            self.mm_per_vox[1] = self.fov[1] / self.size[1]
         if self.imagedata.shape[2] != self.num_slices * self.num_bands:
             log.warning('Image slice count discrepancy. Fixing the header, assuming imagedata is correct...')
             self.num_slices = self.imagedata.shape[2]
@@ -388,7 +390,7 @@ class NIMSPFile(NIMSRaw):
             log.warning('Image time frame discrepancy (header=%d, array=%d). Fixing the header, assuming imagedata is correct...'
                     % (self.num_timepoints, self.imagedata.shape[3]))
             self.num_timepoints = self.imagedata.shape[3]
-        self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echoes?
+        self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echos?
 
     def recon_hoshim(self, tempdir, num_jobs):
         log.debug('Cannot recon HO SHIM data')
@@ -411,9 +413,9 @@ class NIMSPFile(NIMSRaw):
             log.debug(cmd)
             subprocess.call(shlex.split(cmd), cwd=temp_dirpath, stdout=open('/dev/null', 'w'))  # run spirec to generate .mag and fieldmap files
 
-            self.imagedata = np.fromfile(file=basepath+'.mag_float', dtype=np.float32).reshape([self.size_x,self.size_y,self.num_timepoints,self.num_echos,self.num_slices],order='F').transpose((0,1,4,2,3))
+            self.imagedata = np.fromfile(file=basepath+'.mag_float', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_timepoints,self.num_echos,self.num_slices],order='F').transpose((0,1,4,2,3))
             if os.path.exists(basepath+'.B0freq2') and os.path.getsize(basepath+'.B0freq2')>0:
-                self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size_x,self.size_y,self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
+                self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
 
     def find_mux_cal_file(self):
         cal_file = []
@@ -446,12 +448,24 @@ class NIMSPFile(NIMSRaw):
         """Do mux_epi image reconstruction and populate self.imagedata."""
         ref_file  = os.path.join(self.dirpath, '_'+self.basename+'_ref.dat')
         vrgf_file = os.path.join(self.dirpath, '_'+self.basename+'_vrgf.dat')
-        if not os.path.isfile(ref_file) or not os.path.isfile(vrgf_file):
-            raise NIMSPFileError('dat files not found')
         # See if external calibration data files are needed:
         cal_file,cal_ref_file,cal_vrgf_file,cal_compressed = self.find_mux_cal_file()
+        # The dat files might be missing or empty if the vendor recon was disabled. If so, try to use the cal dat file.
+        # FIXME: if the p-file is not compressed, the cal dat file will not be used! We should refactor the recon
+        # code so that the dat files are always explicitly specified.
+        if not os.path.isfile(ref_file) or os.path.getsize(ref_file)<64:
+            if cal_ref_file:
+                ref_file = cal_ref_file
+            else:
+                raise NIMSPFileError('ref.dat file not found')
+        if not os.path.isfile(vrgf_file) or os.path.getsize(vrgf_file)<64:
+            if cal_vrgf_file:
+                vrgf_file = cal_vrgf_file
+            else:
+                raise NIMSPFileError('vrgf.dat file not found')
         # HACK to force SENSE recon for caipi data
-        sense_recon = 1 if 'CAIPI' in self.series_desc else 0
+        #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
+        sense_recon = 0
 
         with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d).'
@@ -477,8 +491,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %d);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, sense_recon))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s);\''
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -519,7 +533,7 @@ class NIMSPFile(NIMSRaw):
         """
 
         n_frames = self._hdr.rec.nframes + self._hdr.rec.hnover
-        n_echoes = self._hdr.rec.nechoes
+        n_echos = self._hdr.rec.nechoes
         n_slices = self._hdr.rec.nslices / self._hdr.rec.npasses
         n_coils = self.num_receivers
         n_passes = self._hdr.rec.npasses
@@ -528,7 +542,7 @@ class NIMSPFile(NIMSRaw):
         if passes == None: passes = range(n_passes)
         if coils == None: coils = range(n_coils)
         if slices == None: slices = range(n_slices)
-        if echos == None: echos = range(n_echoes)
+        if echos == None: echos = range(n_echos)
         if frames == None: frames = range(n_frames)
 
         # Size (in bytes) of each sample:
@@ -539,7 +553,7 @@ class NIMSPFile(NIMSRaw):
         frame_bytes = 2 * ptsize * frame_sz
 
         echosz = frame_bytes * (1 + n_frames)
-        slicesz = echosz * n_echoes
+        slicesz = echosz * n_echos
         coilsz = slicesz * n_slices
         passsz = coilsz * n_coils
 
