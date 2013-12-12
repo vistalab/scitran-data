@@ -146,7 +146,6 @@ class NIMSImageError(nimsdata.NIMSDataError):
     pass
 
 
-# TODO: pull up common meta-data fields and methods from the subclasses.
 class NIMSImage(nimsdata.NIMSData):
 
     __metaclass__ = abc.ABCMeta
@@ -154,33 +153,157 @@ class NIMSImage(nimsdata.NIMSData):
     datakind = u'raw'
     datatype = u'mri'
 
-    epoch_fields = nimsdata.NIMSData.epoch_fields + [
-            ('psd', 'psd_name'),
-            ('tr', 'tr'),
-            ('te', 'te'),
-            ('ti', 'ti'),
-            ('flip_angle', 'flip_angle'),
-            ('pixel_bandwidth', 'pixel_bandwidth'),
-            ('num_slices', 'num_slices'),
-            ('num_timepoints', 'num_timepoints'),
-            ('num_averages', 'num_averages'),
-            ('num_echos', 'num_echos'),
-            ('rx_coil', 'receive_coil_name'),
-            ('num_receivers', 'num_receivers'),
-            ('protocol', 'protocol_name'),
-            ('device', 'scanner_name'),
-            ('size', 'size'),
-            ('fov', 'fov'),
-            ('datatype', 'scan_type'),
-            ('num_bands', 'num_bands'),
-            ('duration', 'duration'),
-            ('prescribed_duration', 'prescribed_duration'),
-            ('mm_per_voxel', 'mm_per_vox'),
-            ('effective_echo_spacing', 'effective_echo_spacing'),
-            ('phase_encode_undersample', 'phase_encode_undersample'),
-            ('slice_encode_undersample', 'slice_encode_undersample'),
-            ('acquisition_matrix', 'acquisition_matrix'),
-            ]
+    _epoch_properties = {
+            'psd': {
+                'attribute': 'psd_name',
+                'title': 'PSD',
+                'type': 'string',
+                'maxLength': 64,
+            },
+            'tr': {
+                'attribute': 'tr',
+                'title': 'Tr',
+                'type': 'number',
+            },
+            'te': {
+                'attribute': 'te',
+                'title': 'Te',
+                'type': 'number',
+            },
+            'ti': {
+                'attribute': 'ti',
+                'title': 'Ti',
+                'type': 'number',
+            },
+            'flip_angle': {
+                'attribute': 'flip_angle',
+                'title': 'Flip Angle',
+                'type': 'integer',
+            },
+            'pixel_bandwidth': {
+                'attribute': 'pixel_bandwidth',
+                'title': 'Pixel Bandwidth',
+                'type': 'number',
+            },
+            'num_averages': {
+                'attribute': 'num_averages',
+                'title': 'Averages',
+                'type': 'integer',
+            },
+            'num_bands': {
+                'attribute': 'num_bands',
+                'title': 'Bands',
+                'type': 'integer',
+            },
+            'num_echos': {
+                'attribute': 'num_echos',
+                'title': 'Echos',
+                'type': 'integer',
+            },
+            'num_slices': {
+                'attribute': 'num_slices',
+                'title': 'Slices',
+                'type': 'integer',
+            },
+            'num_timepoints': {
+                'attribute': 'num_timepoints',
+                'title': 'Time Points',
+                'type': 'integer',
+            },
+            'rx_coil': {
+                'attribute': 'receive_coil_name',
+                'title': 'Coil',
+                'type': 'string',
+                'maxLength': 64,
+            },
+            'num_receivers': {
+                'attribute': 'num_receivers',
+                'title': 'Receivers',
+                'type': 'integer',
+            },
+            'protocol': {
+                'attribute': 'protocol_name',
+                'title': 'Protocol',
+                'type': 'string',
+                'maxLength': 64,
+            },
+            'size': {
+                'attribute': 'size',
+                'title': 'Size',
+                'type': 'array',
+                'items': {
+                    'type': 'integer',
+                }
+            },
+            'fov': {
+                'attribute': 'fov',
+                'title': 'Field of View',
+                'type': 'array',
+                'items': {
+                    'type': 'number',
+                }
+            },
+            'mm_per_voxel': {
+                'attribute': 'mm_per_vox',
+                'title': 'mm per Voxel',
+                'type': 'array',
+                'items': {
+                    'type': 'number',
+                }
+            },
+            'effective_echo_spacing': {
+                'attribute': 'effective_echo_spacing',
+                'title': 'Effective Echo Spacing',
+                'type': 'number',
+            },
+            'duration': {
+                'attribute': 'duration',
+                'title': 'Duration',
+                'type': 'number',
+            },
+            'prescribed_duration': {
+                'attribute': 'prescribed_duration',
+                'title': 'Prescribed Duration',
+                'type': 'number',
+            },
+            'slice_encode_undersample': {
+                'attribute': 'slice_encode_undersample',
+                'title': 'Slice Encode Undersample',
+                'type': 'integer',
+            },
+            'phase_encode_undersample': {
+                'attribute': 'phase_encode_undersample',
+                'title': 'Phase Encode Undersample',
+                'type': 'integer',
+            },
+            'datatype': {
+                'attribute': 'scan_type',
+                'title': 'Datatype',
+                'type': 'string',
+            },
+            'device': {
+                'attribute': 'scanner_name',
+                'title': 'Device',
+                'type': 'string',
+                'maxLength': 64,
+            },
+            'acquisition_matrix': {
+                'attribute': 'acquisition_matrix',
+                'title': 'Acquisition Matrix',
+                'type': 'array',
+                'items': {
+                    'type': 'number',
+                }
+            },
+            'protocol': {
+                'attribute': 'protocol_name',
+                'title': 'Protocol',
+                'type': 'string',
+                'maxLength': 64,
+            },
+    }
+    epoch_properties = _epoch_properties
+    epoch_properties.update(nimsdata.NIMSData.epoch_properties)
 
     @abc.abstractmethod
     def __init__(self):

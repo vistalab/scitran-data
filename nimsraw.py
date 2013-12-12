@@ -75,9 +75,14 @@ class NIMSPFile(NIMSRaw):
     filetype = u'pfile'
     parse_priority = 5
 
-    file_fields = NIMSRaw.file_fields + [
-            ('canonical_name', 'pfilename'),
-            ]
+    _file_properties = {
+            'canonical_name': {
+                'attribute': 'pfilename',
+                'type': 'string',
+            },
+    }
+    file_properties = _file_properties
+    file_properties.update(NIMSRaw.file_properties)
 
     # TODO: Simplify init, just to parse the header
     def __init__(self, filepath, num_virtual_coils=16):

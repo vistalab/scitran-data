@@ -27,7 +27,6 @@ import zipfile
 import argparse
 import warnings
 import itertools
-import bson.json_util
 import numpy as np
 
 import nimsdata
@@ -105,6 +104,10 @@ class NIMSPhysio(nimsdata.NIMSData):
         self.series_uid = ''
         self.series_no = ''
         self.acq_no = ''
+        self.subj_firstname = None
+        self.subj_lastname = None
+        self.subj_dob = None
+        self.subj_sex = None
         try:
             if self.format_str=='ge':
                 self.read_ge_data(filename)
@@ -146,7 +149,7 @@ class NIMSPhysio(nimsdata.NIMSData):
                     break
             else:
                 if fn.endswith('_physio.json'):
-                    self.set_metadata_fields(json.load(fd, object_hook=bson.json_util.object_hook))
+                    self.set_json_metadata(fd.read())
         if archive:
             archive.close()
 
