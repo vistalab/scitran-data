@@ -94,18 +94,8 @@ class NIMSData(object):
     }
     file_properties = _file_properties
 
-    @classmethod
-    def parse(cls, filepath):
-        def __all_subclasses(cls):
-            subclasses = []
-            for sc in cls.__subclasses__():
-                subclasses += [sc] + __all_subclasses(sc)
-            return subclasses
-        subclasses = sorted(
-                filter(lambda cls: not bool(getattr(cls, '__abstractmethods__')), __all_subclasses(cls)),
-                key=lambda sc: sc.parse_priority,
-                reverse=True
-                )
+    @staticmethod
+    def parse(filepath):
         for sc in subclasses:
             try:
                 dataset = sc(filepath)
