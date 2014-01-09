@@ -25,9 +25,11 @@ import nibabel
 import tarfile
 import zipfile
 import argparse
+import datetime
 import warnings
 import itertools
 import numpy as np
+import bson.json_util
 
 import nimsdata
 import nimsutil
@@ -63,13 +65,14 @@ class NIMSPhysio(nimsdata.NIMSData):
         p.generate_regressors(outname='retroicor.csv')
     """
 
-    datakind = u'raw'
-    datatype = u'physio'
-    filetype = u'gephysio'
+    filetype = 'gephysio'
     parse_priority = 7
+    required_metadata_fields = ['group', 'experiment', 'session', 'epoch', 'timestamp']
 
     # TODO: simplify init to take no args. We need to add the relevant info to the json file.
     def __init__(self, filename, tr=2, nframes=100, slice_order=None, nslices=1, card_dt=0.01, resp_dt=0.04):
+        super(NIMSPhysio, self).__init__()
+
         # The is_valid method uses some crude heuristics to detect valid data.
         # To be valid, the number of temporal frames must be reasonable, and either the cardiac
         # standard deviation or the respiration low-frequency power meet the following criteria.
@@ -104,10 +107,10 @@ class NIMSPhysio(nimsdata.NIMSData):
         self.series_uid = ''
         self.series_no = ''
         self.acq_no = ''
-        self.subj_firstname = None
-        self.subj_lastname = None
-        self.subj_dob = None
-        self.subj_sex = None
+        #self.subj_firstname = None
+        #self.subj_lastname = None
+        #self.subj_dob = None
+        #self.subj_sex = None
         try:
             if self.format_str=='ge':
                 self.read_ge_data(filename)
@@ -116,9 +119,6 @@ class NIMSPhysio(nimsdata.NIMSData):
                 # insert other vendor's read_data functions here
         except Exception as e:
             raise NIMSPhysioError(e)
-
-        super(NIMSPhysio, self).__init__()
-
 
     def read_ge_data(self, filename):
         archive = None
@@ -149,7 +149,14 @@ class NIMSPhysio(nimsdata.NIMSData):
                     break
             else:
                 if fn.endswith('_physio.json'):
-                    self.set_json_metadata(fd.read())
+                    metadata = json.load(fd, object_hook=bson.json_util.object_hook)
+                    for f in self.required_metadata_fields:
+                        if f not in metadata:
+                            raise NIMSPhysioError('incomplete json file')
+                    for attribute, value in metadata.iteritems():
+                        if isinstance(value, datetime.datetime):
+                            value = value.replace(tzinfo=None)
+                        setattr(self, attribute, value)
         if archive:
             archive.close()
 
@@ -160,6 +167,42 @@ class NIMSPhysio(nimsdata.NIMSData):
         offset = self.card_dt * self.card_wave.size - self.scan_duration
         self.card_time = self.card_dt * np.arange(self.card_wave.size) - offset
         self.card_trig = self.card_trig * self.card_dt - offset
+
+    @classmethod
+    def derived_metadata(cls, orig_metadata):
+        return {f: getattr(orig_metadata, 'nims_'+f) for f in cls.required_metadata_fields}
+
+    @property
+    def nims_group(self):
+        return self.group
+
+    @property
+    def nims_experiment(self):
+        return self.experiment
+
+    @property
+    def nims_session(self):
+        return self.session
+
+    @property
+    def nims_epoch(self):
+        return self.epoch
+
+    @property
+    def nims_type(self):
+        return ('original', 'physio', self.filetype)
+
+    @property
+    def nims_filename(self):
+        return self.nims_epoch + '_' + self.filetype
+
+    @property
+    def nims_timestamp(self): # FIXME: should return UTC time and timezone
+        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+
+    @property
+    def nims_timezone(self):
+        return None
 
     @property
     def card_trig_chopped(self):

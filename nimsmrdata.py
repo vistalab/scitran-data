@@ -2,6 +2,8 @@
 #           Bob Dougherty
 
 import abc
+import bson
+import string
 import datetime
 import logging
 
@@ -24,7 +26,7 @@ scan_types = [
         ]
 scan_types = type('Enum', (object,), dict(zip(scan_types, scan_types), all=scan_types))
 
-log = logging.getLogger('nimsimage')
+log = logging.getLogger('nimsmrdata')
 
 # NIFTI1-stype slice order codes:
 SLICE_ORDER_UNKNOWN = 0
@@ -142,18 +144,62 @@ def infer_psd_type(psd_name):
     return psd_type
 
 
-class NIMSImageError(nimsdata.NIMSDataError):
+class NIMSMRDataError(nimsdata.NIMSDataError):
     pass
 
 
-class NIMSImage(nimsdata.NIMSData):
+class NIMSMRData(nimsdata.NIMSData):
 
     __metaclass__ = abc.ABCMeta
 
-    datakind = u'raw'
-    datatype = u'mri'
+    _session_properties = {
+            'patient_id': {
+                'attribute': 'patient_id',
+                'title': 'Patient ID',
+                'type': 'string',
+            },
+            'exam': {
+                'attribute': 'exam_no',
+                'title': 'Exam Number',
+                'type': 'integer',
+            },
+            'firstname': {
+                'attribute': 'subj_firstname',
+                'title': 'First Name',
+                'type': 'string',
+            },
+            'lastname': {
+                'attribute': 'subj_lastname',
+                'title': 'Last Name',
+                'type': 'string',
+            },
+            'dob': {
+                'attribute': 'subj_dob',
+                'title': 'Date of Birth',
+                'type': 'string',
+                'format': 'date-time',
+            },
+            'sex': {
+                'attribute': 'subj_sex',
+                'title': 'Sex',
+                'type': 'string',
+                'enum': ['male', 'female'],
+            },
+    }
+    session_properties = _session_properties
+    session_properties.update(nimsdata.NIMSData.session_properties)
 
     _epoch_properties = {
+            'series': {
+                'attribute': 'series_no',
+                'title': 'Series',
+                'type': 'integer',
+            },
+            'acquisition': {
+                'attribute': 'acq_no',
+                'title': 'Acquisition',
+                'type': 'integer',
+            },
             'psd': {
                 'attribute': 'psd_name',
                 'title': 'PSD',
@@ -276,11 +322,6 @@ class NIMSImage(nimsdata.NIMSData):
                 'title': 'Phase Encode Undersample',
                 'type': 'integer',
             },
-            'datatype': {
-                'attribute': 'scan_type',
-                'title': 'Datatype',
-                'type': 'string',
-            },
             'device': {
                 'attribute': 'scanner_name',
                 'title': 'Device',
@@ -307,8 +348,64 @@ class NIMSImage(nimsdata.NIMSData):
 
     @abc.abstractmethod
     def __init__(self):
-        super(NIMSImage, self).__init__()
-        self.default_subj_code = 'ex' + str(self.exam_no)
+        super(NIMSMRData, self).__init__()
+        self.subj_code, self.group_name, self.experiment_name = self.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
+
+    @property
+    def nims_group(self):
+        return self.group_name
+
+    @property
+    def nims_experiment(self):
+        return self.experiment_name
+
+    @property
+    def nims_session(self):
+        return self.exam_uid.replace('.', '_')
+
+    @property
+    def nims_epoch(self):
+        return self.series_uid.replace('.', '_') + '_' + str(self.acq_no)
+
+    @property
+    def nims_type(self):
+        return ('original', 'mri', self.filetype)
+
+    @property
+    def nims_filename(self):
+        return self.nims_epoch + '_' + self.filetype
+
+    @property
+    def nims_timestamp(self):
+        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+
+    @property
+    def nims_timezone(self):
+        pass # FIXME
+
+    @property
+    def nims_session_name(self):
+        return self.timestamp.strftime('%Y-%m-%d  %H:%M') if self.series_no == 1 and self.acq_no == 1 else None
+
+    @property
+    def nims_session_subject(self):
+        return self.subj_code
+
+    @property
+    def nims_session_type(self):
+        pass # FIXME
+
+    @property
+    def nims_epoch_name(self):
+        return '%d.%d' % (self.series_no, self.acq_no)
+
+    @property
+    def nims_epoch_description(self):
+        return self.series_desc
+
+    @property
+    def nims_epoch_type(self):
+        return self.scan_type
 
     @abc.abstractmethod
     def load_all_metadata(self):
@@ -324,6 +421,11 @@ class NIMSImage(nimsdata.NIMSData):
     @abc.abstractmethod
     def convert(self, outbase, *args, **kwargs):
         pass
+
+    def parse_patient_id(self, patient_id, default_subj_code):
+        subj_code, _, lab_info = patient_id.strip(string.punctuation + string.whitespace).lower().rpartition('@')
+        group_name, _, exp_name = lab_info.partition('/')
+        return subj_code or default_subj_code, group_name, exp_name
 
     def parse_subject_name(self, name):
         name = name.strip()

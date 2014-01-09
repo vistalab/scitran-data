@@ -2,9 +2,8 @@
 #           Bob Dougherty
 
 import abc
-import json
-import datetime
-import bson.json_util
+
+subclasses = []
 
 
 class NIMSDataError(Exception):
@@ -18,79 +17,69 @@ class NIMSData(object):
     parse_priority = 0
 
     _session_properties = {
-            'exam': {
-                'attribute': 'exam_no',
-                'title': 'Exam Number',
-                'type': 'integer',
-            },
-            'patient_id': {
-                'attribute': 'patient_id',
-                'title': 'Patient ID',
+            'name': {
+                'attribute': 'nims_session_name',
+                'title': 'Name',
                 'type': 'string',
+                'maxLength': 32,
             },
-            'firstname': {
-                'attribute': 'subj_firstname',
-                'title': 'First Name',
+            'subject': {
+                'attribute': 'nims_session_subject',
+                'title': 'Subject',
                 'type': 'string',
+                'maxLength': 16,
             },
-            'lastname': {
-                'attribute': 'subj_lastname',
-                'title': 'Last Name',
-                'type': 'string',
+            'datatype': {
+                'attribute': 'nims_session_type',
+                'title': 'Type',
+                'type': 'array',
             },
-            'dob': {
-                'attribute': 'subj_dob',
-                'title': 'Date of Birth',
+            'timestamp': {
+                'title': 'Timestamp',
                 'type': 'string',
                 'format': 'date-time',
             },
-            'sex': {
-                'attribute': 'subj_sex',
-                'title': 'Sex',
+            'timezone': {
+                'title': 'Timezone',
                 'type': 'string',
-                'enum': ['male', 'female'],
             },
     }
     session_properties = _session_properties
 
     _epoch_properties = {
-            'timestamp': {
-                'attribute': 'timestamp',
-                'title': 'Timestamp',
-                'format': 'date-time',
-            },
-            'series': {
-                'attribute': 'series_no',
-                'title': 'Series',
-                'type': 'integer',
-            },
-            'acquisition': {
-                'attribute': 'acq_no',
-                'title': 'Acquisition',
-                'type': 'integer',
+            'name': {
+                'attribute': 'nims_epoch_name',
+                'title': 'Name',
+                'type': 'string',
+                'maxLength': 32,
             },
             'description': {
-                'attribute': 'series_desc',
+                'attribute': 'nims_epoch_description',
                 'title': 'Description',
                 'type': 'string',
                 'maxLength': 64,
             },
+            'datatype': {
+                'attribute': 'nims_epoch_type',
+                'title': 'Type',
+                'type': 'string',
+                'maxLength': 32,
+            },
+            'timestamp': {
+                'attribute': 'nims_timestamp',
+                'title': 'Timestamp',
+                'type': 'string',
+                'format': 'date-time',
+            },
+            'timezone': {
+                'attribute': 'nims_timezone',
+                'title': 'Timezone',
+                'type': 'string',
+            },
     }
     epoch_properties = _epoch_properties
 
-    _file_properties = {
-            'datakind': {
-                'attribute': 'datakind',
-                'type': 'string',
-            },
-            'datatype': {
-                'attribute': 'datatype',
-                'type': 'string',
-            },
-            'filetype': {
-                'attribute': 'filetype',
-                'type': 'string',
-            },
+    _file_properties = { # FIXME: is this needed?
     }
     file_properties = _file_properties
 
@@ -109,30 +98,60 @@ class NIMSData(object):
 
     @abc.abstractmethod
     def __init__(self):
-        self.default_subj_code = None
+        pass
+
+    @abc.abstractproperty
+    def nims_group(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_experiment(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_session(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_epoch(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_type(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_filename(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_timestamp(self):
+        pass
+
+    @abc.abstractproperty
+    def nims_timezone(self):
+        pass
 
     @property
-    def session_uid(self):
-        return self.exam_uid.replace('.', '_')
+    def nims_session_name(self):
+        pass
 
     @property
-    def epoch_uid(self):
-        return self.series_uid.replace('.', '_') + '_' + str(self.acq_no)
+    def nims_session_subject(self):
+        pass
 
     @property
-    def canonical_filename(self):
-        return '%s_%s_%s_%s' % (self.exam_uid.replace('.', '_'), self.series_no, self.acq_no, self.filetype)
+    def nims_session_type(self):
+        pass
 
-    def get_json_metadata(self, tgt_cls=None):
-        tgt_cls = tgt_cls or self.__class__
-        field_names  = ['exam_uid', 'series_uid']
-        field_names += [attrs['attribute'] for attrs in tgt_cls.session_properties.itervalues()]
-        field_names += [attrs['attribute'] for attrs in tgt_cls.epoch_properties.itervalues()]
-        return json.dumps(dict(((fn, getattr(self, fn, None)) for fn in field_names)), default=bson.json_util.default)
+    @property
+    def nims_epoch_name(self):
+        pass
 
-    def set_json_metadata(self, json_metadata):
-        metadata = json.loads(json_metadata, object_hook=bson.json_util.object_hook)
-        for attribute, value in metadata.iteritems():
-            if isinstance(value, datetime.datetime):
-                value = value.replace(tzinfo=None)
-            setattr(self, attribute, value)
+    @property
+    def nims_epoch_description(self):
+        pass
+
+    @property
+    def nims_epoch_type(self):
+        pass

@@ -17,7 +17,7 @@ import numpy as np
 
 import pfile
 import nimsutil
-import nimsimage
+import nimsmrdata
 import nimsnifti
 
 log = logging.getLogger('nimsraw')
@@ -46,11 +46,11 @@ def uncompress(filepath, tempdir):
     return newpath
 
 
-class NIMSRawError(nimsimage.NIMSImageError):
+class NIMSRawError(nimsmrdata.NIMSMRDataError):
     pass
 
 
-class NIMSRaw(nimsimage.NIMSImage):
+class NIMSRaw(nimsmrdata.NIMSMRData):
 
     __metaclass__ = abc.ABCMeta
 
@@ -75,15 +75,6 @@ class NIMSPFile(NIMSRaw):
     filetype = u'pfile'
     parse_priority = 5
 
-    _file_properties = {
-            'canonical_name': {
-                'attribute': 'pfilename',
-                'type': 'string',
-            },
-    }
-    file_properties = _file_properties
-    file_properties.update(NIMSRaw.file_properties)
-
     # TODO: Simplify init, just to parse the header
     def __init__(self, filepath, num_virtual_coils=16):
         try:
@@ -91,6 +82,11 @@ class NIMSPFile(NIMSRaw):
             self._hdr = pfile.parse(filepath, self.compressed)
         except (IOError, pfile.PFileError) as e:
             raise NIMSPFileError(str(e))
+
+        self.exam_no = self._hdr.exam.ex_no
+        self.patient_id = self._hdr.exam.patidff.strip('\x00')
+        super(NIMSPFile, self).__init__()
+
         self.filepath = os.path.abspath(filepath)
         self.dirpath = os.path.dirname(self.filepath)
         self.filename = os.path.basename(self.filepath)
@@ -99,18 +95,15 @@ class NIMSPFile(NIMSRaw):
         self.fm_data = None
         self.num_vcoils = num_virtual_coils
         self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0])
-        self.psd_type = nimsimage.infer_psd_type(self.psd_name)
+        self.psd_type = nimsmrdata.infer_psd_type(self.psd_name)
         self.pfilename = 'P%05d' % self._hdr.rec.run_int
-        self.exam_no = self._hdr.exam.ex_no
         self.series_no = self._hdr.series.se_no
         self.acq_no = self._hdr.image.scanactno
         self.exam_uid = unpack_uid(self._hdr.exam.study_uid)
         self.series_uid = unpack_uid(self._hdr.series.series_uid)
         self.series_desc = self._hdr.series.se_desc.strip('\x00')
-        self.patient_id = self._hdr.exam.patidff.strip('\x00')
         self.subj_firstname, self.subj_lastname = self.parse_subject_name(self._hdr.exam.patnameff.strip('\x00'))
         self.subj_dob = self.parse_subject_dob(self._hdr.exam.dateofbirth.strip('\x00'))
-        # Had to make this robust to unusual values in patsex.
         self.subj_sex = ('male', 'female')[self._hdr.exam.patsex-1] if self._hdr.exam.patsex in [1,2] else None
         if self._hdr.image.im_datetime > 0:
             self.timestamp = datetime.datetime.utcfromtimestamp(self._hdr.image.im_datetime)
@@ -118,7 +111,6 @@ class NIMSPFile(NIMSRaw):
             month, day, year = map(int, self._hdr.rec.scan_date.strip('\x00').split('/'))
             hour, minute = map(int, self._hdr.rec.scan_time.strip('\x00').split(':'))
             self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute) # GE's epoch begins in 1900
-
         self.ti = self._hdr.image.ti / 1e6
         self.te = self._hdr.image.te / 1e6
         self.tr = self._hdr.image.tr / 1e6  # tr in seconds
@@ -229,12 +221,12 @@ class NIMSPFile(NIMSRaw):
         else:
             row_cosines = np.array([1.,0,0])
             col_cosines = np.array([0,-1.,0])
-        self.slice_order = nimsimage.SLICE_ORDER_UNKNOWN
+        self.slice_order = nimsmrdata.SLICE_ORDER_UNKNOWN
         # FIXME: check that this is correct.
         if self._hdr.series.se_sortorder == 0:
-            self.slice_order = nimsimage.SLICE_ORDER_SEQ_INC
+            self.slice_order = nimsmrdata.SLICE_ORDER_SEQ_INC
         elif self._hdr.series.se_sortorder == 1:
-            self.slice_order = nimsimage.SLICE_ORDER_ALT_INC
+            self.slice_order = nimsmrdata.SLICE_ORDER_ALT_INC
         slice_norm = np.array([-self._hdr.image.norm_R, -self._hdr.image.norm_A, self._hdr.image.norm_S])
         # This is either the first slice tlhc (image_tlhc) or the last slice tlhc. How to decide?
         # And is it related to wheather I have to negate the slice_norm?
@@ -267,11 +259,14 @@ class NIMSPFile(NIMSRaw):
             log.warning('the data appear to be diffusion-weighted, but image.b_value is 0!')
         # The bvals/bvecs will get set later
         self.bvecs,self.bvals = (None,None)
-        self.image_rotation = nimsimage.compute_rotation(row_cosines, col_cosines, slice_norm)
-        self.qto_xyz = nimsimage.build_affine(self.image_rotation, self.mm_per_vox, origin)
+        self.image_rotation = nimsmrdata.compute_rotation(row_cosines, col_cosines, slice_norm)
+        self.qto_xyz = nimsmrdata.build_affine(self.image_rotation, self.mm_per_vox, origin)
         self.scan_type = self.infer_scan_type()
         self.aux_files = None
-        super(NIMSPFile, self).__init__()
+
+    @property
+    def canonical_filename(self):
+        return self.pfilename
 
     def get_bvecs_bvals(self):
         tensor_file = os.path.join(self.dirpath, '_'+self.basename+'_tensor.dat')
@@ -289,7 +284,7 @@ class NIMSPFile(NIMSRaw):
             num_nondwi = self.num_timepoints_available - self.dwi_numdirs # FIXME: assumes that all the non-dwi images are acquired first.
             bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
             bvecs = np.hstack((np.zeros((3,num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
-            self.bvecs,self.bvals = nimsimage.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
+            self.bvecs,self.bvals = nimsmrdata.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
 
     @property
     def recon_func(self):

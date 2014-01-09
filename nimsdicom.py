@@ -15,7 +15,7 @@ import numpy as np
 
 import nimspng
 import nimsutil
-import nimsimage
+import nimsmrdata
 import nimsnifti
 
 log = logging.getLogger('nimsdicom')
@@ -54,11 +54,11 @@ def getelem(hdr, tag, type_=None, default=None):
     return value
 
 
-class NIMSDicomError(nimsimage.NIMSImageError):
+class NIMSDicomError(nimsmrdata.NIMSMRDataError):
     pass
 
 
-class NIMSDicom(nimsimage.NIMSImage):
+class NIMSDicom(nimsmrdata.NIMSMRData):
 
     filetype = u'dicom'
     priority = 0
@@ -66,16 +66,6 @@ class NIMSDicom(nimsimage.NIMSImage):
 
     def __init__(self, dcm_path, metadata_only=True):
         self.filepath = dcm_path
-        def acq_date(hdr):
-            if 'AcquisitionDate' in hdr:    return hdr.AcquisitionDate
-            elif 'StudyDate' in hdr:        return hdr.StudyDate
-            else:                           return '19000101'
-
-        def acq_time(hdr):
-            if 'AcquisitionTime' in hdr:    return hdr.AcquisitionTime
-            elif 'StudyTime' in hdr:        return hdr.StudyTime
-            else:                           return '000000'
-
         try:
             if os.path.isfile(self.filepath) and tarfile.is_tarfile(self.filepath):
                 # compressed tarball
@@ -92,17 +82,29 @@ class NIMSDicom(nimsimage.NIMSImage):
             raise NIMSDicomError(str(e))
 
         self.exam_no = getelem(self._hdr, 'StudyID', int)
+        self.patient_id = getelem(self._hdr, 'PatientID')
+        super(NIMSDicom, self).__init__()
+
+        def acq_date(hdr):
+            if 'AcquisitionDate' in hdr:    return hdr.AcquisitionDate
+            elif 'StudyDate' in hdr:        return hdr.StudyDate
+            else:                           return '19000101'
+
+        def acq_time(hdr):
+            if 'AcquisitionTime' in hdr:    return hdr.AcquisitionTime
+            elif 'StudyTime' in hdr:        return hdr.StudyTime
+            else:                           return '000000'
+
         self.series_no = getelem(self._hdr, 'SeriesNumber', int)
         self.acq_no = getelem(self._hdr, 'AcquisitionNumber', int, 0)
         self.exam_uid = getelem(self._hdr, 'StudyInstanceUID')
         self.series_uid = getelem(self._hdr, 'SeriesInstanceUID')
         self.series_desc = getelem(self._hdr, 'SeriesDescription')
-        self.patient_id = getelem(self._hdr, 'PatientID')
         self.subj_firstname, self.subj_lastname = self.parse_subject_name(getelem(self._hdr, 'PatientName', None, ''))
         self.subj_dob = self.parse_subject_dob(getelem(self._hdr, 'PatientBirthDate', None, ''))
         self.subj_sex = {'M': 'male', 'F': 'female'}.get(getelem(self._hdr, 'PatientSex'))
         self.psd_name = os.path.basename(getelem(self._hdr, TAG_PSD_NAME, None, 'unknown'))
-        self.psd_type = nimsimage.infer_psd_type(self.psd_name)
+        self.psd_type = nimsmrdata.infer_psd_type(self.psd_name)
         self.timestamp = datetime.datetime.strptime(acq_date(self._hdr) + acq_time(self._hdr)[:6], '%Y%m%d%H%M%S')
         self.ti = getelem(self._hdr, 'InversionTime', float, 0.) / 1000.0
         self.te = getelem(self._hdr, 'EchoTime', float, 0.) / 1000.0
@@ -160,7 +162,6 @@ class NIMSDicom(nimsimage.NIMSImage):
         self.notes = ''
         self.scan_type = self.infer_scan_type()
         self.dcm_list = None
-        super(NIMSDicom, self).__init__()
 
     def write_anonymized_file(self, filepath):
         self._hdr.PatientName = ''
@@ -262,7 +263,7 @@ class NIMSDicom(nimsimage.NIMSImage):
         else:
             self.origin = image_position[0] * np.array([-1, -1, 1])
 
-        self.slice_order = nimsimage.SLICE_ORDER_UNKNOWN
+        self.slice_order = nimsmrdata.SLICE_ORDER_UNKNOWN
         if self.total_num_slices >= self.num_slices and getelem(self.dcm_list[0], 'TriggerTime', float) is not None:
             trigger_times = np.array([getelem(dcm, 'TriggerTime', float) for dcm in self.dcm_list[0:self.num_slices]])
             if self.reverse_slice_order:
@@ -273,18 +274,18 @@ class NIMSDicom(nimsimage.NIMSImage):
                 self.slice_duration = float(min(abs(trigger_times_from_first_slice[1:]))) / 1000.  # msec to sec
                 if trigger_times_from_first_slice[1] < 0:
                     # slice 1 happened after slice 0, so this must be either SEQ_INC or ALT_INC
-                    self.slice_order = nimsimage.SLICE_ORDER_SEQ_INC if trigger_times[2] > trigger_times[1] else nimsimage.SLICE_ORDER_ALT_INC
+                    self.slice_order = nimsmrdata.SLICE_ORDER_SEQ_INC if trigger_times[2] > trigger_times[1] else nimsmrdata.SLICE_ORDER_ALT_INC
                 else:
                     # slice 1 before slice 0, so must be ALT_DEC or SEQ_DEC
-                    self.slice_order = nimsimage.SLICE_ORDER_ALT_DEC if trigger_times[2] > trigger_times[1] else nimsimage.SLICE_ORDER_SEQ_DEC
+                    self.slice_order = nimsmrdata.SLICE_ORDER_ALT_DEC if trigger_times[2] > trigger_times[1] else nimsmrdata.SLICE_ORDER_SEQ_DEC
             else:
                 self.slice_duration = trigger_times[0]
-                self.slice_order = nimsimage.SLICE_ORDER_SEQ_INC
+                self.slice_order = nimsmrdata.SLICE_ORDER_SEQ_INC
 
-        rot = nimsimage.compute_rotation(row_cosines, col_cosines, slice_norm)
+        rot = nimsmrdata.compute_rotation(row_cosines, col_cosines, slice_norm)
         if self.is_dwi:
-            self.bvecs,self.bvals = nimsimage.adjust_bvecs(self.bvecs, self.bvals, self.scanner_type, rot)
-        self.qto_xyz = nimsimage.build_affine(rot, self.mm_per_vox, self.origin)
+            self.bvecs,self.bvals = nimsmrdata.adjust_bvecs(self.bvecs, self.bvals, self.scanner_type, rot)
+        self.qto_xyz = nimsmrdata.build_affine(rot, self.mm_per_vox, self.origin)
         super(NIMSDicom, self).load_all_metadata()
 
     def load_dicoms(self):
