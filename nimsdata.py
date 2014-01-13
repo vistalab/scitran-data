@@ -79,10 +79,6 @@ class NIMSData(object):
     }
     epoch_properties = _epoch_properties
 
-    _file_properties = { # FIXME: is this needed?
-    }
-    file_properties = _file_properties
-
     @staticmethod
     def parse(filepath):
         for sc in subclasses:
