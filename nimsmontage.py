@@ -13,7 +13,6 @@ import cStringIO
 import numpy as np
 
 import nimsdata
-import nimsutil
 import nimsnifti
 
 log = logging.getLogger('nimsmontage')
@@ -89,8 +88,6 @@ class NIMSMontageError(nimsdata.NIMSDataError):
 
 class NIMSMontage(nimsdata.NIMSData):
 
-    datatype = u'montage'
-    datakind = u'web'
     filetype = u'montage'
 
     def __init__(self, filepath=None, montage=None, metadata=None):
@@ -104,6 +101,38 @@ class NIMSMontage(nimsdata.NIMSData):
             self.metadata = metadata
         else:
             raise NIMSMontageError('must either pass in filepath or montage and metadata')
+
+    @property
+    def nims_group(self):
+        return self.group
+
+    @property
+    def nims_experiment(self):
+        return self.experiment
+
+    @property
+    def nims_session(self):
+        return self.session
+
+    @property
+    def nims_epoch(self):
+        return self.epoch
+
+    @property
+    def nims_type(self):
+        return ('web', 'bitmap', self.filetype)
+
+    @property
+    def nims_filename(self):
+        return self.nims_epoch + '_' + self.filetype
+
+    @property
+    def nims_timestamp(self): # FIXME: should return UTC time and timezone
+        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+
+    @property
+    def nims_timezone(self):
+        return None
 
     def copy_as_int(self, bits16):
         # TODO: "percentile" is very slow for large arrays. Is there a short cut that we can use?
@@ -222,7 +251,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
-    nimsutil.configure_log()
+    logging.basicConfig(level=logging.DEBUG)
     montage = generate_montage(args.file)
     if args.montage:
         montage.write_png_montage(args.out)

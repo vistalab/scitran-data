@@ -32,7 +32,6 @@ import numpy as np
 import bson.json_util
 
 import nimsdata
-import nimsutil
 
 log = logging.getLogger('nimsphysio')
 
@@ -540,7 +539,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
-    nimsutil.configure_log()
+    logging.basicConfig(level=logging.DEBUG)
     if args.nifti_file:
         ni = nibabel.load(args.nifti_file)
         slice_order = np.argsort(ni.get_header().get_slice_times())

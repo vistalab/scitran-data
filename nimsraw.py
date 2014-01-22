@@ -16,9 +16,9 @@ import subprocess
 import numpy as np
 
 import pfile
-import nimsutil
 import nimsmrdata
 import nimsnifti
+import tempdir as tempfile
 
 log = logging.getLogger('nimsraw')
 
@@ -400,7 +400,7 @@ class NIMSPFile(NIMSRaw):
 
     def recon_spirec(self, tempdir, num_jobs):
         """Do spiral image reconstruction and populate self.imagedata."""
-        with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
+        with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             if self.compressed:
                 pfile_path = os.path.join(temp_dirpath, self.basename)
                 with open(pfile_path, 'wb') as fd:
@@ -467,7 +467,7 @@ class NIMSPFile(NIMSRaw):
         #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
         sense_recon = 0
 
-        with nimsutil.TempDir(dir=tempdir) as temp_dirpath:
+        with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d).'
                     % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon))
             if self.compressed:
@@ -594,7 +594,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
-    nimsutil.configure_log()
+    logging.basicConfig(level=logging.DEBUG)
     pf = NIMSPFile(args.pfile, num_virtual_coils=args.vcoils)
     if args.matfile:
         pf.update_imagedata(pf.load_imagedata_from_file(args.matfile))

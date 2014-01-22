@@ -14,7 +14,6 @@ import cStringIO
 import numpy as np
 
 import nimspng
-import nimsutil
 import nimsmrdata
 import nimsnifti
 
@@ -326,5 +325,5 @@ class ArgumentParser(argparse.ArgumentParser):
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
-    nimsutil.configure_log()
+    logging.basicConfig(level=logging.DEBUG)
     NIMSDicom(args.dcm_dir).convert(args.outbase or os.path.basename(args.dcm_dir.rstrip('/')))

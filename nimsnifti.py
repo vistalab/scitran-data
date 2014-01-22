@@ -25,8 +25,6 @@ class NIMSNifti(nimsdata.NIMSData):
     Then, e.g., NIMSDicom will pass the relevant metadata and the image array to NIMSNifti to write the file.
     """
 
-    datakind = u'derived'
-    datatype = u'nifti'
     filetype = u'nifti'
 
     def __init__(self, filepath):
@@ -37,6 +35,38 @@ class NIMSNifti(nimsdata.NIMSData):
             #super(NIMSNifti, self).__init__()
         except Exception as e:
             raise NIMSNiftiError(str(e))
+
+    @property
+    def nims_group(self):
+        return self.group
+
+    @property
+    def nims_experiment(self):
+        return self.experiment
+
+    @property
+    def nims_session(self):
+        return self.session
+
+    @property
+    def nims_epoch(self):
+        return self.epoch
+
+    @property
+    def nims_type(self):
+        return ('derived', 'nifti', self.filetype)
+
+    @property
+    def nims_filename(self):
+        return self.nims_epoch + '_' + self.filetype
+
+    @property
+    def nims_timestamp(self): # FIXME: should return UTC time and timezone
+        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+
+    @property
+    def nims_timezone(self):
+        return None
 
     @staticmethod
     def write(metadata, imagedata, outbase, notes=''):
