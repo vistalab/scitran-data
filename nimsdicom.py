@@ -200,10 +200,10 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
             # If a scan was aborted, the number of volumes might be less than the target number of
             # volumes (self.num_timepoints). We'll zero-pad in that case.
             if imagedata.shape[3] < self.num_timepoints:
+                pad_vols = self.num_timepoints - imagedata.shape[3]
                 msg = 'dimensions indicate missing data - zero padding with %d volumes' % pad_vols
                 self.notes += 'WARNING: ' + msg + '\n'
                 log.warning(msg)
-                pad_vols = self.num_timepoints - imagedata.shape[3]
                 imagedata = np.append(imagedata, np.zeros(imagedata.shape[0:3]+(pad_vols,), dtype=imagedata.dtype), axis=3)
 
             nvols = np.prod(imagedata.shape[2:4])
@@ -223,6 +223,14 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
         if self.is_dwi:
             self.bvals = np.array([getelem(dcm, TAG_BVALUE, float)[0] for dcm in self.dcm_list[0::self.num_slices]])
             self.bvecs = np.array([[getelem(dcm, TAG_BVEC[i], float) for i in range(3)] for dcm in self.dcm_list[0::self.num_slices]]).transpose()
+
+        # Try to carry on on incomplete datasets. Also, some weird scans like MRVs don't set the
+        # number of slices correctly in the dicom header. (Or at least they set it in a weird way
+        # that we don't understand.)
+        if len(self.dcm_list) < self.num_slices:
+            self.num_slices = len(self.dcm_list)
+        if len(self.dcm_list) < self.total_num_slices:
+            self.total_num_slices = len(self.dcm_list)
 
         image_position = [tuple(getelem(dcm, 'ImagePositionPatient', float, [0., 0., 0.])) for dcm in self.dcm_list]
 
