@@ -311,7 +311,8 @@ class NIMSPFile(NIMSRaw):
         super(NIMSPFile, self).load_all_metadata()
 
     def prep_convert(self):
-        if self.psd_type == 'muxepi' and self.num_mux_cal_cycle<2:
+        # FIXME: the following is a hack to get mux_epi2 SE-IR scans to recon properly. There *is* a more generic solution...
+        if self.psd_type=='muxepi' and (self.num_mux_cal_cycle<2 or (self.psd_name=='mux_epi2' and self.ti>0)):
             # Mux scan without internal calibration-- request other mux scans be handed to convert
             # to see if we can find a suitable calibration scan.
             aux_data = { 'psd': self.psd_name }
@@ -419,8 +420,11 @@ class NIMSPFile(NIMSRaw):
 
     def find_mux_cal_file(self):
         cal_file = []
-        if self.num_mux_cal_cycle<2 and self.aux_files!=None and len(self.aux_files)>0:
-            candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_mux_cal_cycle>=2]
+        if self.aux_files!=None and len(self.aux_files)>0:
+            if self.num_mux_cal_cycle>=2:
+                candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_bands==1]
+            else:
+                candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_mux_cal_cycle>=2]
             if len(candidates)==1:
                 cal_file = candidates[0][1].encode()
             elif len(candidates)>1:
