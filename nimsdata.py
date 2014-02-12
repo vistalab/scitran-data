@@ -151,3 +151,4 @@ class NIMSData(object):
     @property
     def nims_epoch_type(self):
         pass
+

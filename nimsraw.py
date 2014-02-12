@@ -369,6 +369,13 @@ class NIMSPFile(NIMSRaw):
             slice_locs = mat['sl_loc'].flatten().astype(int) - 1
             imagedata = np.zeros(sz, np.int16)
             raw = np.atleast_3d(mat['d'])
+            # scale the image values before converting to int16 to preserve the dynamic range.
+            # This also tends to bring them closer to the values that the GE recon produces.
+            max_val = np.abs(raw).max()
+            if max_val < 8000:
+                raw *= 4.
+            elif max_val < 16000:
+                raw *= 2.
             imagedata[:,:,slice_locs,...] = raw[::-1,...].round().clip(-32768, 32767).astype(np.int16)
         elif 'MIP_res' in mat:
             imagedata = np.atleast_3d(mat['MIP_res'])
