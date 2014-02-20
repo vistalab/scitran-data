@@ -369,14 +369,7 @@ class NIMSPFile(NIMSRaw):
             slice_locs = mat['sl_loc'].flatten().astype(int) - 1
             imagedata = np.zeros(sz, np.int16)
             raw = np.atleast_3d(mat['d'])
-            # scale the image values before converting to int16 to preserve the dynamic range.
-            # This also tends to bring them closer to the values that the GE recon produces.
-            max_val = np.abs(raw).max()
-            if max_val < 8000:
-                raw *= 4.
-            elif max_val < 16000:
-                raw *= 2.
-            imagedata[:,:,slice_locs,...] = raw[::-1,...].round().clip(-32768, 32767).astype(np.int16)
+            imagedata[:,:,slice_locs,...] = raw[::-1,...]
         elif 'MIP_res' in mat:
             imagedata = np.atleast_3d(mat['MIP_res'])
             imagedata = imagedata.transpose((1,0,2,3))[::-1,::-1,:,:]
@@ -477,7 +470,7 @@ class NIMSPFile(NIMSRaw):
         # HACK to force SENSE recon for caipi data
         #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
         sense_recon = 0
-        fermi_filt = 1
+        fermi_filt = 0
 
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d).'
@@ -522,6 +515,15 @@ class NIMSPFile(NIMSRaw):
                 # Allow for a partial last timepoint. This sometimes happens when the user aborts.
                 t = min(img.shape[-1], new_img.shape[-1])
                 img[...,0:t] += new_img[...,0:t]
+
+            # scale the image values before converting to int16 to preserve the dynamic range.
+            # This also tends to bring them closer to the values that the GE recon produces.
+            max_val = np.abs(img).max()
+            if max_val < 8000:
+                img *= 4.
+            elif max_val < 16000:
+                img *= 2.
+            img = img.round().clip(-32768, 32767).astype(np.int16)
 
             self.update_imagedata(img)
             elapsed = time.time() - start_sec
