@@ -2,3 +2,5 @@
 .*sw[op]
 *.py[co]
 *.egg-info
+pfile?*.py
+pfile?*.xml
