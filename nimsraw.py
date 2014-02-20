@@ -427,7 +427,7 @@ class NIMSPFile(NIMSRaw):
 
     def find_mux_cal_file(self):
         cal_file = []
-        if self.aux_files!=None and len(self.aux_files)>0:
+        if self.aux_files!=None and len(self.aux_files)>0 and self.aux_files[0]!=None:
             if self.num_mux_cal_cycle>=2:
                 candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_bands==1]
             else:
@@ -477,10 +477,11 @@ class NIMSPFile(NIMSRaw):
         # HACK to force SENSE recon for caipi data
         #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
         sense_recon = 0
+        fermi_filt = 1
 
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
-            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d).'
-                    % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon))
+            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d).'
+                    % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon, fermi_filt))
             if self.compressed:
                 shutil.copy(ref_file, os.path.join(temp_dirpath, os.path.basename(ref_file)))
                 shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(vrgf_file)))
@@ -502,8 +503,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon)))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s);\''
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -601,7 +602,7 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument('-t', '--tempdir', help='directory to use for scratch files (must exist and have lots of space!)')
         self.add_argument('-j', '--jobs', default=8, type=int, help='maximum number of processes to spawn')
         self.add_argument('-v', '--vcoils', default=0, type=int, help='number of virtual coils (0=all)')
-        self.add_argument('-c', '--auxfile', help='path to auxillary files (e.g., mux calibration p-files)')
+        self.add_argument('-c', '--auxfile', default=None, help='path to auxillary files (e.g., mux calibration p-files)')
 
 if __name__ == '__main__':
     args = ArgumentParser().parse_args()
