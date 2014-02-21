@@ -470,7 +470,7 @@ class NIMSPFile(NIMSRaw):
         # HACK to force SENSE recon for caipi data
         #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
         sense_recon = 0
-        fermi_filt = 0
+        fermi_filt = 1
 
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d).'
