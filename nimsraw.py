@@ -475,6 +475,8 @@ class NIMSPFile(NIMSRaw):
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d).'
                     % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon, fermi_filt))
+            if cal_file!='':
+                log.info('Using calibration file: %s.' % cal_file)
             if self.compressed:
                 shutil.copy(ref_file, os.path.join(temp_dirpath, os.path.basename(ref_file)))
                 shutil.copy(vrgf_file, os.path.join(temp_dirpath, os.path.basename(vrgf_file)))
