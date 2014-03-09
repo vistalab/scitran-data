@@ -303,7 +303,8 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
     def load_dicoms(self):
         if os.path.isfile(self.filepath) and tarfile.is_tarfile(self.filepath):     # compressed tarball
             with tarfile.open(self.filepath) as archive:
-                self.dcm_list = [dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read())) for ti in archive if ti.isreg() and ti.name.endswith('.dcm')]
+                self.dcm_list = [dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read()))
+                                for ti in archive if ti.isreg() and not ti.name.endswith('.json')]
         elif os.path.isfile(self.filepath):                                         # single file
             self.dcm_list = [dicom.read_file(self.filepath)]
         else:                                                                       # directory of dicoms
