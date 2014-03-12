@@ -78,7 +78,7 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
                         if not tarinfo.name.endswith('.dcm'):
                             continue
 
-                        self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(archive.next()).read()),
+                        self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(tarinfo),
                                                         stop_before_pixels=metadata_only)
                         break
             else:
