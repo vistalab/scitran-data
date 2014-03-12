@@ -74,8 +74,13 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
                 # compressed tarball
                 self.compressed = True
                 with tarfile.open(self.filepath) as archive:
-                    archive.next()  # skip over top-level directory
-                    self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(archive.next()).read()), stop_before_pixels=metadata_only)
+                    for tarinfo in archive:
+                        if not tarinfo.name.endswith('.dcm'):
+                            continue
+
+                        self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(archive.next()).read()),
+                                                        stop_before_pixels=metadata_only)
+                        break
             else:
                 # directory of dicoms or single file
                 self.compressed = False
@@ -307,7 +312,7 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
         if os.path.isfile(self.filepath) and tarfile.is_tarfile(self.filepath):     # compressed tarball
             with tarfile.open(self.filepath) as archive:
                 self.dcm_list = [dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read()))
-                                for ti in archive if ti.isreg() and not ti.name.endswith('.json')]
+                                for ti in archive if ti.isreg() and ti.name.endswith('.dcm')]
         elif os.path.isfile(self.filepath):                                         # single file
             self.dcm_list = [dicom.read_file(self.filepath)]
         else:                                                                       # directory of dicoms
