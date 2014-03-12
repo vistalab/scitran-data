@@ -108,6 +108,7 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
         self.subj_sex = {'M': 'male', 'F': 'female'}.get(getelem(self._hdr, 'PatientSex'))
         self.psd_name = os.path.basename(getelem(self._hdr, TAG_PSD_NAME, None, 'unknown'))
         self.psd_type = nimsmrdata.infer_psd_type(self.psd_name)
+        self.acquisition_time = self._hdr.AcquisitionTime
         self.timestamp = datetime.datetime.strptime(acq_date(self._hdr) + acq_time(self._hdr)[:6], '%Y%m%d%H%M%S')
         self.ti = getelem(self._hdr, 'InversionTime', float, 0.) / 1000.0
         self.te = getelem(self._hdr, 'EchoTime', float, 0.) / 1000.0
