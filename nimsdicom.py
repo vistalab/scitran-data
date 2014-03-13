@@ -79,7 +79,7 @@ class NIMSDicom(nimsmrdata.NIMSMRData):
                             continue
 
                         self._hdr = dicom.read_file(cStringIO.StringIO(archive.extractfile(tarinfo),
-                                                        stop_before_pixels=metadata_only)
+                                                        stop_before_pixels=metadata_only))
                         break
             else:
                 # directory of dicoms or single file
