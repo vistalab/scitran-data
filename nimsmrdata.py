@@ -143,6 +143,35 @@ def infer_psd_type(psd_name):
     #psd_dict = {'ge':{'cube':'cube','ssfse':'fse'}, 'siemens':{}, 'philips':{}}
     return psd_type
 
+def infer_scan_type(psd_type, num_timepoints, te, fov, mm_per_vox, is_dwi):
+    if psd_type == 'mrs':
+        scan_type = scan_types.spectroscopy
+    elif psd_type == 'asl':
+        scan_type = scan_types.perfusion
+    elif psd_type == 'hoshim':
+        scan_type = scan_types.shim
+    elif is_dwi:
+        scan_type = scan_types.diffusion
+    elif psd_type == 'spiral' and num_timepoints == 2 and te < .05:
+        scan_type = scan_types.fieldmap
+    elif 'epi' in psd_type and te>0.02 and te<0.05 and num_timepoints>2:
+        scan_type = scan_types.functional
+    elif (psd_type=='gre' or psd_type=='fse') and fov[0]>=250. and fov[1]>=250. and mm_per_vox[2]>=5.:
+        # Could be either a low-res calibration scan (e.g., ASSET cal) or a localizer.
+        if mm_per_vox[0] > 2:
+            scan_type = scan_types.calibration
+        else:
+            scan_type = scan_types.localizer
+    else:
+        # anything else will be an anatomical
+        if psd_type == 'spgr':
+            scan_type = scan_types.anatomy_t1w
+        elif psd_type == 'cube':
+            scan_type = scan_types.anatomy_t2w
+        else:
+            scan_type = scan_types.anatomy
+    return scan_type
+
 
 class NIMSMRDataError(nimsdata.NIMSDataError):
     pass
@@ -447,33 +476,7 @@ class NIMSMRData(nimsdata.NIMSData):
         return dob
 
     def infer_scan_type(self):
-        if self.psd_type == 'mrs':
-            scan_type = scan_types.spectroscopy
-        elif self.psd_type == 'asl':
-            scan_type = scan_types.perfusion
-        elif self.psd_type == 'hoshim':
-            scan_type = scan_types.shim
-        elif self.is_dwi:
-            scan_type = scan_types.diffusion
-        elif self.psd_type == 'spiral' and self.num_timepoints == 2 and self.te < .05:
-            scan_type = scan_types.fieldmap
-        elif 'epi' in self.psd_type and self.te>0.02 and self.te<0.05 and self.num_timepoints>2:
-            scan_type = scan_types.functional
-        elif (self.psd_type=='gre' or self.psd_type=='fse') and self.fov[0]>=250. and self.fov[1]>=250. and self.mm_per_vox[2]>=5.:
-            # Could be either a low-res calibration scan (e.g., ASSET cal) or a localizer.
-            if self.mm_per_vox[0] > 2:
-                scan_type = scan_types.calibration
-            else:
-                scan_type = scan_types.localizer
-        else:
-            # anything else will be an anatomical
-            if self.psd_type == 'spgr':
-                scan_type = scan_types.anatomy_t1w
-            elif self.psd_type == 'cube':
-                scan_type = scan_types.anatomy_t2w
-            else:
-                scan_type = scan_types.anatomy
-        return scan_type
+        return infer_scan_type(self.psd_type, self.num_timepoints, self.te, self.fov, self.mm_per_vox, self.is_dwi)
 
     def get_slice_order(self):
         if self.slice_order==None:
