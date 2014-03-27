@@ -89,7 +89,7 @@ class NIMSNifti(nimsdata.NIMSData):
         return None
 
     @staticmethod
-    def write(metadata, imagedata, outbase, notes=''):
+    def write(metadata, imagedata, outbase, is_siemens_3D, notes=''):
         """Create a nifti file and possibly bval and bvec files from an ordered list of pixel data."""
         if notes != '':
             filepath = outbase + '_README.txt'
@@ -144,7 +144,13 @@ class NIMSNifti(nimsdata.NIMSData):
         if '3D' in metadata.acquisition_type:   # for 3D acquisitions, add the slice R-factor
             nii_header['descrip'] = str(nii_header['descrip']) + 'rs=%.1f' % (1. / metadata.slice_encode_undersample)
 
+        if is_siemens_3D:
+            image_shape =  imagedata.shape
+            #Siemens image matrix in 3D have shape (x,y,1,z), reshape it to be like (x,y,z,1)
+            imagedata = imagedata.reshape((image_shape[0], image_shape[1], image_shape[3], image_shape[2]))
+
         nifti = nibabel.Nifti1Image(imagedata, None, nii_header)
+
         filepath = outbase + '.nii.gz'
         nibabel.save(nifti, filepath)
         log.debug('generated %s' % os.path.basename(filepath))
@@ -152,7 +158,7 @@ class NIMSNifti(nimsdata.NIMSData):
         return filepath
 
     @staticmethod
-    def write_siemens(time_order, metadata, dcm_files_path, outbase, notes=''):
+    def write_multicoil(time_order, metadata, dcm_files_path, outbase, notes=''):
         description = 'te=%.2f;ti=%.0f;fa=%.0f;ec=%.4f;acq=[%s];mt=%.0f;rp=%.1f;' % (
                 metadata.te * 1000.,
                 metadata.ti * 1000.,
