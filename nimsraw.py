@@ -281,7 +281,8 @@ class NIMSPFile(NIMSRaw):
             self.bvecs = None
             self.bvals = None
         else:
-            num_nondwi = self.num_timepoints_available - self.dwi_numdirs # FIXME: assumes that all the non-dwi images are acquired first.
+            # FIXME: assumes that all the non-dwi images are acquired first.
+            num_nondwi = max(self.num_timepoints_available - self.dwi_numdirs, 0)
             bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
             bvecs = np.hstack((np.zeros((3,num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
             self.bvecs,self.bvals = nimsmrdata.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
