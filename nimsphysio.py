@@ -80,7 +80,7 @@ class NIMSPhysio(nimsdata.NIMSData):
         self.min_resp_lfp = 50.
         # FIXME: How to infer the file format automatically?
         self.format_str = 'ge'
-        self.tr = tr
+        self.tr = float(tr)
         self.nframes = nframes
         if slice_order == None:
             self.nslices = nslices
@@ -92,12 +92,12 @@ class NIMSPhysio(nimsdata.NIMSData):
             self.slice_order = np.array(slice_order)
         self.card_wave = None
         self.card_trig = None
-        self.card_dt = card_dt
+        self.card_dt = float(card_dt)
         self.card_time = None
         self.heart_rate = None
         self.resp_wave = None
         self.resp_trig = None
-        self.resp_dt = resp_dt
+        self.resp_dt = float(resp_dt)
         self.resp_time = None
         self.regressors = None
         self.phases = None
@@ -214,7 +214,7 @@ class NIMSPhysio(nimsdata.NIMSData):
         start_ind = np.argmax(self.resp_time>0)
         return self.resp_wave[start_ind:]
 
-    def compute_regressors(self, legacy_rvhr=True, hr_min=30, hr_max=180):
+    def compute_regressors(self, legacy_rvhr=False, hr_min=30, hr_max=180):
         """
          * catie chang,   catie.chang@nih.gov
          * bob dougherty, bobd@stanford.edu
@@ -239,7 +239,7 @@ class NIMSPhysio(nimsdata.NIMSData):
          hr_min, hr_max: For Bob's heartrate algorithm, heartrate values outside this
                          range will be discarded. (Has no effect if legacy_rvhr=True)
 
-         The following come are set as instance vars:
+         The following are set as instance vars:
          * slice order:  vector indicating order of slice acquisition
              (e.g. [30 28 26, .... 29 27 ... 1] for 30 "interleaved down" slices)
          * tr: in seconds
@@ -414,11 +414,12 @@ class NIMSPhysio(nimsdata.NIMSData):
         # --------------------------------------------------------------
         # final set of physio regressors
         # --------------------------------------------------------------
-        self.regressors = np.concatenate((REGRESSORS_RET, REGRESSORS_RVHR), axis=1)
+        self.regressors = np.concatenate((REGRESSORS_RET, REGRESSORS_RVHR, self.heart_rate[:,np.newaxis,:]), axis=1)
         for sl in range(nslc):
             x = np.arange(self.regressors.shape[0]).transpose()
-            for reg in range(self.regressors.shape[1]):
+            for reg in range(self.regressors.shape[1] - 1):
                 self.regressors[:,reg,sl] -= np.polyval(np.polyfit(x, self.regressors[:,reg,sl], 2), x)
+
 
     def denoise_image(self, regressors):
         """
@@ -504,7 +505,7 @@ class NIMSPhysio(nimsdata.NIMSData):
 
     @property
     def regressor_names(self):
-        return ('c1_c', 's1_c', 'c2_c', 's2_c', 'c1_r', 's1_r', 'c2_r', 's2_r', 'rv_rrf', 'rv_rrf_d', 'hr_crf', 'hr_crf_d')
+        return ('c1_c', 's1_c', 'c2_c', 's2_c', 'c1_r', 's1_r', 'c2_r', 's2_r', 'rv_rrf', 'rv_rrf_d', 'hr_crf', 'hr_crf_d', 'hr')
 
     def is_valid(self):
         if self.nframes < self.min_number_of_frames:
@@ -543,7 +544,7 @@ if __name__ == '__main__':
     if args.nifti_file:
         ni = nibabel.load(args.nifti_file)
         slice_order = np.argsort(ni.get_header().get_slice_times())
-        phys = PhysioData(args.physio_file, tr=ni.get_header().get_zooms()[3], nframes=ni.shape[3], slice_order=slice_order)
+        phys = NIMSPhysio(args.physio_file, tr=ni.get_header().get_zooms()[3], nframes=ni.shape[3], slice_order=slice_order)
     else:
         log.warning('regressors will not be valid!')
         phys = PhysioData(args.physio_file)
