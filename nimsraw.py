@@ -367,7 +367,7 @@ class NIMSPFile(NIMSRaw):
         if 'd' in mat:
             sz = mat['d_size'].flatten().astype(int)
             slice_locs = mat['sl_loc'].flatten().astype(int) - 1
-            imagedata = np.zeros(sz, np.int16)
+            imagedata = np.zeros(sz, mat['d'].dtype)
             raw = np.atleast_3d(mat['d'])
             imagedata[:,:,slice_locs,...] = raw[::-1,...]
         elif 'MIP_res' in mat:
@@ -518,15 +518,7 @@ class NIMSPFile(NIMSRaw):
                 t = min(img.shape[-1], new_img.shape[-1])
                 img[...,0:t] += new_img[...,0:t]
 
-            # scale the image values before converting to int16 to preserve the dynamic range.
-            # This also tends to bring them closer to the values that the GE recon produces.
-            max_val = np.abs(img).max()
-            if max_val < 8000:
-                img *= 4.
-            elif max_val < 16000:
-                img *= 2.
-            img = img.round().clip(-32768, 32767).astype(np.int16)
-
+            img = img.astype(np.float32)
             self.update_imagedata(img)
             elapsed = time.time() - start_sec
             log.info('Mux recon of %s with %d v-coils finished in %0.2f minutes using %d jobs.'
