@@ -464,13 +464,12 @@ class NIMSPhysio(nimsdata.NIMSData):
                 # Format as left-justified columns 7 chars wide with 2 decimal places.
                 np.savetxt(outfile, self.regressors[:,:,i], fmt='%-7.6f')
 
-    def _write_regressors(self, fileobj):
+    def _write_regressors(self, fileobj, header_notes=''):
         # Write a little header behind comments
         # Any line starting with "#" will be ignored by numpy.loadtxt
-        fileobj.write('# slice_order = [ %s ]\n' % ','.join([str(d) for d in self.slice_order]))
-        fileobj.write('# Full array shape: {0}\n'.format(self.regressors.shape))
-        fileobj.write('# time x regressor for each slice in the acquired volume\n')
-        fileobj.write('# regressors: [ %s ]\n' % ','.join(self.regressor_names))
+        fileobj.write('#slice_order = [ %s ]\n' % ','.join([str(d) for d in self.slice_order]))
+        if header_notes:
+            fileobj.write('#' + header_notes + '\n')
         # print out all the column headings:
         nslices = len(self.slice_order)
         fileobj.write('#' + ','.join([h[0]+h[1] for h in itertools.product(['slice'+str(s) for s in range(nslices)], self.regressor_names)]) + '\n')
