@@ -83,12 +83,10 @@ class NIMSPhysio(nimsdata.NIMSData):
         self.tr = float(tr)
         self.nframes = nframes
         if slice_order == None:
-            self.nslices = nslices
             # Infer a standard GE interleave slice order
-            self.slice_order = np.array(range(0, self.nslices, 2) + range(1, self.nslices, 2))
-            # log.warning('No explicit slice order set; inferring interleaved.')
+            self.slice_order = np.array(range(0, nslices, 2) + range(1, nslices, 2))
+            log.warning('No explicit slice order set; inferring interleaved.')
         else:
-            self.nslices = slice_order.size
             self.slice_order = np.array(slice_order)
         self.card_wave = None
         self.card_trig = None
@@ -274,7 +272,7 @@ class NIMSPhysio(nimsdata.NIMSData):
         card_trig = self.card_trig_chopped
 
         t_win = 6 * 0.5 # 6-sec window for computing RV & HR, default
-        nslc = self.slice_order.size
+        nslc = len(self.slice_order)
 
         # Find the derivative of the respiration waveform
         # shift to zero-min
@@ -474,7 +472,8 @@ class NIMSPhysio(nimsdata.NIMSData):
         fileobj.write('# time x regressor for each slice in the acquired volume\n')
         fileobj.write('# regressors: [ %s ]\n' % ','.join(self.regressor_names))
         # print out all the column headings:
-        fileobj.write('#' + ','.join([h[0]+h[1] for h in itertools.product(['slice'+str(s) for s in range(self.nslices)], self.regressor_names)]) + '\n')
+        nslices = len(self.slice_order)
+        fileobj.write('#' + ','.join([h[0]+h[1] for h in itertools.product(['slice'+str(s) for s in range(nslices)], self.regressor_names)]) + '\n')
         new_shape = (self.regressors.shape[0], self.regressors.shape[1]*self.regressors.shape[2])
         np.savetxt(fileobj, self.regressors.reshape(new_shape, order='F'), fmt='%0.5f', delimiter=',')
         #d = {key: value for (key, value) in sequence}
