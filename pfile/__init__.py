@@ -13,7 +13,9 @@ def parse(filepath, is_compressed=False):
     version_bytes = fp.read(4)
     fp.seek(0)
     try:
-        if version_bytes == 'V\x0e\xa0A':
+        if version_bytes == '\x00\x00\xc0A':
+            import pfile24 as pfile
+        elif version_bytes == 'V\x0e\xa0A':
             import pfile23 as pfile
         elif version_bytes == 'J\x0c\xa0A':
             import pfile22 as pfile
