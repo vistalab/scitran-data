@@ -1,15 +1,17 @@
 # @author:  Gunnar Schaefer
 #           Bob Dougherty
+#           Kevin S Hahn
 
 import abc
 import bson
 import string
-import datetime
 import logging
-
+import datetime
 import numpy as np
 
 import nimsdata
+
+log = logging.getLogger('nimsmrdata')
 
 scan_types = [
         'spectroscopy',
@@ -26,8 +28,6 @@ scan_types = [
         ]
 scan_types = type('Enum', (object,), dict(zip(scan_types, scan_types), all=scan_types))
 
-log = logging.getLogger('nimsmrdata')
-
 # NIFTI1-stype slice order codes:
 SLICE_ORDER_UNKNOWN = 0
 SLICE_ORDER_SEQ_INC = 1
@@ -35,12 +35,15 @@ SLICE_ORDER_SEQ_DEC = 2
 SLICE_ORDER_ALT_INC = 3
 SLICE_ORDER_ALT_DEC = 4
 
+
+# compute rotation might be useless now....
 def compute_rotation(row_cos, col_cos, slice_norm):
-    rot = np.zeros((3,3))
+    rot = np.zeros((3, 3))
     rot = np.matrix(((-row_cos[0], -col_cos[0], -slice_norm[0]),
                      (-row_cos[1], -col_cos[1], -slice_norm[1]),
                      (row_cos[2], col_cos[2], slice_norm[2])), dtype=float)
     return rot
+
 
 def compute_slice_norm(self, row_cosines, col_cosines, pos_first, pos_last, imagedata=None):
     """
@@ -63,24 +66,28 @@ def compute_slice_norm(self, row_cosines, col_cosines, pos_first, pos_last, imag
         flipped = True
     else:
         flipped = False
-    return slice_norm,flipped
+    return slice_norm, flipped
 
+
+# affine is now built within nibabel
 def build_affine(rotation, scale, origin):
-    aff = np.zeros((4,4))
-    aff[0:3,0:3] = rotation
-    aff[:,3] = np.append(origin, 1).T
-    aff[0:3,0:3] = np.dot(aff[0:3,0:3], np.diag(scale))
+    aff = np.zeros((4, 4))
+    aff[0:3, 0:3] = rotation
+    aff[:, 3] = np.append(origin, 1).T
+    aff[0:3, 0:3] = np.dot(aff[0:3, 0:3], np.diag(scale))
     return aff
 
+
 def adjust_bvecs(bvecs, bvals, vendor, rotation=None):
-    bvecs,bvals = scale_bvals(bvecs, bvals)
+    bvecs, bvals = scale_bvals(bvecs, bvals)
     # TODO: Uncomment the following when we are ready to fix the bvec flip issue:
-    #if vendor.lower().startswith('ge') and rotation != None:
+    # if vendor.lower().startswith('ge') and rotation != None:
     #   log.debug('rotating bvecs with image orientation matrix')
     #   bvecs,bvals = rotate_bvecs(bvecs, bvals, rotation)
-    #else:
+    # else:
     #   bvecs,bvals = rotate_bvecs(bvecs, bvals, np.diag((-1.,-1.,1.)))
-    return bvecs,bvals
+    return bvecs, bvals
+
 
 def scale_bvals(bvecs, bvals):
     """
@@ -93,12 +100,13 @@ def scale_bvals(bvecs, bvals):
     # sqmag due to rounding error. To avoid spurious adjustments to the bvals, we round the sqmag based
     # on the number of decimal values.
     # TODO: is there a more elegant way to determine the number of decimals used?
-    num_decimals = np.nonzero([np.max(np.abs(bvecs-bvecs.round(decimals=d))) for d in range(9)])[0][-1] + 1
-    sqmag = np.around(sqmag, decimals=num_decimals-1)
-    bvals *= sqmag           # Scale each bval by the squared magnitude of the corresponding bvec
-    sqmag[sqmag==0] = np.inf # Avoid divide-by-zero
-    bvecs /= np.sqrt(sqmag)  # Normalize each bvec to unit length
-    return bvecs,bvals
+    num_decimals = np.nonzero([np.max(np.abs(bvecs - bvecs.round(decimals=d))) for d in range(9)])[0][-1] + 1
+    sqmag = np.around(sqmag, decimals=num_decimals - 1)
+    bvals *= sqmag            # Scale each bval by the squared magnitude of the corresponding bvec
+    sqmag[sqmag == 0] = np.inf  # Avoid divide-by-zero
+    bvecs /= np.sqrt(sqmag)   # Normalize each bvec to unit length
+    return bvecs, bvals
+
 
 def rotate_bvecs(bvecs, bvals, rotation):
     """
@@ -108,10 +116,15 @@ def rotate_bvecs(bvecs, bvals, rotation):
     bvecs = np.array(np.matrix(rotation) * bvecs)
     # Normalize each bvec to unit length
     norm = np.sqrt(np.array([bv.dot(bv) for bv in bvecs.T]))
-    norm[norm==0] = np.inf # Avoid divide-by-zero
+    norm[norm == 0] = np.inf  # Avoid divide-by-zero
     bvecs /= norm
-    return bvecs,bvals
+    return bvecs, bvals
 
+
+# TODO: higher level inferences will be done within 'job'
+# psd_dict = {'GE MEDICAL SYSTEMS': {'service', 'service'}, 'SIEMENS': {'tfl': 'mprage'},}
+# dict approach may not be suitable; must be able to support 'word in name' and 'word == name'
+# possibly word: { operator: 'in' or '==', type='psd_type'}
 def infer_psd_type(psd_name):
     psd_name = psd_name.lower()
     if 'service' in psd_name:
@@ -122,15 +135,15 @@ def infer_psd_type(psd_name):
         psd_type = 'hoshim'
     elif psd_name == 'basic':
         psd_type = 'basic'
-    elif 'mux' in psd_name: # multi-band EPI!
+    elif 'mux' in psd_name:  # multi-band EPI!
         psd_type = 'muxepi'
     elif 'epi' in psd_name:
         psd_type = 'epi'
-    elif psd_name in ['probe-mega','gaba_ss_cni']:
+    elif psd_name in ['probe-mega', 'gaba_ss_cni']:
         psd_type = 'mrs'
     elif psd_name == 'asl':
         psd_type = 'asl'
-    elif psd_name in ['bravo','3dgrass']:
+    elif psd_name in ['bravo', '3dgrass']:
         psd_type = 'spgr'
     elif psd_name == 'fgre':
         psd_type = 'gre'
@@ -138,10 +151,17 @@ def infer_psd_type(psd_name):
         psd_type = 'fse'
     elif psd_name == 'cube':
         psd_type = 'cube'
+    elif psd_name == 'tfl':         # single shot turbo flash
+        psd_type = 'mprage'         # anat t1
+    elif psd_name == 'tse_vfl':     # turbo spin echo, variable flip angle
+        psd_type = 'tse'            # anat t2
+    elif psd_name == 'gre_field_mapping':
+        psd_type = 'gre_fmap'
     else:
         psd_type = 'unknown'
-    #psd_dict = {'ge':{'cube':'cube','ssfse':'fse'}, 'siemens':{}, 'philips':{}}
+
     return psd_type
+
 
 def infer_scan_type(psd_type, num_timepoints, te, fov, mm_per_vox, is_dwi):
     if psd_type == 'mrs':
@@ -154,9 +174,9 @@ def infer_scan_type(psd_type, num_timepoints, te, fov, mm_per_vox, is_dwi):
         scan_type = scan_types.diffusion
     elif psd_type == 'spiral' and num_timepoints == 2 and te < .05:
         scan_type = scan_types.fieldmap
-    elif 'epi' in psd_type and te>0.02 and te<0.05 and num_timepoints>2:
+    elif 'epi' in psd_type and te > 0.02 and te < 0.05 and num_timepoints > 2:
         scan_type = scan_types.functional
-    elif (psd_type=='gre' or psd_type=='fse') and fov[0]>=250. and fov[1]>=250. and mm_per_vox[2]>=5.:
+    elif (psd_type == 'gre' or psd_type == 'fse') and fov[0] >= 250. and fov[1] >= 250. and mm_per_vox[2] >= 5.:
         # Could be either a low-res calibration scan (e.g., ASSET cal) or a localizer.
         if mm_per_vox[0] > 2:
             scan_type = scan_types.calibration
@@ -365,12 +385,6 @@ class NIMSMRData(nimsdata.NIMSData):
                     'type': 'number',
                 }
             },
-            'protocol': {
-                'attribute': 'protocol_name',
-                'title': 'Protocol',
-                'type': 'string',
-                'maxLength': 64,
-            },
     }
     epoch_properties = _epoch_properties
     epoch_properties.update(nimsdata.NIMSData.epoch_properties)
@@ -378,23 +392,24 @@ class NIMSMRData(nimsdata.NIMSData):
     @abc.abstractmethod
     def __init__(self):
         super(NIMSMRData, self).__init__()
-        self.subj_code, self.group_name, self.experiment_name = self.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
+        self.metadata.compressed = False
+        pass
 
     @property
     def nims_group(self):
-        return self.group_name
+        return self.metadata.group_name
 
     @property
     def nims_experiment(self):
-        return self.experiment_name
+        return self.metadata.experiment_name
 
     @property
     def nims_session(self):
-        return self.exam_uid.replace('.', '_')
+        return self.metadata.exam_uid.replace('.', '_')
 
     @property
     def nims_epoch(self):
-        return self.series_uid.replace('.', '_') + '_' + str(self.acq_no)
+        return self.metadata.series_uid.replace('.', '_') + '_' + str(self.metadata.acq_no)
 
     @property
     def nims_type(self):
@@ -406,49 +421,42 @@ class NIMSMRData(nimsdata.NIMSData):
 
     @property
     def nims_timestamp(self):
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+        return self.metadata.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7 * 60, 'pacific'))  # FIXME: use pytz
 
     @property
     def nims_timezone(self):
-        pass # FIXME
+        pass  # FIXME
 
     @property
     def nims_session_name(self):
-        return self.timestamp.strftime('%Y-%m-%d  %H:%M') if self.series_no == 1 and self.acq_no == 1 else None
+        return self.metadata.timestamp.strftime('%Y-%m-%d  %H:%M') if self.metadata.series_no == 1 and self.metadata.acq_no == 1 else None
 
     @property
     def nims_session_subject(self):
-        return self.subj_code
+        return self.metadata.subj_code
 
     @property
     def nims_session_type(self):
-        pass # FIXME
+        pass  # FIXME
 
     @property
     def nims_epoch_name(self):
-        return '%d.%d' % (self.series_no, self.acq_no)
+        return '%d.%d' % (self.metadata.series_no, self.metadata.acq_no)
 
     @property
     def nims_epoch_description(self):
-        return self.series_desc
+        return self.metadata.series_desc
 
     @property
     def nims_epoch_type(self):
-        return self.scan_type
+        return self.metadata.scan_type
 
     @abc.abstractmethod
-    def load_all_metadata(self):
+    def load_data(self, archive):
         pass
 
     @abc.abstractmethod
-    def get_imagedata(self):
-        pass
-
-    def prep_convert(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def convert(self, outbase, *args, **kwargs):
+    def convert(self, outbase):
         pass
 
     def parse_patient_id(self, patient_id, default_subj_code):
@@ -476,19 +484,19 @@ class NIMSMRData(nimsdata.NIMSData):
         return dob
 
     def infer_scan_type(self):
-        return infer_scan_type(self.psd_type, self.num_timepoints, self.te, self.fov, self.mm_per_vox, self.is_dwi)
+        return infer_scan_type(self.metadata.psd_type, self.metadata.num_timepoints, self.metadata.te, self.metadata.fov, self.metadata.mm_per_vox, self.metadata.is_dwi)
 
     def get_slice_order(self):
-        if self.slice_order==None:
+        if self.metadata.slice_order is None:
             self.load_all_metadata()
-        if self.slice_order==SLICE_ORDER_ALT_INC:
-            slice_order = np.hstack((np.arange(0,self.num_slices,2), np.arange(1,self.num_slices,2)))
-        elif self.slice_order==SLICE_ORDER_ALT_DEC:
-            slice_order = np.hstack((np.arange(0,self.num_slices,2), np.arange(1,self.num_slices,2)))[::-1]
-        elif self.slice_order==SLICE_ORDER_SEQ_INC:
-            slice_order = np.arange(0, self.num_slices)
-        elif self.slice_order==SLICE_ORDER_SEQ_DEC:
-            slice_order = np.arange(0, self.num_slices)[::-1]
-        elif self.slice_order==SLICE_ORDER_UNKNOWN or self.slice_order==None:
+        if self.slice_order == SLICE_ORDER_ALT_INC:
+            slice_order = np.hstack((np.arange(0, self.metadata.num_slices, 2), np.arange(1, self.metadata.num_slices, 2)))
+        elif self.slice_order == SLICE_ORDER_ALT_DEC:
+            slice_order = np.hstack((np.arange(0, self.metadata.num_slices, 2), np.arange(1, self.metadata.num_slices, 2)))[::-1]
+        elif self.slice_order == SLICE_ORDER_SEQ_INC:
+            slice_order = np.arange(0, self.metadata.num_slices)
+        elif self.slice_order == SLICE_ORDER_SEQ_DEC:
+            slice_order = np.arange(0, self.metadata.num_slices)[::-1]
+        elif self.slice_order == SLICE_ORDER_UNKNOWN or self.slice_order is None:
             slice_order = None
         return slice_order

@@ -39,3 +39,5 @@ class NIMSPNG(nimsdata.NIMSData):
             imagedata = imagedata.reshape((imagedata.shape[1], imagedata.shape[2], imagedata.shape[0]))
             Image.fromarray(imagedata, 'RGB').save(filepath, optimize=True)
         log.debug('generated %s' % os.path.basename(filepath))
+
+        return filepath
