@@ -545,7 +545,7 @@ if __name__ == '__main__':
         phys = NIMSPhysio(args.physio_file, tr=ni.get_header().get_zooms()[3], nframes=ni.shape[3], slice_order=slice_order)
     else:
         log.warning('regressors will not be valid!')
-        phys = PhysioData(args.physio_file)
+        phys = NIMSPhysio(args.physio_file)
     if args.preprocess:
         np.savetxt(args.outbase + '_resp.txt', phys.resp_wave)
         np.savetxt(args.outbase + '_pulse.txt', phys.card_trig)
