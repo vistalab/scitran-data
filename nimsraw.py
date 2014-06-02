@@ -212,6 +212,7 @@ class NIMSPFile(NIMSRaw):
         self.caipi = self._hdr.rec.user13   # true: CAIPIRINHA-type acquisition; false: Direct aliasing of simultaneous slices.
         self.cap_blip_start = self._hdr.rec.user14   # Starting index of the kz blips. 0~(mux-1) correspond to -kmax~kmax.
         self.cap_blip_inc = self._hdr.rec.user15   # Increment of the kz blip index for adjacent acquired ky lines.
+        self.mica = self._hdr.rec.user17   # MICA bit-reverse?
         self.slice_duration = self.tr / self.num_slices
         lr_diff = image_trhc - image_tlhc
         si_diff = image_trhc - image_brhc
@@ -270,6 +271,11 @@ class NIMSPFile(NIMSRaw):
 
     def get_bvecs_bvals(self):
         tensor_file = os.path.join(self.dirpath, '_'+self.basename+'_tensor.dat')
+        if not os.path.exists(tensor_file):
+            log.warning('tensor file not found!')
+            self.bvecs = None
+            self.bvals = None
+            return
         with open(tensor_file) as fp:
             uid = fp.readline().rstrip()
             ndirs = int('0'+fp.readline().rstrip())
@@ -471,10 +477,11 @@ class NIMSPFile(NIMSRaw):
         #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
         sense_recon = 0
         fermi_filt = 1
+        notch_thresh = 0
 
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
-            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d).'
-                    % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon, fermi_filt))
+            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d, notch=%f).'
+                    % (self.num_vcoils, self.filepath, tempdir, num_jobs, sense_recon, fermi_filt, notch_thresh))
             if cal_file!='':
                 log.info('Using calibration file: %s.' % cal_file)
             if self.compressed:
@@ -498,8 +505,8 @@ class NIMSPFile(NIMSRaw):
                 if num_running_jobs < num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt)))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s, %s);\''
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(notch_thresh)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -604,7 +611,13 @@ if __name__ == '__main__':
     args = ArgumentParser().parse_args()
     logging.basicConfig(level=logging.DEBUG)
     pf = NIMSPFile(args.pfile, num_virtual_coils=args.vcoils)
+
+    if not args.outbase:
+        outbase = '%s_mux%d_arc%d_caipi%d_mica%d' % (pf.num_bands,1./pf.phase_encode_undersample,pf.caipi,pf.mica)
+    else:
+        outbase = args.outbase
+    print('Saving data to ' + outbase)
     if args.matfile:
         pf.update_imagedata(pf.load_imagedata_from_file(args.matfile))
-    pf.convert(args.outbase or os.path.basename(args.pfile), tempdir=args.tempdir, num_jobs=args.jobs, aux_files=[args.auxfile])
+    pf.convert(outbase, tempdir=args.tempdir, num_jobs=args.jobs, aux_files=[args.auxfile])
 
