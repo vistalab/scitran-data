@@ -1,0 +1,42 @@
+#nimsdata
+
+----
+
+This package provides DICOM reading, DICOM to png and DICOM to nifti.
+
+## Documentation:
+todo: sphinx-docs on gh-pages
+
+## Running Tests:
+todo: doctest + pyunit + nose? end-to-end testing
+
+## Installing:
+clone this reposity, and install dependencies.
+
+	git clone git@github.com:scitran/nimsdata.git
+
+	pip install numpy pydicom nibabel
+	pip install PIL --allow-external PIL --allow-unverified PIL
+	curl -o dcmstack-master.zip https://github.com/moloney/dcmstack/archive/master.zip
+	pip install dcmstack-master.zip
+
+todo: setup.py
+
+
+## Developer Notes:
+development version is currently using the following:
+
+|package		|version			|
+|:-------------	|:-----------------	|
+|PIL	    	|1.1.7  (latest)	|
+|dcmstack		|0.7.dev  (latest)	|
+|nibabel	    |1.3.0 	(latest)	|
+|numpy  		|1.8.1  (latest)	|
+|pydicom	    |0.9.8  (latest)	|
+
+
+## Documentation
+docs are generated with sphinx-apidoc, using the following extensions
+
+- numpydoc  (sphinx.ext.napoleon? google style docstrings?)
+- autodoc

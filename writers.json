@@ -1,0 +1,5 @@
+{
+    "montage": "nimsmontage.NIMSMontage",
+    "png": "nimspng.NIMSPNG",
+    "nifti": "nimsnifti.NIMSNifti"
+}

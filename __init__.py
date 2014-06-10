@@ -1,141 +1,229 @@
 # @author:  Gunnar Schaefer
 #           Kevin S Hahn
 
+"""
+nimsdata
+========
+
+The nimsdata package provides two interfaces; one for reading from file, and the other for writing to file.
+
+Readers and Writers are defined in external json files, readers.json and writers.json.  New readers and writers can be added to
+a running system by defining it in the appropriate json file.
+
+"""
+
 import os
 import json
 import logging
 import tarfile
-import cStringIO
+
+import bson.json_util
 
 import nimsdata
-import nimsdicom
-import nimsmontage
 
+log = logging.getLogger(__name__)
+
+
+dict_merge = nimsdata.dict_merge
 NIMSDataError = nimsdata.NIMSDataError
 
-log = logging.getLogger('nimsdata')
+READERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readers.json')))
+WRITERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'writers.json')))
+# note: readers/writers.json will never contain datetime, or objects that require bson.json_util
+# TODO: reader/writer loader
 
 
-PARSERS = {'gedicom': 'nimsdicomge.NIMSDicomGE',
-           'siemensdicom': 'nimsdicomsiemens.NIMSDicomSiemens'}
-
-
-def _open(path):
-    """open an input path.
+def get_handler(name, handlerdict):
+    """
+    Retrieve the class object of reader or writer from its string label.
 
     Parameters
     ----------
-    path : filepath
-        directory path of input as string.  accepts a directory, or a tarfile, or a tarfile like object
+    name : str
+        reader or writer name, by string
+    handlerdict : dict
+        name of which handler dict to search from, READERS or WRITERS
 
     Returns
     -------
-    returns open tarfile object
+    handler : NIMSReader subclass
+        NIMSReader subclass capable of reading
     """
-    if isinstance(path, cStringIO.OutputType):
-        log.debug('opening cstringio file object')
-        path.flush()
-        path.seek(0)
-        archive = tarfile.open(fileobj=path, mode='r')
-    elif os.path.isfile(path) and tarfile.is_tarfile(path):
-        log.debug('opening tar archive')
-        archive = tarfile.open(path)
-    elif os.path.isdir(path):
-        log.debug('creating fake archive from dir')
-        f = cStringIO.StringIO()
-        archive = tarfile.open(fileobj=f, mode='w')     # write w/o gz; faster, but more mem
-        archive.add(path)                               # add directory
-        archive.close()                                 # close archive, to re-open as READ
-        f.flush()                                       # clear internal buffer
-        f.seek(0)                                       # reset position, so iteration starts at beginning
-        archive = tarfile.open(fileobj=f, mode='r')
-    return archive
-
-
-def parse(path, ignore_json=False, parser=None):
-    """locate json file inside tarfile to identify parser class.
-
-    Parameters
-    ----------
-    path : filepath
-        directory path of input as a string. accepts a directory, or a tarfile
-
-    ignore_json : True|False
-        option to ignore metadata in json. True disables. default False.
-
-    parser_id : string id of parser
-        parser_id as a string, corresponds to parsers dict.
-
-    Returns
-    -------
-    instance of NIMSData subclass, which has load_data() and convert() methods
-    """
-    json_data = None
-    ds = None
-    archive = _open(path)
-    for ti in (ti for ti in archive if ti.isreg()):
-        try:
-            json_data = json.loads(archive.extractfile(ti).read())
-        except Exception:
-            pass
-        else:
-            parser = json_data.get('parser') or parser
-            break
-    log.debug('looking up parser')
-    # TODO: parse should give USEFUL feedback for errors!! re think structuring and error handling
+    handler = None
     try:
-        module, klass = PARSERS.get(parser).split('.')               # Attribute error for attempting to split None
-        nimsparser = getattr(__import__(module, globals()), klass)      # Attribute error for no attribute (read as: class not found)
+        module, klass = handlerdict.get(name).split('.')
+        handler = getattr(__import__(module, globals()), klass)
     except AttributeError:
-        raise AttributeError('no matching parser')
-    else:
-        log.debug('parsing with %s for %s' % (nimsparser, parser))
-        ds = nimsparser(archive)                        # lots of action here
-        ds.filepath = archive.name or archive.fileobj   # keep filepath for tarfiles, or object reference for file_obj (in case of directory)
-        archive.close()
-    if ds and json_data and not ignore_json:
-        log.debug('updating dataset metadata with json metadata')
-        try:
-            [setattr(ds.metadata, key, json_data[key]) for key in json_data if key != 'parser']
-        except TypeError:
-            pass                                        # TypeError, json contains ONLY parser, nothing else
-    return ds
+        raise NIMSDataError('no handler')
+    return handler
 
 
-def load_data(ds):
-    """invoke NIMSData subclass specific load_data method
+# TODO: do we even need this anymore?
+def getnattr(obj, attr):
+    """
+    Get nested attribute.
+
+    getnattr(foo, 'bar.face')
+
+    This function is not needed anymore. safe to delete?
+
+    """
+    if not attr:
+        return
+    for name in attr.split('.'):
+        obj = getattr(obj, name)
+    return obj
+
+
+def parse(path, load_data=False, ignore_json=False, filetype=None, **kwargs):
+    """
+    Infer the type of file at path and parse with filetype-specific parser.
+
+    The parse function expects a tgz of raw input files and a metadata.json file that
+    declares the filetype, and any metadata that should be overwritten.  The parse
+    function will pass the input file to the appropriate handler, if available.
 
     Parameters
     ----------
-    ds : dataset
-        subclass of NIMSData, returned by parse()
+    path : str
+        input path
+    load_data : bool  [default False]
+        attempt to load all metadata and data at parse.  like running parse, then load_data
+    ignore_json : bool [default False]
+        True, don't look for json file. therefore the parser cannot be read from the json, and
+        a parser MUST be specfied if ignore_json is true
+        False, do look for json file.
+    filetype : str
+        string name of parser to use.  no special search or inferences will be made if this
+        option is specified. if the specified parser does not exist, an error will be raised.
 
     Returns
     -------
-    subclass of NIMSData object, which has load_data() and convert() methods
+    parser_class : obj
+        NIMSReader populated with data and metadata attributes. this NIMSReader object can be
+        passed to any compatible writer to complete the conversion process
+
+    Notes
+    -----
+    =========== ======== ==================================================
+    ignore_json filetype  behavior
+    =========== ======== ==================================================
+    False       None     **DEFAULT** try to read json, use parser from json
+    False       'dicom'  try to read json, use 'dicom' parser
+    True        None     **INVALID**
+    True        'dicom'  don't try to read json AT ALL, use 'dicom' parser
+    =========== ======== ==================================================
+
+    TODO: expand the notes table section to be MUCH more descriptive of the behavior
+    of nimsdata.parse's multiple combinations of options.
+
+    Examples
+    --------
+    convert dicom.tgz to dicoms.nii.gz
+
+    .. code-block:: python
+
+        import nimsdata
+        ds = nimsdata.parse('dicoms.tgz', load_data=False, filetype='dicom')
+        ds.load_data()
+        nimsdata.write(ds, ds.data, outbase, filetype='nifti')
+
+    TODO: convert all in-line code EXAMPLES to using doc-string code.  and then run test with
+    doctests. this makes sure that the provided examples actually work. The only downside,
+    is that provided code examples must be very explicit.
+
     """
-    archive = _open(ds.filepath)
-    ds.load_data(archive)
-    archive.close()
+    if not os.path.exists(path):
+        raise NIMSDataError('input path %s not found' % path, log_level=logging.ERROR)
+
+    if ignore_json:
+        if not filetype:
+            raise NIMSDataError('filetype must be specified if ignore_json=True', log_level=logging.ERROR)
+        else:
+            log.debug('ignoring json entirely')
+            nimsparser = get_handler(filetype, READERS)
+            return nimsparser(path, load_data, **kwargs)
+
+    json_data = {}
+    if tarfile.is_tarfile(path):
+        log.debug('inspecting tgz for json')
+        with tarfile.open(path) as archive:
+            log.debug('"%s" is tarfile' % path)
+            for ti in archive:
+                if not ti.isreg():
+                    continue
+                try:
+                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=bson.json_util.object_hook)
+                except Exception:
+                    pass
+                else:
+                    log.debug('json found, %s' % ti.name)
+                    if not filetype:
+                        filetype = json_data.get('filetype')
+                        logging.debug('filetype from json: %s' % filetype)
+                    break
+    elif os.path.isdir(path):
+        # TODO: implement 'break-at-first-readable' json read for directory
+        raise NIMSDataError('directory input not implemented', log_level=logging.ERROR)
+
+    elif os.path.isfile(path):
+        # TODO: infer type
+        # single file, by definition, will not have a json with it
+        # some P files may come in as tgz, with parser inside, OR as single P12345.7 or P12345.7.gz
+        if path.endswith('.7.gz') or path.endswith('.7'):
+            filetype = 'pfile'
+        else:
+            raise NIMSDataError('non tar-files not implemented', log_level=logging.ERROR)
+
+    nimsparser = get_handler(filetype, READERS)
+    ds = nimsparser(path, load_data, **kwargs)
+
+    # FIXME: handle NESTED information
+    for key, value in json_data.get('overwrite', {}).iteritems():
+        setattr(ds, key, value)
+
     return ds
 
 
-def convert(ds, outbase):
-    """invoke NIMSData subclass specific convert method.
+def write(metadata, imagedata, outbase, filetype, **kwargs):
+    """
+    Write the metadata, imagedata, into file outbase, with the specified filetype writer.
 
     Parameters
     ----------
-    ds : dataset
-        subclass of NIMSdata
-
-    outbase : outbase
-        string of desired base of output name, do not include file extension
+    metadata : dataset object
+        dataset from parse
+    imagedata : dict
+        dictionary of np.arrays with string labels as keys.  The primary dataset should
+        be in imagedata[''], while secondary data, such as fieldmap, should be stored in
+        imagedata['_fieldmap'].
+    outbase : string
+        base of name to use
+    filetype : string
+        string name of writer to use
 
     Returns
     -------
-    None
+    output_list : list
+        list of created output filepaths
+
+    Examples
+    --------
+    convert dicom.tgz to dicoms.nii.gz
+
+    .. code-block:: python
+
+        import nimsdata
+        ds = nimsdata.parse('dicoms.tgz', load_data=False, filetype='dicom')
+        ds.load_data()
+        nimsdata.write(ds, ds.data, outbase, filetype='nifti')
+
     """
-    if ds.data is None:
-        ds = load_data(ds)
-    result = ds.convert(outbase)
-    return result
+    if not filetype:
+        raise NIMSDataError('filetype cannot be None')
+
+    nimswriter = get_handler(filetype, WRITERS)
+    # think about this return value. what does the processor really need?
+    output_list = nimswriter.write(metadata, imagedata, outbase, **kwargs)
+    log.debug('generated: %s' % str(output_list))
+    return output_list

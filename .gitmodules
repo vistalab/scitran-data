@@ -1,0 +1,9 @@
+[submodule "pfile"]
+	path = pfile
+	url = git@github.com:cni/pfile.git
+[submodule "mux_epi_recon"]
+	path = mux_epi_recon
+	url = git@github.com:cni/mux_epi_recon
+[submodule "spiral_recon"]
+	path = spiral_recon
+	url = git@github.com:cni/spiral_recon
