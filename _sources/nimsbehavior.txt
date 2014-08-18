@@ -1,0 +1,8 @@
+nimsdata.nimsbehavior module
+----------------------------
+
+.. automodule:: nimsdata.nimsbehavior
+    :members:
+    :undoc-members:
+    :show-inheritance:
+

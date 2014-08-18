@@ -1,0 +1,8 @@
+Module contents
+---------------
+
+.. automodule:: nimsdata
+    :members:
+    :undoc-members:
+    :show-inheritance:
+

@@ -1,0 +1,159 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Extending NIMSData &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="index.html" />
+    <link rel="next" title="API Documentation" href="api_documentation.html" />
+    <link rel="prev" title="Python Tutorial" href="python_tutorial.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api_documentation.html" title="API Documentation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="python_tutorial.html" title="Python Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="extending-nimsdata">
+<h1>Extending NIMSData<a class="headerlink" href="#extending-nimsdata" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="creating-a-custom-nimsreader">
+<h2>Creating a custom NIMSReader<a class="headerlink" href="#creating-a-custom-nimsreader" title="Permalink to this headline">¶</a></h2>
+<p>Readers generally have three specific roles</p>
+<ol class="arabic simple">
+<li>be capable of reading a specific filetype, e.g. dicom, nifti.</li>
+<li>be capable of parsing metadata necessary for identification and sorting, defined in __init__</li>
+<li>be capable of converting the data to a specified intermediate format, defined in load_data</li>
+</ol>
+<p>Readers may manipulate the file they are working on, e.g. NIMSdicom anonymizing patient information of it&#8217;s own dicoms.</p>
+<p>Readers, being readers, should generally avoid:</p>
+<ol class="arabic simple">
+<li>writing a filetype other than their own, e.g. NIMSDicom attempting to write a nifti</li>
+<li>other restriction...</li>
+</ol>
+<p>NIMSReader should be subclasses to add support for additional scientific data domains/types.</p>
+<p>For Example, NIMSMRReader and NIMSMRWriters are subclasses of NIMSReader and NIMSWriter, respectively.  The subclasses
+add MR data specific properties and functions.  NIMSDicom and NIMSPFile are subclasses of NIMSMRReader, that add
+more specific functions with respect to their datatypes.</p>
+</div>
+<div class="section" id="creating-a-custom-nimswriter">
+<h2>Creating a custom NIMSWriter<a class="headerlink" href="#creating-a-custom-nimswriter" title="Permalink to this headline">¶</a></h2>
+<p>Subclasses of NIMSWriter should stick to the following conventions:</p>
+<p>1. NIMSWriter appends its own file extension.  The writer can optionally append a name suffix
+to differentiate different types of outputs, or differentiate multiple outputs.</p>
+<p>NIMS intermediate formats are always a dictionary of data.  each intermediate format is relatively
+unique to each data domain.  see NIMSMRReader and NIMSMRWriter...</p>
+<p>add instructions for subclassing NIMSWriter.</p>
+</div>
+<div class="section" id="creating-a-data-domain">
+<h2>Creating a data domain<a class="headerlink" href="#creating-a-data-domain" title="Permalink to this headline">¶</a></h2>
+<p>Is &#8216;data domain&#8217; okay name for categories of data that can share an intermediate data format, such as &#8220;MR&#8221;, or  &#8220;Genetics&#8221;?</p>
+<p>These data domains would define compatibility between readers and writers.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Extending NIMSData</a><ul>
+<li><a class="reference internal" href="#creating-a-custom-nimsreader">Creating a custom NIMSReader</a></li>
+<li><a class="reference internal" href="#creating-a-custom-nimswriter">Creating a custom NIMSWriter</a></li>
+<li><a class="reference internal" href="#creating-a-data-domain">Creating a data domain</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="python_tutorial.html"
+                        title="previous chapter">Python Tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="api_documentation.html"
+                        title="next chapter">API Documentation</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/extending_nimsdata.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api_documentation.html" title="API Documentation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="python_tutorial.html" title="Python Tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

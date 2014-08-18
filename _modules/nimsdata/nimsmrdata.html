@@ -1,0 +1,968 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.nimsmrdata &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
+    <link rel="up" title="nimsdata" href="../nimsdata.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" accesskey="U">nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.nimsmrdata</h1><div class="highlight"><pre>
+<span class="c"># @author:  Gunnar Schaefer</span>
+<span class="c">#           Bob Dougherty</span>
+<span class="c">#           Kevin S Hahn</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">nimsdata.nimsmrdata</span>
+<span class="sd">===================</span>
+
+<span class="sd">Provides base class, and functions that apply to Magnetic Resonsnace (MR) data.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">bson</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dcmstack</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">nimsdata</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="n">scan_types</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s">&#39;spectroscopy&#39;</span><span class="p">,</span>
+        <span class="s">&#39;perfusion&#39;</span><span class="p">,</span>
+        <span class="s">&#39;shim&#39;</span><span class="p">,</span>
+        <span class="s">&#39;diffusion&#39;</span><span class="p">,</span>
+        <span class="s">&#39;fieldmap&#39;</span><span class="p">,</span>
+        <span class="s">&#39;functional&#39;</span><span class="p">,</span>
+        <span class="s">&#39;calibration&#39;</span><span class="p">,</span>
+        <span class="s">&#39;localizer&#39;</span><span class="p">,</span>
+        <span class="s">&#39;anatomy_t1w&#39;</span><span class="p">,</span>
+        <span class="s">&#39;anatomy_t2w&#39;</span><span class="p">,</span>
+        <span class="s">&#39;anatomy&#39;</span><span class="p">,</span>
+        <span class="s">&#39;unknown&#39;</span><span class="p">,</span>
+        <span class="p">]</span>
+<span class="n">scan_types</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="s">&#39;Enum&#39;</span><span class="p">,</span> <span class="p">(</span><span class="nb">object</span><span class="p">,),</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scan_types</span><span class="p">,</span> <span class="n">scan_types</span><span class="p">),</span> <span class="nb">all</span><span class="o">=</span><span class="n">scan_types</span><span class="p">))</span>
+
+
+<span class="c"># NIFITI1-style slice order codes:</span>
+<span class="n">SLICE_ORDER_UNKNOWN</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">SLICE_ORDER_SEQ_INC</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">SLICE_ORDER_SEQ_DEC</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">SLICE_ORDER_ALT_INC</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">SLICE_ORDER_ALT_DEC</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">SLICE_ORDER_ALT_INC2</span> <span class="o">=</span> <span class="mi">5</span>        <span class="c"># interleaved, increased, starting at 2nd MRI slice</span>
+<span class="n">SLICE_ORDER_ALT_DEC2</span> <span class="o">=</span> <span class="mi">6</span>        <span class="c"># interleave, decreasing, starting at one before last MRI slice</span>
+
+
+<div class="viewcode-block" id="compute_rotation"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.compute_rotation">[docs]</a><span class="k">def</span> <span class="nf">compute_rotation</span><span class="p">(</span><span class="n">row_cos</span><span class="p">,</span> <span class="n">col_cos</span><span class="p">,</span> <span class="n">slice_norm</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute rotation given row cosines, column cosines and slice norm.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    row_cos : np.array</span>
+<span class="sd">        numpy array of 3 floats</span>
+<span class="sd">    col_cos : np.array</span>
+<span class="sd">        numpy array of 3 floats</span>
+<span class="sd">    slice_norm : np.array</span>
+<span class="sd">        numpy array of 3 floats</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    rot : np.array</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">(((</span><span class="o">-</span><span class="n">row_cos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">col_cos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span><span class="n">slice_norm</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                     <span class="p">(</span><span class="o">-</span><span class="n">row_cos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">col_cos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="o">-</span><span class="n">slice_norm</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                     <span class="p">(</span><span class="n">row_cos</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">col_cos</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">slice_norm</span><span class="p">[</span><span class="mi">2</span><span class="p">])),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rot</span>
+
+</div>
+<div class="viewcode-block" id="build_affine"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.build_affine">[docs]</a><span class="k">def</span> <span class="nf">build_affine</span><span class="p">(</span><span class="n">rotation</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">origin</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute affine matrix given rotation, scaling, and origin.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rotation : np.array</span>
+<span class="sd">        rotation</span>
+<span class="sd">    scale : np.array</span>
+<span class="sd">        scale factor</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    aff : np.array [4x4]</span>
+<span class="sd">        affine matrix</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">aff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+    <span class="n">aff</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">rotation</span>
+    <span class="n">aff</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">origin</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">aff</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">aff</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">scale</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">aff</span>
+
+</div>
+<div class="viewcode-block" id="adjust_bvecs"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.adjust_bvecs">[docs]</a><span class="k">def</span> <span class="nf">adjust_bvecs</span><span class="p">(</span><span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span><span class="p">,</span> <span class="n">vendor</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Compute bvec and bvals given bvecs, bvals and rotation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bvecs : list of floats</span>
+<span class="sd">        b vectors, extracted once per volume</span>
+<span class="sd">    bvals : list of floats</span>
+<span class="sd">        b value, extracted once per volume</span>
+<span class="sd">    vendor : str</span>
+<span class="sd">        manufacturer, exactly as it is in the dicom</span>
+<span class="sd">    rotation: np.array</span>
+<span class="sd">        rotation</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (bvecs, bvals) : tuple(list of floats, list of floats)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span> <span class="o">=</span> <span class="n">scale_bvals</span><span class="p">(</span><span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span><span class="p">)</span>
+    <span class="c"># TODO: Uncomment the following when we are ready to fix the bvec flip issue:</span>
+    <span class="c"># if vendor.lower().startswith(&#39;ge&#39;) and rotation != None:</span>
+    <span class="c">#   log.debug(&#39;rotating bvecs with image orientation matrix&#39;)</span>
+    <span class="c">#   bvecs,bvals = rotate_bvecs(bvecs, bvals, rotation)</span>
+    <span class="c"># else:</span>
+    <span class="c">#   bvecs,bvals = rotate_bvecs(bvecs, bvals, np.diag((-1.,-1.,1.)))</span>
+    <span class="k">return</span> <span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span>
+
+</div>
+<div class="viewcode-block" id="scale_bvals"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.scale_bvals">[docs]</a><span class="k">def</span> <span class="nf">scale_bvals</span><span class="p">(</span><span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Scale the b-values given non-unit-lengh bvecs.</span>
+
+<span class="sd">    Scale the b-values in bvals given non-unit-length bvecs. E.g., if the magnitude a</span>
+<span class="sd">    bvec is 0.5, the corresponding bvalue will be scaled by 0.5^2. The bvecs are also</span>
+<span class="sd">    scaled to be unit-length. Returns the adjusted bvecs and bvals.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bvecs : list of floats</span>
+<span class="sd">        b-vector list</span>
+<span class="sd">    bvals : list of floats</span>
+<span class="sd">        b-value list</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (bvecs, bvals) : tuple(list of floats, list of floats)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">bvecs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">bvals</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c"># if bvecs and bvals are all zeros, then there is no need to scale or rotate</span>
+        <span class="n">sqmag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">bv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bv</span><span class="p">)</span> <span class="k">for</span> <span class="n">bv</span> <span class="ow">in</span> <span class="n">bvecs</span><span class="o">.</span><span class="n">T</span><span class="p">])</span>
+        <span class="c"># The bvecs are generally stored with 3 decimal values. So, we get significant fluctuations in the</span>
+        <span class="c"># sqmag due to rounding error. To avoid spurious adjustments to the bvals, we round the sqmag based</span>
+        <span class="c"># on the number of decimal values.</span>
+        <span class="c"># TODO: is there a more elegant way to determine the number of decimals used?</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">num_decimals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">bvecs</span> <span class="o">-</span> <span class="n">bvecs</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">decimals</span><span class="o">=</span><span class="n">d</span><span class="p">)))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">9</span><span class="p">)])[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="c"># the bvecs don&#39;t have ANY decimals, and thus a rounding threshold cannot be set</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;there are no decimals, cannot intelligently scale bvecs/bvals&#39;</span><span class="p">)</span>
+            <span class="n">num_decimals</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">sqmag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">sqmag</span><span class="p">,</span> <span class="n">decimals</span><span class="o">=</span><span class="n">num_decimals</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">bvals</span> <span class="o">*=</span> <span class="n">sqmag</span>            <span class="c"># Scale each bval by the squared magnitude of the corresponding bvec</span>
+        <span class="n">sqmag</span><span class="p">[</span><span class="n">sqmag</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>  <span class="c"># Avoid divide-by-zero</span>
+        <span class="n">bvecs</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">sqmag</span><span class="p">)</span>   <span class="c"># Normalize each bvec to unit length</span>
+    <span class="k">return</span> <span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span>
+
+</div>
+<div class="viewcode-block" id="rotate_bvecs"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.rotate_bvecs">[docs]</a><span class="k">def</span> <span class="nf">rotate_bvecs</span><span class="p">(</span><span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span><span class="p">,</span> <span class="n">rotation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Rotate diffusion gradient directions (bvecs) based on the 3x3 rotation matrix.</span>
+
+<span class="sd">    Returns the adjusted bvecs and bvals.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    bvecs : list of floats</span>
+<span class="sd">        b-vector list</span>
+<span class="sd">    bvals : list of floats</span>
+<span class="sd">        b-value list</span>
+<span class="sd">    rotation : 3x3 np array</span>
+<span class="sd">        rotation matrix</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ------</span>
+<span class="sd">    (bvecs, bvals) : tuple(list of floats, list of floats)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">(</span><span class="n">rotation</span><span class="p">)</span> <span class="o">*</span> <span class="n">bvecs</span><span class="p">)</span>
+    <span class="c"># Normalize each bvec to unit length</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">bv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">bv</span><span class="p">)</span> <span class="k">for</span> <span class="n">bv</span> <span class="ow">in</span> <span class="n">bvecs</span><span class="o">.</span><span class="n">T</span><span class="p">]))</span>
+    <span class="n">norm</span><span class="p">[</span><span class="n">norm</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>  <span class="c"># Avoid divide-by-zero</span>
+    <span class="n">bvecs</span> <span class="o">/=</span> <span class="n">norm</span>
+    <span class="k">return</span> <span class="n">bvecs</span><span class="p">,</span> <span class="n">bvals</span>
+
+</div>
+<div class="viewcode-block" id="infer_psd_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.infer_psd_type">[docs]</a><span class="k">def</span> <span class="nf">infer_psd_type</span><span class="p">(</span><span class="n">manufacturer</span><span class="p">,</span> <span class="n">psd_name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Infer the psd type based on the manufacturer and psd name.</span>
+
+<span class="sd">    This heuristic is entirely based on parsing the name.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    manufacturer : str</span>
+<span class="sd">        manufacturer, the same as it is contained within dicom</span>
+<span class="sd">    psd_name : str</span>
+<span class="sd">        psd_name, the sme as it is contained within the dicom</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    psd_type : str</span>
+<span class="sd">        psd category</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;unknown&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">psd_name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">psd_type</span>
+
+    <span class="n">psd_name</span> <span class="o">=</span> <span class="n">psd_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;GE MEDICAL SYSTEMS&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s">&#39;service&#39;</span> <span class="ow">in</span> <span class="n">psd_name</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;service&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;sprt&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;spiral&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;sprl_hos&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;hoshim&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;basic&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;basic&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;mux&#39;</span> <span class="ow">in</span> <span class="n">psd_name</span><span class="p">:</span>  <span class="c"># multi-band EPI!</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;muxepi&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;epi&#39;</span> <span class="ow">in</span> <span class="n">psd_name</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;epi&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;probe-mega&#39;</span><span class="p">,</span> <span class="s">&#39;gaba_ss_cni&#39;</span><span class="p">]:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;mrs&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;asl&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;asl&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;bravo&#39;</span><span class="p">,</span> <span class="s">&#39;3dgrass&#39;</span><span class="p">]:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;spgr&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;fgre&#39;</span> <span class="ow">in</span> <span class="n">psd_name</span><span class="p">:</span>        <span class="c"># also want to catch efgre3d</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;gre&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;ssfse&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;fse&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;cube&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;cube&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;unknown&#39;</span>
+    <span class="k">elif</span> <span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;SIEMENS&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">tse_vfl&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;tse&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">ep2d_diff&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;epi&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">ep2d_bold&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;epi&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">ep2d_asl&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;asl&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">gre&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;gre&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">tfl&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;tfl&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">iemensseq%</span><span class="se">\\</span><span class="s">gre_field_mapping&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;gre&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">erviceseq%</span><span class="se">\\</span><span class="s">rf_noise&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span>  <span class="s">&#39;service&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%c</span><span class="s">ustomerseq%</span><span class="se">\\</span><span class="s">ep2d_pasl&#39;</span><span class="p">):</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;asl&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%c</span><span class="s">ustomerseq%</span><span class="se">\\</span><span class="s">ep2d&#39;</span><span class="p">):</span>
+            <span class="c"># %CustomerSeq%\ep2d_advdiff_511E</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;epi&#39;</span>
+        <span class="k">elif</span> <span class="n">psd_name</span> <span class="o">==</span> <span class="s">&#39;</span><span class="si">%c</span><span class="s">ustomerseq%</span><span class="se">\\</span><span class="s">wip711_moco</span><span class="se">\\</span><span class="s">tfl_multiecho_epinav_711&#39;</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;tfl&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">psd_type</span> <span class="o">=</span> <span class="s">&#39;unknown&#39;</span>
+
+    <span class="k">return</span> <span class="n">psd_type</span>
+
+
+<span class="c"># TODO: infer_scan_type should be broken down by manufacturer for maintainability</span>
+<span class="c"># screensave, tensor and csa don&#39;t really matter here, mark them as &#39;nonstandard&#39;?</span></div>
+<div class="viewcode-block" id="infer_scan_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.infer_scan_type">[docs]</a><span class="k">def</span> <span class="nf">infer_scan_type</span><span class="p">(</span><span class="n">psd_type</span><span class="p">,</span> <span class="n">num_timepoints</span><span class="p">,</span> <span class="n">te</span><span class="p">,</span> <span class="n">fov</span><span class="p">,</span> <span class="n">mm_per_vox</span><span class="p">,</span> <span class="n">is_dwi</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">is_localizer</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Infer scan type, based on metadata.</span>
+
+<span class="sd">    Some scan types, such as localizer and DWI, can be positively identified if examining</span>
+<span class="sd">    all the dicoms from a scan series.  Special params for positive identification can be used</span>
+<span class="sd">    to &quot;shortcut&quot;, these args default to None.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    psd_type : str</span>
+<span class="sd">        psd type, as output by infer_psd_type()</span>
+<span class="sd">    num_timepoints : int</span>
+<span class="sd">        repetitions, link to MR definition</span>
+<span class="sd">    te : float</span>
+<span class="sd">        echo time, link to MR definition</span>
+<span class="sd">    fov : list, 2 item</span>
+<span class="sd">    mm_per_vox : list, 3 item</span>
+<span class="sd">        voxel size, link to MR definition</span>
+<span class="sd">    is_dwi : boolean</span>
+<span class="sd">        boolean indicate if this scan is diffusion weight image</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    scan_type : str</span>
+<span class="sd">        category of scan type</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">unknown</span>
+    <span class="k">if</span> <span class="n">is_dwi</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">diffusion</span>
+    <span class="k">elif</span> <span class="n">is_localizer</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">localizer</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;mrs&#39;</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">spectroscopy</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;asl&#39;</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">perfusion</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;hoshim&#39;</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">shim</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;spiral&#39;</span> <span class="ow">and</span> <span class="n">num_timepoints</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">te</span> <span class="o">&lt;</span> <span class="o">.</span><span class="mo">05</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">fieldmap</span>
+    <span class="k">elif</span> <span class="s">&#39;epi&#39;</span> <span class="ow">in</span> <span class="n">psd_type</span> <span class="ow">and</span> <span class="n">te</span> <span class="o">&gt;</span> <span class="mf">0.02</span> <span class="ow">and</span> <span class="n">te</span> <span class="o">&lt;</span> <span class="mf">0.05</span> <span class="ow">and</span> <span class="n">num_timepoints</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">functional</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;gre&#39;</span> <span class="ow">or</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;fse&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">fov</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">240.</span> <span class="ow">and</span> <span class="n">fov</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">240.</span> <span class="ow">and</span> <span class="n">mm_per_vox</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">4.5</span><span class="p">:</span>
+        <span class="c"># Could be a low-res calibration scan (e.g., ASSET cal).</span>
+        <span class="c"># this provides an alternative way to identify localizer from a single dcm.</span>
+        <span class="c"># is_localier requires all dicoms in a scan acquisition.</span>
+        <span class="k">if</span> <span class="n">mm_per_vox</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">2.</span><span class="p">:</span>
+            <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">calibration</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">localizer</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;spgr&#39;</span><span class="p">,</span> <span class="s">&#39;tfl&#39;</span><span class="p">]:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">anatomy_t1w</span>
+    <span class="k">elif</span> <span class="n">psd_type</span> <span class="o">==</span> <span class="s">&#39;cube&#39;</span><span class="p">:</span>
+        <span class="n">scan_type</span> <span class="o">=</span> <span class="n">scan_types</span><span class="o">.</span><span class="n">anatomy_t2w</span>
+    <span class="k">return</span> <span class="n">scan_type</span>
+
+</div>
+<div class="viewcode-block" id="NIMSMRDataError"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRDataError">[docs]</a><span class="k">class</span> <span class="nc">NIMSMRDataError</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSDataError</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+</div>
+<div class="viewcode-block" id="NIMSMRReader"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader">[docs]</a><span class="k">class</span> <span class="nc">NIMSMRReader</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSReader</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base MR data reader class.</span>
+
+<span class="sd">    A NIMSMRReader object will have a few special attributes that must be defined in order</span>
+<span class="sd">    to proceed to writing.</span>
+<span class="sd">    ds.data = {&#39;imagedata&#39;: None&#39;}      # must have at least this, which contains the primary imagedata</span>
+
+<span class="sd">    in some cases, scans might have &quot;supporting&quot; or &quot;auxillary&quot; data that should also be writtten out.</span>
+<span class="sd">    in these cases, the data is included in the dicionary under a different key name.</span>
+
+<span class="sd">    for example, a scan that has both imagedata and fieldmap_data would define ds.data as</span>
+<span class="sd">    `ds.data = {&#39;imagedata&#39;: voxeldata, &#39;fieldmap_data&#39;: fm_voxeldata}`</span>
+
+<span class="sd">    NIMSMRReaders assume that multiple data values have the same metadata; the metadata applies to</span>
+<span class="sd">    all of the included voxel arrays in ds.data.</span>
+
+<span class="sd">    This is especially useful in cases like multicoil data, images with included B0 (fieldmap).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        path to input file</span>
+<span class="sd">    load_data : boolean</span>
+<span class="sd">        indicate if a reader should attempt to immediately load all data. default False.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span>
+
+    <span class="n">_session_properties</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;exam_uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;exam_uid&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;DICOM UID&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;exam&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;exam_no&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Exam Number&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;patient_id&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;patient_id&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Patient ID&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;subject&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;firstname&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_firstname&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;First Name&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;lastname&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_lastname&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Last Name&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;dob&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_dob&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Date of Birth&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;format&#39;</span><span class="p">:</span> <span class="s">&#39;date&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;sex&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_sex&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Sex&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;enum&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;male&#39;</span><span class="p">,</span> <span class="s">&#39;female&#39;</span><span class="p">],</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s">&#39;instrument&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Instrument&#39;</span><span class="p">,</span> <span class="c"># FIXME: should be surrounded by an array of multiple instruments</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;manufacturer&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;manufacturer&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Manufacturer&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;model&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;manufacturer_model&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Model&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;scanner_name&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;ID&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">session_properties</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">dict_merge</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSReader</span><span class="o">.</span><span class="n">session_properties</span><span class="p">,</span> <span class="n">_session_properties</span><span class="p">)</span>
+
+    <span class="n">_epoch_properties</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;series_uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;series_uid&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;DICOM UID&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;series&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;series_no&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Series&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;acquisition&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acq_no&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Acquisition&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;psd&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;psd_name&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;PSD&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;tr&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;tr&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Tr&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;te&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;te&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Te&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;ti&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;ti&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Ti&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;flip_angle&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;flip_angle&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Flip Angle&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;pixel_bandwidth&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;pixel_bandwidth&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Pixel Bandwidth&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_averages&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_averages&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Averages&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_bands&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_bands&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Bands&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_echos&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_echos&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Echos&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_slices&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_slices&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Slices&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_timepoints&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_timepoints&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Time Points&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;rx_coil&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;receive_coil_name&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Coil&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;num_receivers&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_receivers&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Receivers&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;protocol&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;protocol_name&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Protocol&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;size&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Size&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;size_x&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;size_y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s">&#39;fov&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Field of View&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;fov_x&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;fov_y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s">&#39;mm_per_voxel&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;mm per Voxel&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_x&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_x&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;z&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_z&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Z&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s">&#39;effective_echo_spacing&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;effective_echo_spacing&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Effective Echo Spacing&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;duration&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;duration&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Duration&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;prescribed_duration&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;prescribed_duration&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Prescribed Duration&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;slice_encode_undersample&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;slice_encode_undersample&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Slice Encode Undersample&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;phase_encode_undersample&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;phase_encode_undersample&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Phase Encode Undersample&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;device&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;scanner_name&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Device&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;acquisition_matrix&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Acquisition Matrix&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acquisition_matrix_x&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acquisition_matrix_y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">}</span>
+    <span class="n">epoch_properties</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">dict_merge</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSReader</span><span class="o">.</span><span class="n">epoch_properties</span><span class="p">,</span> <span class="n">_epoch_properties</span><span class="p">)</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSMRReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">)</span>
+        <span class="c"># this is where a bunch of neutral/null values that are consistent across MR</span>
+        <span class="c"># set them as default values in this class?</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+<div class="viewcode-block" id="NIMSMRReader.load_data"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSMRReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_group_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_group_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_group_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_name</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_experiment"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_experiment">[docs]</a>    <span class="k">def</span> <span class="nf">nims_experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_name</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_session_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_session_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exam_uid</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_epoch_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">series_uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_screenshot</span><span class="p">:</span>
+            <span class="n">front</span><span class="p">,</span> <span class="n">back</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">series_uid</span> <span class="o">=</span> <span class="n">front</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">back</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>       <span class="c"># don&#39;t change real series_uid</span>
+        <span class="k">return</span> <span class="n">series_uid</span> <span class="o">+</span> <span class="p">(</span><span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="s">&#39;original&#39;</span><span class="p">,</span> <span class="s">&#39;mri&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_filename"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_filename">[docs]</a>    <span class="k">def</span> <span class="nf">nims_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nims_epoch_id</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_file_ext"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_timestamp"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span>  <span class="c"># FIXME: use pytz</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_timezone"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>  <span class="c"># FIXME</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_session_label"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M&#39;</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_session_subject"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_session_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_session_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>  <span class="c"># FIXME</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_epoch_label"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%d</span><span class="s">.</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_epoch_description"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_desc</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSMRReader.nims_epoch_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span>
+</div>
+    <span class="k">def</span> <span class="nf">_get_mm_per_vox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_mm_per_vox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">mm_per_vox</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_mm_per_vox</span><span class="p">,</span> <span class="n">_set_mm_per_vox</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_y</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_size</span><span class="p">,</span> <span class="n">_set_size</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_acquisition_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_acquisition_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">acquisition_matrix</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_acquisition_matrix</span><span class="p">,</span> <span class="n">_set_acquisition_matrix</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_fov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fov_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_fov</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fov_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov_y</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">fov</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_fov</span><span class="p">,</span> <span class="n">_set_fov</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NIMSMRReader.parse_patient_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.parse_patient_id">[docs]</a>    <span class="k">def</span> <span class="nf">parse_patient_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">patient_id</span><span class="p">,</span> <span class="n">default_subj_code</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a subject code, group name and experiment name from patient_id.</span>
+
+<span class="sd">        If the patient id does not contain a subject code, rely on default (exam no).</span>
+
+<span class="sd">        Expects formatting</span>
+<span class="sd">        subjcode@group_name/experiment_name</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        patient_id : str</span>
+<span class="sd">            patient_id string from dicom tag (0x10,0x20), &#39;PatientID&#39;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        subj_code : str</span>
+<span class="sd">            string of subject identifer</span>
+<span class="sd">        group_name : str</span>
+<span class="sd">            string of group name</span>
+<span class="sd">        experiment_name : str</span>
+<span class="sd">            string of experiment name</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subj_code</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">group_name</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">exp_name</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">patient_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">default_subj_code</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">subj_code</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">lab_info</span> <span class="o">=</span> <span class="n">patient_id</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">punctuation</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">whitespace</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s">&#39;@&#39;</span><span class="p">)</span>
+            <span class="n">group_name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exp_name</span> <span class="o">=</span> <span class="n">lab_info</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">subj_code</span> <span class="ow">or</span> <span class="n">default_subj_code</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">exp_name</span>
+</div>
+<div class="viewcode-block" id="NIMSMRReader.parse_subject_name"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.parse_subject_name">[docs]</a>    <span class="k">def</span> <span class="nf">parse_subject_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse subject name.</span>
+
+<span class="sd">        TODO: accepts a list of delimiters. if none are provided, default list is used</span>
+
+<span class="sd">        expects &quot;lastname&quot; + &quot;delimiter&quot; + &quot;firstname&quot;.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            string of subject first and last name, delimited by a &#39;^&#39; or &#39; &#39;</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        firstname : str</span>
+<span class="sd">            first name parsed from name</span>
+<span class="sd">        lastname : str</span>
+<span class="sd">            last name parsed from name</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># TODO: make configurable or include more delimit chars</span>
+        <span class="n">firstname</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">lastname</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="s">&#39;^&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">lastname</span><span class="p">,</span> <span class="n">firstname</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;^&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>        <span class="c"># GE</span>
+            <span class="k">elif</span> <span class="s">&#39; &#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="n">firstname</span> <span class="o">=</span> <span class="n">firstname</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+            <span class="n">lastname</span> <span class="o">=</span> <span class="n">lastname</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span>
+</div>
+<div class="viewcode-block" id="NIMSMRReader.parse_subject_dob"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.parse_subject_dob">[docs]</a>    <span class="k">def</span> <span class="nf">parse_subject_dob</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dob</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse date string and sanity check.</span>
+
+<span class="sd">        expects date string in YYYYMMDD format</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        dob : str</span>
+<span class="sd">            dob as string YYYYMMDD</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dob : datetime object</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dob</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">dob</span><span class="p">,</span> <span class="s">&#39;%Y%m</span><span class="si">%d</span><span class="s">&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dob</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">dob</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">return</span> <span class="n">dob</span>
+</div>
+<div class="viewcode-block" id="NIMSMRReader.infer_scan_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRReader.infer_scan_type">[docs]</a>    <span class="k">def</span> <span class="nf">infer_scan_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Infer the scan type given common scan parameters.</span>
+
+<span class="sd">        Invokes either infer_scan_type_one or infer_scan_type_all, if data is loaded.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        None</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        scan_type : str</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">infer_scan_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">psd_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_timepoints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">te</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dwi</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_localizer</span><span class="p">)</span>
+
+</div></div>
+<div class="viewcode-block" id="NIMSMRWriter"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRWriter">[docs]</a><span class="k">class</span> <span class="nc">NIMSMRWriter</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSWriter</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base MR data writer class.</span>
+
+<span class="sd">    Cannot be instantiated.  This class serves as a container for static and class methods</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="NIMSMRWriter.reorder_voxels"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRWriter.reorder_voxels">[docs]</a>    <span class="k">def</span> <span class="nf">reorder_voxels</span><span class="p">(</span><span class="n">imagedata</span><span class="p">,</span> <span class="n">qto_xyz</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reorder voxel data to the specified voxel_order.</span>
+
+<span class="sd">        Does not directly manipulate imagedata or qto_xyz.</span>
+<span class="sd">        Returns manipulated copies of imagedata and qto_xyz.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        imagedata : np.array</span>
+<span class="sd">            single np.array of image data</span>
+<span class="sd">        qto_xyz : np.matrix, 4x4</span>
+<span class="sd">            patient space</span>
+<span class="sd">        voxel_order : str, 3 char</span>
+<span class="sd">            3 character voxel order string, such as &#39;LPS&#39; or &#39;RAI&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">new_data</span><span class="p">,</span> <span class="n">new_qto_xyz</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">reorder_voxels</span><span class="p">(</span><span class="n">imagedata</span><span class="p">,</span> <span class="n">qto_xyz</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_data</span><span class="p">,</span> <span class="n">new_qto_xyz</span>
+</div>
+    <span class="nd">@nimsdata.abstractclassmethod</span>
+<div class="viewcode-block" id="NIMSMRWriter.write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsmrdata.NIMSMRWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSMRWriter</span><span class="p">,</span> <span class="n">cls</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" >nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

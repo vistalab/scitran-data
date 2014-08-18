@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.nimspfile module &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-nimsdata.nimspfile">
+<span id="nimsdata-nimspfile-module"></span><h1>nimsdata.nimspfile module<a class="headerlink" href="#module-nimsdata.nimspfile" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="nimspfile">
+<h2>NIMSPFile<a class="headerlink" href="#nimspfile" title="Permalink to this headline">¶</a></h2>
+<p>This module provides functions, classes and errors for reading for
+minimally parsing a pfile.  Additional modules can be used to
+full parse the pfiles.</p>
+<p>NIMSPfile provides parsing and conversion for GE MR Raw files, affectionattely
+referred to as &#8216;PFiles&#8217;.</p>
+<dl class="class">
+<dt id="nimsdata.nimspfile.NIMSPFile">
+<em class="property">class </em><tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">NIMSPFile</tt><big>(</big><em>filepath</em>, <em>load_data=False</em>, <em>full_parse=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="nimsmrdata.html#nimsdata.nimsmrdata.NIMSMRReader" title="nimsdata.nimsmrdata.NIMSMRReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRReader</span></tt></a></p>
+<p>Read pfile data and/or header.</p>
+<p>This class reads the data and/or header from a pfile, runs k-space reconstruction,
+and generates a NIfTI object, including header information.</p>
+<p>NIMSPFile object can handle several different input types
+.tgz of directory containing Pfile, auxillary files such as ref.dat, vrgf.dat and tensor.dat
+.gz of single pfile</p>
+<p>the old way is no longer supported.
+Pfile.gz + _Pfile.7_ref.dat + _PFile.7._vrgf.dat _PFile.7_refscan.7, _P02048.7_param.dat</p>
+<p>NOTE: does nimspfile.NIMSPFile need to be backward compatible with nimsraw.NIMSPFile?</p>
+<dl class="docutils">
+<dt>Example:</dt>
+<dd>import pfile
+pf = pfile.PFile(filename=&#8217;P56832.7&#8217;)
+pf.to_nii(outbase=&#8217;P56832.7&#8217;)</dd>
+</dl>
+<dl class="attribute">
+<dt id="nimsdata.nimspfile.NIMSPFile.canonical_filename">
+<tt class="descname">canonical_filename</tt><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.canonical_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.canonical_filename" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimspfile.NIMSPFile.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'pfile'</em><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.filetype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.find_mux_cal_file">
+<tt class="descname">find_mux_cal_file</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.find_mux_cal_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.find_mux_cal_file" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.get_bvecs_bvals">
+<tt class="descname">get_bvecs_bvals</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.get_bvecs_bvals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.get_bvecs_bvals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve tensor file from within tgz archive.</p>
+<p>Tensor file, like other supplementary files, will be located within a tgz</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.get_rawdata">
+<tt class="descname">get_rawdata</tt><big>(</big><em>filepath</em>, <em>slices=None</em>, <em>passes=None</em>, <em>coils=None</em>, <em>echos=None</em>, <em>frames=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.get_rawdata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.get_rawdata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read and return a chunck of data from the p-file.</p>
+<p>Specify the slices, timepoints, coils, and echos that you want.
+None means you get all of them. The default of all Nones will
+return all data.
+(based on <a class="reference external" href="https://github.com/cni/MRS/blob/master/MRS/files.py">https://github.com/cni/MRS/blob/master/MRS/files.py</a>)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.load_data">
+<tt class="descname">load_data</tt><big>(</big><em>num_jobs=8</em>, <em>tempdir=None</em>, <em>num_virtual_coils=16</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.load_imagedata_from_file">
+<tt class="descname">load_imagedata_from_file</tt><big>(</big><em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.load_imagedata_from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.load_imagedata_from_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load raw image data from a file and do some sanity checking on num slices, matrix size, etc.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimspfile.NIMSPFile.parse_priority">
+<tt class="descname">parse_priority</tt><em class="property"> = 5</em><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.parse_priority" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.prep_convert">
+<tt class="descname">prep_convert</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.prep_convert"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.prep_convert" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimspfile.NIMSPFile.priority">
+<tt class="descname">priority</tt><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.priority"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.priority" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_basic">
+<tt class="descname">recon_basic</tt><big>(</big><em>tempdir</em>, <em>num_jobs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_basic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_basic" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_func">
+<tt class="descname">recon_func</tt><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_func"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_func" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_hoshim">
+<tt class="descname">recon_hoshim</tt><big>(</big><em>tempdir</em>, <em>num_jobs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_hoshim"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_hoshim" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_mrs">
+<tt class="descname">recon_mrs</tt><big>(</big><em>filepath</em>, <em>tempdir</em>, <em>num_jobs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_mrs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_mrs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Currently just loads raw spectro data into self.imagedata so that we can save it in a nifti.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_mux_epi">
+<tt class="descname">recon_mux_epi</tt><big>(</big><em>filepath</em>, <em>tempdir</em>, <em>num_jobs</em>, <em>timepoints=</em>, <span class="optional">[</span><span class="optional">]</span><em>octave_bin='octave'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_mux_epi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_mux_epi" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.recon_spirec">
+<tt class="descname">recon_spirec</tt><big>(</big><em>tempdir</em>, <em>num_jobs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.recon_spirec"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.recon_spirec" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do spiral image reconstruction and populate self.imagedata.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimspfile.NIMSPFile.update_imagedata">
+<tt class="descname">update_imagedata</tt><big>(</big><em>imagedata</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFile.update_imagedata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFile.update_imagedata" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="nimsdata.nimspfile.NIMSPFileError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">NIMSPFileError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#NIMSPFileError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.NIMSPFileError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="nimsmrdata.html#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimspfile.get_version">
+<tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">get_version</tt><big>(</big><em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#get_version"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.get_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine the pfile version of the file at filepath.</p>
+<p>An NIMSPFileError exception will be raised if the file is not a valid PFile.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>filepath</strong> : str</p>
+<blockquote>
+<div><p>filepath of file to check</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>version</strong> : str</p>
+<blockquote>
+<div><p>PFile version number of file at filepath</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first"><strong>NIMSPFileError</strong> : Exception</p>
+<blockquote class="last">
+<div><p>error if the file is not a valid PFile</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimspfile.is_gzip">
+<tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">is_gzip</tt><big>(</big><em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#is_gzip"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.is_gzip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert packed PFile UID to standard DICOM UID.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>uid</strong> : str</p>
+<blockquote>
+<div><p>packed PFile UID as a string</p>
+</div></blockquote>
+<p><strong>Returns</strong></p>
+<p><strong>&#8212;&#8212;-</strong></p>
+<p><strong>uid</strong> : str</p>
+<blockquote class="last">
+<div><p>unpacked PFile UID as string</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimspfile.uncompress">
+<tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">uncompress</tt><big>(</big><em>filepath</em>, <em>tempdir</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#uncompress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.uncompress" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uncompress the contents of a tgz, or gz, into a specified tempdir.</p>
+<p>This function might be totally useless.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimspfile.unpack_uid">
+<tt class="descclassname">nimsdata.nimspfile.</tt><tt class="descname">unpack_uid</tt><big>(</big><em>uid</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspfile.html#unpack_uid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspfile.unpack_uid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert packed PFile UID to standard DICOM UID.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>uid</strong> : str</p>
+<blockquote>
+<div><p>packed PFile UID as a string</p>
+</div></blockquote>
+<p><strong>Returns</strong></p>
+<p><strong>&#8212;&#8212;-</strong></p>
+<p><strong>uid</strong> : str</p>
+<blockquote class="last">
+<div><p>unpacked PFile UID as string</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">nimsdata.nimspfile module</a><ul>
+<li><a class="reference internal" href="#nimspfile">NIMSPFile</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/nimspfile.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

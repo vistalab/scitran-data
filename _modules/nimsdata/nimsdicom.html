@@ -1,0 +1,848 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.nimsdicom &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
+    <link rel="up" title="nimsdata" href="../nimsdata.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" accesskey="U">nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.nimsdicom</h1><div class="highlight"><pre>
+<span class="c"># @author:  Gunnar Schaefer</span>
+<span class="c">#           Bob Dougherty</span>
+<span class="c">#           Kevin S Hahn</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">nimsdata.nimsdicom</span>
+<span class="sd">==================</span>
+
+<span class="sd">nimsdicom stuff, extends nimsmrdata, and adds dicom specific parsing routines.</span>
+
+<span class="sd">compatible with any subclass of NIMSMRWriter</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">dicom</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">tarfile</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dcmstack</span>
+<span class="kn">import</span> <span class="nn">cStringIO</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">dcmstack.extract</span>
+<span class="kn">import</span> <span class="nn">nibabel.nicom.csareader</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">nimsmrdata</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">dicom</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">auto_convert_VR_mismatch</span> <span class="o">=</span> <span class="bp">True</span>
+
+<span class="n">MAX_LOC_DCMS</span> <span class="o">=</span> <span class="mi">150</span>           <span class="c"># maximum number of dicoms allowed in a &quot;localizer&quot;</span>
+
+
+<span class="c"># Some of the DTI from Davis and UI have a badly formed header field that results in errors that cause an entire</span>
+<span class="c"># segment of the siemens header to not get parsed.  I, ksh, am not certain if this is an error with a Siemens Protocol,</span>
+<span class="c"># or an error in custom sequence(s).</span>
+<span class="c"># Currently, this problem is local to just one set of tags within the Csa Series Header, &#39;sWiPMemBlock.tFree&#39;</span>
+<div class="viewcode-block" id="parse_phoenix_prot"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.parse_phoenix_prot">[docs]</a><span class="k">def</span> <span class="nf">parse_phoenix_prot</span><span class="p">(</span><span class="n">prot_key</span><span class="p">,</span> <span class="n">prot_val</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse a siemens MrProtocol or MrPhoenixProtocol string.</span>
+
+<span class="sd">    modified from dcmstack, to not bail on an Exception.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">prot_key</span> <span class="o">==</span> <span class="s">&#39;MrPhoenixProtocol&#39;</span><span class="p">:</span>         <span class="c"># syngo B</span>
+        <span class="n">str_delim</span> <span class="o">=</span> <span class="s">&#39;&quot;&quot;&#39;</span>
+    <span class="k">elif</span> <span class="n">prot_key</span> <span class="o">==</span> <span class="s">&#39;MrProtocol&#39;</span><span class="p">:</span>              <span class="c"># syngo A</span>
+        <span class="n">str_delim</span> <span class="o">=</span> <span class="s">&#39;&quot;&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Unknown protocol key: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">prot_key</span><span class="p">)</span>
+    <span class="n">ascconv_start</span> <span class="o">=</span> <span class="n">prot_val</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;### ASCCONV BEGIN ###&#39;</span><span class="p">)</span>
+    <span class="n">ascconv_end</span> <span class="o">=</span> <span class="n">prot_val</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s">&#39;### ASCCONV END ###&#39;</span><span class="p">)</span>
+    <span class="n">ascconv</span> <span class="o">=</span> <span class="n">prot_val</span><span class="p">[</span><span class="n">ascconv_start</span><span class="p">:</span><span class="n">ascconv_end</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">ascconv</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parse_result</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">_parse_phoenix_line</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="n">str_delim</span><span class="p">)</span>    <span class="c"># TODO: wrap in try/except, ALL fails result in continue</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">pass</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">parse_result</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">parse_result</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">parse_result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">result</span>
+
+
+<span class="c"># this function had to be exposed to call to the parse_phoenix_prot above</span>
+<span class="c"># however, it is basically EXACTLY the same as the dcmstack source</span></div>
+<div class="viewcode-block" id="csa_series_trans_func"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.csa_series_trans_func">[docs]</a><span class="k">def</span> <span class="nf">csa_series_trans_func</span><span class="p">(</span><span class="n">elem</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Function for parsing the CSA series sub header element by element.&quot;&quot;&quot;</span>
+    <span class="n">csa_dict</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">simplify_csa_dict</span><span class="p">(</span><span class="n">nibabel</span><span class="o">.</span><span class="n">nicom</span><span class="o">.</span><span class="n">csareader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">elem</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+
+    <span class="c"># If there is a phoenix protocol, parse it and dump it into the csa_dict</span>
+    <span class="n">phx_src</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="s">&#39;MrPhoenixProtocol&#39;</span> <span class="ow">in</span> <span class="n">csa_dict</span><span class="p">:</span>
+        <span class="n">phx_src</span> <span class="o">=</span> <span class="s">&#39;MrPhoenixProtocol&#39;</span>
+    <span class="k">elif</span> <span class="s">&#39;MrProtocol&#39;</span> <span class="ow">in</span> <span class="n">csa_dict</span><span class="p">:</span>
+        <span class="n">phx_src</span> <span class="o">=</span> <span class="s">&#39;MrProtocol&#39;</span>
+
+    <span class="k">if</span> <span class="n">phx_src</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">phoenix_dict</span> <span class="o">=</span> <span class="n">parse_phoenix_prot</span><span class="p">(</span><span class="n">phx_src</span><span class="p">,</span> <span class="n">csa_dict</span><span class="p">[</span><span class="n">phx_src</span><span class="p">])</span>           <span class="c"># THIS</span>
+        <span class="k">del</span> <span class="n">csa_dict</span><span class="p">[</span><span class="n">phx_src</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">phoenix_dict</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="n">new_key</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s">&#39;MrPhoenixProtocol&#39;</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="n">csa_dict</span><span class="p">[</span><span class="n">new_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="k">return</span> <span class="n">csa_dict</span>
+</div>
+<span class="n">csa_series_trans</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">Translator</span><span class="p">(</span>
+        <span class="s">&#39;CsaSeries&#39;</span><span class="p">,</span>
+        <span class="n">dicom</span><span class="o">.</span><span class="n">tag</span><span class="o">.</span><span class="n">Tag</span><span class="p">(</span><span class="mh">0x29</span><span class="p">,</span> <span class="mh">0x1020</span><span class="p">),</span>
+        <span class="s">&#39;SIEMENS CSA HEADER&#39;</span><span class="p">,</span>
+        <span class="n">csa_series_trans_func</span><span class="p">)</span>
+
+
+<span class="c"># do not ignore private tags</span>
+<span class="c"># dcmstack.extract.MetaExtractor uses ignore_non_ascii_bytes, and ignore_private_tags</span>
+<span class="n">NIMSMetaExtractor</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">MetaExtractor</span><span class="p">(</span>
+        <span class="n">ignore_rules</span><span class="o">=</span><span class="p">[</span><span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">ignore_non_ascii_bytes</span><span class="p">],</span>
+        <span class="n">translators</span><span class="o">=</span><span class="p">[</span><span class="n">dcmstack</span><span class="o">.</span><span class="n">extract</span><span class="o">.</span><span class="n">csa_image_trans</span><span class="p">,</span> <span class="n">csa_series_trans</span><span class="p">]</span>
+        <span class="p">)</span>
+
+
+<div class="viewcode-block" id="NIMSStack"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.NIMSStack">[docs]</a><span class="k">class</span> <span class="nc">NIMSStack</span><span class="p">(</span><span class="n">dcmstack</span><span class="o">.</span><span class="n">DicomStack</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;subclass of dcmstack.DicomStack with slightly altered behavior.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_order</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">vector_order</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">allow_dummies</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">meta_filter</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSStack</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">time_order</span><span class="p">,</span> <span class="n">vector_order</span><span class="p">,</span> <span class="n">allow_dummies</span><span class="p">,</span> <span class="n">meta_filter</span><span class="p">)</span>
+        <span class="c"># add sorting item for Siemens multicoil</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sort_guesses</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_guesses</span> <span class="o">+</span> <span class="p">[</span><span class="s">&#39;CsaImage.ImaCoilString&#39;</span><span class="p">]</span>
+
+</div>
+<div class="viewcode-block" id="GEDicom"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.GEDicom">[docs]</a><span class="k">class</span> <span class="nc">GEDicom</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    load all data from a set of GE Dicoms, almost all information is available via non-private tags.</span>
+
+<span class="sd">    Cannot be instantiated.  This object is merely a container for GE specific processing functions.</span>
+
+<span class="sd">    GE saves screenshot of the graphical prescription for each scan, the image contains some useful metadata.</span>
+<span class="sd">    therefore, any missing values should remain MISSING, regardless if they are needed in calculations, to</span>
+<span class="sd">    attempt to ensure correctness.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">GEMS_TYPE_ORIG</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;ORIGINAL&#39;</span><span class="p">,</span> <span class="s">&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">&#39;OTHER&#39;</span><span class="p">]</span>
+    <span class="n">GEMS_TYPE_SCREEN</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">&#39;SECONDARY&#39;</span><span class="p">,</span> <span class="s">&#39;SCREEN SAVE&#39;</span><span class="p">]</span>
+    <span class="n">GEMS_DERIVED_RFMT</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">&#39;SECONDARY&#39;</span><span class="p">,</span> <span class="s">&#39;REFORMATTED&#39;</span><span class="p">,</span> <span class="s">&#39;AVERAGE&#39;</span><span class="p">]</span>
+    <span class="c"># GEMS derived reformatted average is some sort of sub selection of images from a previous scan.  The dicoms have</span>
+    <span class="c"># partial metadata, but may have variation in PixelSpacing that prevents dcmstack from creating a stack.  Identify</span>
+    <span class="c"># these types of files early on, and mark as non-image.</span>
+
+    <span class="n">TAG_BVALUE</span> <span class="o">=</span> <span class="p">(</span><span class="mh">0x0043</span><span class="p">,</span> <span class="mh">0x1039</span><span class="p">)</span>                                       <span class="c"># CSA_BVALUE = &#39;Slop_int_6...Slop_int_9&#39;</span>
+    <span class="n">TAG_BVEC</span> <span class="o">=</span> <span class="p">[(</span><span class="mh">0x0019</span><span class="p">,</span> <span class="mh">0x10bb</span><span class="p">),</span> <span class="p">(</span><span class="mh">0x0019</span><span class="p">,</span> <span class="mh">0x10bc</span><span class="p">),</span> <span class="p">(</span><span class="mh">0x0019</span><span class="p">,</span> <span class="mh">0x10bd</span><span class="p">)]</span>   <span class="c"># CSA_BVEC = [&#39;UserData20&#39;, &#39;UserData21&#39;, &#39;UserData22&#39;]</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="GEDicom.parse_one"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.GEDicom.parse_one">[docs]</a>    <span class="k">def</span> <span class="nf">parse_one</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">ds</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse all metadata that can be parsed from a single dicom.</span>
+
+<span class="sd">        Called by NIMSData init, if dicom manufacturer is GE Medical Sytems.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">psd_name</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PulseSequenceName&#39;</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">psd_iname</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;InternalPulseSequenceName&#39;</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">fov_x</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">fov_y</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">[</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ReconstructionDiameter&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)]</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">receive_coil_name</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ReceiveCoilName&#39;</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">mt_offset_hz</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;OffsetFrequency&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">effective_echo_spacing</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;EffectiveEchoSpacing&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>                     <span class="c"># default to None</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">effective_echo_spacing</span> <span class="o">=</span> <span class="n">effective_echo_spacing</span> <span class="o">/</span> <span class="mf">1e6</span> <span class="k">if</span> <span class="n">effective_echo_spacing</span> <span class="k">else</span> <span class="bp">None</span>      <span class="c"># scale the value</span>
+        <span class="c"># some of the nordahl/app data is from GE Signa HDxt machine, which stores some information</span>
+        <span class="c"># slightly differently than the GE MR750. HDxt stores Asset_R is stored as a string &#39;1\1&#39;,</span>
+        <span class="c"># MR750 stores Asset_R as list [1, 1].  The code below attempts to adjust the asset_r if it is a unicode string.</span>
+        <span class="n">asset_r</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;AssetRFactors&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">asset_r</span><span class="p">,</span> <span class="nb">unicode</span><span class="p">)</span> <span class="ow">and</span> <span class="s">&#39;</span><span class="se">\\</span><span class="s">&#39;</span> <span class="ow">in</span> <span class="n">asset_r</span><span class="p">:</span>
+            <span class="n">asset_r</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">asset_r</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\\</span><span class="s">&#39;</span><span class="p">))</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">phase_encode_undersample</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">slice_encode_undersample</span> <span class="o">=</span> <span class="n">asset_r</span> <span class="k">if</span> <span class="n">asset_r</span> <span class="k">else</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="c"># some very old Ge systems will output dicoms that don&#39;t define Locations in Acquition, or define it in a way</span>
+        <span class="c"># that is weird.  It may incorrectly label the value type as OB, but not be able to translate the value, resulting</span>
+        <span class="c"># in the NIMSMetaExtractor excluding it from the it&#39;s output metadata.</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;LocationsInAcquisition&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ImagesInAcquisition&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;NumberOfTemporalPositions&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+
+        <span class="c"># slice check could end up wrong, if both total_num_slices and num_slices are None</span>
+        <span class="c"># could force num_slices and total_num_slices into different ORs, to prevent matching if both are None</span>
+        <span class="c"># thus only when they are both defined, AND not equal, can this test pass</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">=</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;adjusted total_num_slices from </span><span class="si">%3d</span><span class="s"> to </span><span class="si">%3d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span><span class="p">))</span>  <span class="c"># num_slices == &#39;old&#39; total_num</span>
+        <span class="c"># some localizer don&#39;t have header field to indicate the number of slices</span>
+        <span class="c"># per acquisition.  If the total_number of slices is set, and the num_timepoints is 1</span>
+        <span class="c"># then the number of slices should be equal to total number of slices</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span>
+
+        <span class="n">prescribed_duration</span> <span class="o">=</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">tr</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_averages</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span>  <span class="c"># FIXME: only works for fMRI, not anatomical</span>
+        <span class="k">if</span> <span class="n">prescribed_duration</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">prescribed_duration</span> <span class="o">=</span> <span class="n">prescribed_duration</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">prescribed_duration</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">prescribed_duration</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="c"># handle some preliminary identification</span>
+        <span class="c"># is screenshot</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">GEMS_TYPE_SCREEN</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_screenshot</span> <span class="o">=</span> <span class="bp">True</span>
+
+        <span class="n">dwi_dirs</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;UserData24{#DTIDiffusionDir.,Release10.0&amp;Above}&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">dwi_dirs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dwi_dirs</span><span class="p">)</span> <span class="k">if</span> <span class="n">dwi_dirs</span> <span class="k">else</span> <span class="bp">None</span>  <span class="c"># convert to int if not None</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">GEMS_TYPE_ORIG</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">dwi_dirs</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_dwi</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="mi">1</span>
+</div>
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="GEDicom.parse_all"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.GEDicom.parse_all">[docs]</a>    <span class="k">def</span> <span class="nf">parse_all</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">ds</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse all metadata that requires all dicoms.</span>
+
+<span class="sd">        Called by NIMSDicom load_data, if dicom manufacturer is GE Medical System.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c"># is non-image</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">GEMS_DERIVED_RFMT</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c"># is localizer</span>
+        <span class="k">elif</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="ow">and</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">&lt;</span> <span class="n">MAX_LOC_DCMS</span><span class="p">:</span>
+            <span class="n">ornts</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ImageOrientationPatient&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.</span><span class="p">]</span> <span class="o">*</span> <span class="mi">6</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">])</span>
+            <span class="n">num_ornts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ornts</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%d</span><span class="s"> orientations&#39;</span> <span class="o">%</span> <span class="n">num_ornts</span><span class="p">)</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_localizer</span> <span class="o">=</span> <span class="bp">True</span> <span class="k">if</span> <span class="n">num_ornts</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="c"># is dwi</span>
+        <span class="k">elif</span> <span class="n">ds</span><span class="o">.</span><span class="n">is_dwi</span><span class="p">:</span>
+            <span class="c"># DTI scans have + 1 non-DTI volume. num vols will be &gt;= dwi_dirs + 1</span>
+            <span class="c"># depending on the version, dwi_dirs could come in as a float in a string (&#39;30.000&#39;),</span>
+            <span class="c"># as a regular integer (30), or integer in a string (&#39;30&#39;).</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">bvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">TAG_BVALUE</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">]])</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">bvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">TAG_BVEC</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">]])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+        <span class="c"># multicoils have one volume worth of &#39;extra&#39; slices, total_num_slices != Reps * num_slices * averages</span>
+        <span class="c"># localizers have num_averages = 0; and thus TRs * slices * averages always will = 0</span>
+        <span class="c"># TODO: is there a way to identify a multicoil that does not rely on determining other special cases</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_averages</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;MULTICOIL; </span><span class="si">%i</span><span class="s">*</span><span class="si">%i</span><span class="s">*</span><span class="si">%i</span><span class="s">*(</span><span class="si">%i</span><span class="s">+1) != </span><span class="si">%i</span><span class="s">??&#39;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_averages</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="c"># GE multicoil is organized such that the combined coil is always after each individual coil</span>
+            <span class="c"># files are ordered as slice 1, 1,2,n,combined, slice 2 1,2,n,combined, slice 3 1,2,n,combined</span>
+            <span class="c"># this current method of grouping will probably not work for DWI or time series data.</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_multicoil</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_receivers</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">/</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">-</span> <span class="mi">1</span>   <span class="c"># actual #rev = -1 of num volumes</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_groups</span> <span class="o">=</span> <span class="p">[</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="n">x</span><span class="p">::</span><span class="n">ds</span><span class="o">.</span><span class="n">num_receivers</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_receivers</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;groups: </span><span class="si">%3d</span><span class="s">; </span><span class="si">%3d</span><span class="s"> coils + </span><span class="si">%3d</span><span class="s"> combined&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_groups</span><span class="p">),</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_receivers</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c"># attempt to calculate trigger times and slice duration, if the first dicom reports trigger time</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">slice_duration</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">&gt;=</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="ow">and</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s">&#39;TriggerTime&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;using trigger times to calculate slice order and slice duration&#39;</span><span class="p">)</span>
+            <span class="n">trigger_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s">&#39;TriggerTime&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">]])</span>
+            <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">reverse_slice_order</span><span class="p">:</span>
+                <span class="n">trigger_times</span> <span class="o">=</span> <span class="n">trigger_times</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">trigger_times_from_first_slice</span> <span class="o">=</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">trigger_times</span>
+            <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">slice_duration</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">trigger_times_from_first_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">:])))</span> <span class="o">/</span> <span class="mi">1000</span>    <span class="c"># msec to sec</span>
+                <span class="k">if</span> <span class="n">trigger_times_from_first_slice</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_SEQ_INC</span> <span class="k">if</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">else</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_ALT_INC</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_ALT_DEC</span> <span class="k">if</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">else</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_SEQ_DEC</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">slice_duration</span> <span class="o">=</span> <span class="n">trigger_times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_SEQ_INC</span>
+
+</div></div>
+<div class="viewcode-block" id="SiemensDicom"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.SiemensDicom">[docs]</a><span class="k">class</span> <span class="nc">SiemensDicom</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load all data from a set of siemens dicoms.</span>
+
+<span class="sd">    Not all information required is available via non-private tags.</span>
+
+<span class="sd">    Cannot be instantiated.  This is merely a container for Siemens specific functions.</span>
+
+<span class="sd">    however, the CSA Series Header and CSA Image Header are stored in non-private tag groups (even group #).</span>
+<span class="sd">    csa header tags are preferred over standard dicom tags. Although some information overlaps between</span>
+<span class="sd">    the dicom standard tags and CSA headers, patient information is not included in the CSA.  Therefore,</span>
+<span class="sd">    anonymization doesn&#39;t need to fiddle with the CSA headers.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c"># there are several varieties of CSAPARALLEL images, MPR, PROJECTION IMAGE.</span>
+    <span class="c"># the only common theme so far is that they all have &#39;CSAPARALLEL&#39; in imagetype, and are invalid stacks</span>
+    <span class="c"># because the dcm metadata are inconsistent</span>
+    <span class="n">SIEMENS_TYPE_CSA</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;ORIGINAL&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;OTHER&#39;</span><span class="p">,</span> <span class="s">u&#39;CSA REPORT&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_TENSOR</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;DIFFUSION&#39;</span><span class="p">,</span> <span class="s">u&#39;TENSOR&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_CSAPARALLEL</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;SECONDARY&#39;</span><span class="p">,</span> <span class="s">u&#39;MPR&#39;</span><span class="p">,</span> <span class="s">u&#39;CSA MPR&#39;</span><span class="p">,</span> <span class="s">u&#39;&#39;</span><span class="p">,</span> <span class="s">u&#39;CSAPARALLEL&#39;</span><span class="p">,</span> <span class="s">u&#39;M&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_DIFF_FA</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;DIFFUSION&#39;</span><span class="p">,</span> <span class="s">u&#39;FA&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_DIFF_FA_NORM</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;DIFFUSION&#39;</span><span class="p">,</span> <span class="s">u&#39;FA&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">,</span> <span class="s">u&#39;NORM&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_ASL_TTEST</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;PERFUSION&#39;</span><span class="p">,</span> <span class="s">u&#39;ASL&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">,</span> <span class="s">u&#39;NORM&#39;</span><span class="p">,</span> <span class="s">u&#39;FILTERED&#39;</span><span class="p">,</span> <span class="s">u&#39;MOCO&#39;</span><span class="p">,</span> <span class="s">u&#39;SUB&#39;</span><span class="p">,</span> <span class="s">u&#39;TTEST&#39;</span><span class="p">,</span> <span class="s">u&#39;MOSAIC&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_RELCBF_TTEST</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="s">u&#39;PERFUSION&#39;</span><span class="p">,</span> <span class="s">u&#39;ASL&#39;</span><span class="p">,</span> <span class="s">u&#39;RELCBF&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">,</span> <span class="s">u&#39;NORM&#39;</span><span class="p">,</span> <span class="s">u&#39;FILTERED&#39;</span><span class="p">,</span> <span class="s">u&#39;MOCO&#39;</span><span class="p">,</span> <span class="s">u&#39;SUB&#39;</span><span class="p">,</span> <span class="s">u&#39;TTEST&#39;</span><span class="p">,</span> <span class="s">u&#39;MOSAIC&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_CSA_3D</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;SECONDARY&#39;</span><span class="p">,</span> <span class="s">u&#39;OTHER&#39;</span><span class="p">,</span> <span class="s">u&#39;CSA 3D EDITOR&#39;</span><span class="p">]</span>
+    <span class="n">SIEMENS_TYPE_POSDISP</span> <span class="o">=</span> <span class="p">[</span><span class="s">u&#39;DERIVED&#39;</span><span class="p">,</span> <span class="s">u&#39;SECONDARY&#39;</span><span class="p">,</span> <span class="s">u&#39;POSDISP&#39;</span><span class="p">,</span> <span class="s">u&#39;M&#39;</span><span class="p">,</span> <span class="s">u&#39;ND&#39;</span><span class="p">,</span> <span class="s">u&#39;NORM&#39;</span><span class="p">,</span> <span class="s">u&#39;CSA RESAMPLED&#39;</span><span class="p">]</span>
+    <span class="c"># posdisp?  resample images of the previous anatomical scan, to view from 3 angles to estimate positioning?  not really sure</span>
+    <span class="c"># but the data was not acquired as such.</span>
+
+    <span class="c"># the Dicom SOPClass Secondaru Capture Storage (SC) are not valid MR Images.  They are missing</span>
+    <span class="c"># ImagePatientPosition information necessary for creating the affine.</span>
+    <span class="n">SIEMENS_SOPCLASS_SC</span> <span class="o">=</span> <span class="s">&#39;1.2.840.10008.5.1.4.1.1.7&#39;</span>
+    <span class="n">TAG_BVALUE</span> <span class="o">=</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sDiffusion.alBValue[1]&#39;</span>  <span class="c"># B_value</span>
+    <span class="n">TAG_BVEC</span> <span class="o">=</span> <span class="s">&#39;CsaImage.DiffusionGradientDirection&#39;</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="SiemensDicom.parse_one"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.SiemensDicom.parse_one">[docs]</a>    <span class="k">def</span> <span class="nf">parse_one</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">ds</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse all metadata that can be parsed from a single dicom.</span>
+
+<span class="sd">        Called by NIMSDicom init, if dicom manufacturer is Siemens.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">psd_name</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.tSequenceFileName&#39;</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">psd_iname</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SeriesDescription&#39;</span><span class="p">)</span>
+        <span class="c"># FIXME: is fov [phase, readout], or [readout, phase]</span>
+        <span class="n">fov_phase</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sSliceArray.asSlice[0].dPhaseFOV&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">fov_readout</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sSliceArray.asSlice[0].dReadoutFOV&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">fov</span> <span class="o">=</span> <span class="p">[</span><span class="n">fov_phase</span><span class="p">,</span> <span class="n">fov_readout</span><span class="p">]</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">receive_coil_name</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaImage.ImaCoilString&#39;</span><span class="p">)</span>
+        <span class="n">slice_duration</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaImage.SliceMeasurementDuration&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">slice_duration</span> <span class="o">=</span> <span class="n">slice_duration</span> <span class="o">/</span> <span class="mf">1e6</span> <span class="k">if</span> <span class="n">slice_duration</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">prescribed_duration</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.lScanTimeSec&#39;</span><span class="p">)</span>   <span class="c"># FIXME</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.lTotalScanTimeSec&#39;</span><span class="p">)</span>         <span class="c"># FIXME: not guaranteed</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">acq_no</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="c"># preliminary identification</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_CSA</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c"># is non-image</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SOPClassUID&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_SOPCLASS_SC</span><span class="p">:</span>
+            <span class="c"># Seconary Storage Class Images always are missing ImagePatientPositions</span>
+            <span class="c"># .: they never have enough information to be a valid MR dicom</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_POSDISP</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_CSA_3D</span><span class="p">:</span>
+            <span class="c"># Siemens 3D Storage. what is this?</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="ow">in</span> <span class="p">[</span><span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_ASL_TTEST</span> <span class="ow">or</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_RELCBF_TTEST</span><span class="p">]:</span>
+            <span class="c"># CSA header contains WAY TOO MUCH info...ttest results?</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="ow">in</span> <span class="p">[</span><span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_DIFF_FA_NORM</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_DIFF_FA</span><span class="p">]:</span>
+            <span class="c"># Diffusion FA NORM dicoms count as is_non_image because they lack the information</span>
+            <span class="c"># necessary to create the affine xform for the nifti. Also, CSA data instead of pixel data.</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="s">u&#39;CSAPARALLEL&#39;</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>
+            <span class="c"># csaparallel images are secondary derived dataset</span>
+            <span class="c"># these will rarely be valid, because variation in the dicoms PixelSpacing</span>
+            <span class="c"># the first dicom will accurately hold PixelSpacing from the parent scan</span>
+            <span class="c"># all remaining dicoms will have PixelSpacing of [1, 1]</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PrivateCreator_0x29_0x10&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;SIEMENS CSA NON-IMAGE&#39;</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;VariablePixelData&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;SIEMENS CSA NON-IMAGE&#39;</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="o">==</span> <span class="n">cls</span><span class="o">.</span><span class="n">SIEMENS_TYPE_TENSOR</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">dwi_dirs</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sDiffusion.lDiffDirections&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;ORIGINAL&#39;</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span> <span class="ow">and</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">dwi_dirs</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_dwi</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="mi">1</span>
+</div>
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="SiemensDicom.parse_all"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.SiemensDicom.parse_all">[docs]</a>    <span class="k">def</span> <span class="nf">parse_all</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">ds</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse all metadata that requires all dicoms.</span>
+
+<span class="sd">        Called by NIMSDicom load_data, if dicom manufacturer is Siemens.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s">&#39;MOSAIC&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;SIEMENS SINGLE SLICE DICOM&#39;</span><span class="p">)</span>
+            <span class="c"># ds.num_slices = len(set([tuple(ds.getelem(d, &#39;ImagePositionPatient&#39;, None, [0., 0., 0.])) for d in ds._dcm_list]))</span>
+            <span class="c"># check for sGroupArray (slice group), fall back to number of dicoms present</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">)</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sGroupArray.asGroup[0].nSize&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">))</span>
+            <span class="c"># ds.total_num_slices = len(CsaSeries.MrPhoenixProtocol.sSliceArray.lSize)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span><span class="p">)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sGroupArray.asGroup[0].nSize&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;999999999&#39;</span><span class="p">))</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sSliceArray.lSize&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;999999999&#39;</span><span class="p">))</span>
+            <span class="c"># ds.total_num_slices = len(ds._dcm_list)</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">/</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span>
+        <span class="k">elif</span> <span class="s">&#39;MOSAIC&#39;</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>           <span class="c"># explicit for readability</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;SIEMENS MOSAIC&#39;</span><span class="p">)</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaImage.NumberOfImagesInMosaic&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;NumberOfImagesInMosaic&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">))</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">)</span>
+            <span class="n">mosaic_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mosaic_dim</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">:</span>
+                <span class="n">mosaic_dim</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">/</span> <span class="n">mosaic_dim</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">size</span><span class="p">]</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">fov</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="o">/</span> <span class="n">mosaic_dim</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">fov</span><span class="p">]</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">*</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span>
+
+        <span class="n">ds</span><span class="o">.</span><span class="n">duration</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">*</span> <span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">num_averages</span> <span class="ow">or</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">ds</span><span class="o">.</span><span class="n">tr</span> <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="ow">and</span> <span class="n">ds</span><span class="o">.</span><span class="n">tr</span> <span class="k">else</span> <span class="bp">None</span>
+
+        <span class="c"># CsaSeries.MrPhoenixProtocol.sSliceArray.ucMode indicates siemens slice order:</span>
+        <span class="c"># Siemens; 1 Ascending, 2 Descending, and 4 Interleaved Ascending.</span>
+        <span class="c"># NIFTI;   1 Ascending, 2 Descending, and 4 Interleaving Descending</span>
+        <span class="c"># Siemens may output interleaved data one of two ways:</span>
+        <span class="c"># - nifti slice order 3: interleave_asc, odd first, odd num slices, interleave INC</span>
+        <span class="c"># - nifti slice order 5: interleave_asc, even first, even num slices, interleave INC 2</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;CsaSeries.MrPhoenixProtocol.sSliceArray.ucMode&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>   <span class="c"># don&#39;t try to guess if num_slices can&#39;t be determined</span>
+            <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c"># interleaved ascending, odd first</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c"># interleaved ascending, even first</span>
+
+        <span class="c"># is localizer</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">&lt;</span> <span class="n">MAX_LOC_DCMS</span><span class="p">:</span>
+            <span class="n">ornts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ImageOrientationPatient&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.</span><span class="p">]</span> <span class="o">*</span> <span class="mi">6</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">]</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">is_localizer</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ornts</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">is_dwi</span><span class="p">:</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">bvals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">NIMSMetaExtractor</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">TAG_BVALUE</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">]])</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">bvecs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">NIMSMetaExtractor</span><span class="p">(</span><span class="n">d</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">TAG_BVEC</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">ds</span><span class="o">.</span><span class="n">num_slices</span><span class="p">]])</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
+        <span class="c"># is multicoil?</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">num_receivers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">ds</span><span class="o">.</span><span class="n">_hdr</span> <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;sCoilElementID.tCoilID&#39;</span><span class="p">)])</span>
+</div></div>
+<div class="viewcode-block" id="NIMSDicomError"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.NIMSDicomError">[docs]</a><span class="k">class</span> <span class="nc">NIMSDicomError</span><span class="p">(</span><span class="n">nimsmrdata</span><span class="o">.</span><span class="n">NIMSMRDataError</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+</div>
+<div class="viewcode-block" id="NIMSDicom"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.NIMSDicom">[docs]</a><span class="k">class</span> <span class="nc">NIMSDicom</span><span class="p">(</span><span class="n">nimsmrdata</span><span class="o">.</span><span class="n">NIMSMRReader</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    should be able to read either manufacturer dicoms.</span>
+
+<span class="sd">    if load_data is set to True, the load_data method will be called at the end of init. scan identification</span>
+<span class="sd">    is done during load_data. although some types can be determined with minimal data, identification is</span>
+<span class="sd">    done at the same place across venders to provide consistency.</span>
+
+<span class="sd">    parse gives a ball park idea of &quot;what it is,&quot; without loading everything.</span>
+
+<span class="sd">    parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        path to input file</span>
+<span class="sd">    load_data : bool [default False]</span>
+<span class="sd">        indicate if all data should be loaded by invoking load_data() at the end of init.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">filetype</span> <span class="o">=</span> <span class="s">u&#39;dicom&#39;</span>
+    <span class="n">priority</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">parse_priority</span> <span class="o">=</span> <span class="mi">9</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse a single file from the input.</span>
+
+<span class="sd">        Performs manufacturer specific single dicom parsing.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSDicom</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compressed</span> <span class="o">=</span> <span class="bp">True</span>      <span class="c"># v1 compat: indicates file is compressed, informing scheduler to not compress.</span>
+        <span class="k">with</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">archive</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ti</span> <span class="ow">in</span> <span class="n">archive</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">ti</span><span class="o">.</span><span class="n">isreg</span><span class="p">():</span>
+                    <span class="k">continue</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span> <span class="o">=</span> <span class="n">NIMSMetaExtractor</span><span class="p">(</span><span class="n">dicom</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">cStringIO</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">extractfile</span><span class="p">(</span><span class="n">ti</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;no readable dicom found during __init__&#39;</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">ti</span>
+        <span class="k">del</span> <span class="n">archive</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ImageType&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">[])</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;dicom parsing failed for </span><span class="si">%s</span><span class="s">: ImageType not set in dicom header&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">)</span>
+            <span class="k">return</span>  <span class="c"># raise an error?</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;parsing standard manufacturer-agnostic tags&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exam_no</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;StudyID&#39;</span><span class="p">)</span>                       <span class="c"># siemens may have no studyID; find ex</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exam_uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;StudyInstanceUID&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">patient_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PatientID&#39;</span><span class="p">)</span>                  <span class="c"># siemens may not have patientID. find ex</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_no</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SeriesNumber&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_desc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SeriesDescription&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SeriesInstanceUID&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">experiment_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_patient_id</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">patient_id</span><span class="p">,</span> <span class="s">&#39;ex&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">exam_no</span><span class="p">)</span>
+        <span class="c"># Siemens and GE have different notions of &#39;acquisition&#39;</span>
+        <span class="c"># GE: one &quot;epoch series&quot; may have multiple acquisitions (think &#39;add to series&#39;).</span>
+        <span class="c"># Siemens: each entire volume is a &quot;acquisition&quot;. for mosaics, each mosaic is own acquisition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;AcquisitionNumber&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>         <span class="c"># wrong for siemens dicom, until load_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;StudyDate&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;StudyTime&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acq_date</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;AcquisitionDate&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acq_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;AcquisitionTime&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_date</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_time</span> <span class="ow">and</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">study_date</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_time</span><span class="p">[:</span><span class="mi">6</span><span class="p">],</span> <span class="s">&#39;%Y%m</span><span class="si">%d</span><span class="s">%H%M%S&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acq_datetime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_date</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_time</span> <span class="ow">and</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acq_date</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_time</span><span class="p">[:</span><span class="mi">6</span><span class="p">],</span> <span class="s">&#39;%Y%m</span><span class="si">%d</span><span class="s">%H%M%S&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_datetime</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subj_firstname</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subj_lastname</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_subject_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PatientName&#39;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subj_dob</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_subject_dob</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PatientBirthDate&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subj_sex</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;M&#39;</span><span class="p">:</span> <span class="s">&#39;male&#39;</span><span class="p">,</span> <span class="s">&#39;F&#39;</span><span class="p">:</span> <span class="s">&#39;female&#39;</span><span class="p">}</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PatientSex&#39;</span><span class="p">))</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;RepetitionTime&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tr</span> <span class="o">=</span> <span class="n">tr</span> <span class="o">/</span> <span class="mf">1000.0</span> <span class="k">if</span> <span class="n">tr</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="n">ti</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;InversionTime&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ti</span> <span class="o">=</span> <span class="n">ti</span> <span class="o">/</span> <span class="mf">1000.0</span> <span class="k">if</span> <span class="n">ti</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="n">te</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;EchoTime&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">te</span> <span class="o">=</span> <span class="n">te</span> <span class="o">/</span> <span class="mf">1000.0</span> <span class="k">if</span> <span class="n">te</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flip_angle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;FlipAngle&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pixel_bandwidth</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PixelBandwidth&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="n">phase_encode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;InPlanePhaseEncodingDirection&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phase_encode</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">phase_encode</span> <span class="o">==</span> <span class="s">&#39;COL&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">phase_encode</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_averages</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;NumberOfAverages&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>    <span class="c"># is this always an int? some GE scans show this as 0.5?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_echos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;EchoNumbers&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;OperatorsName&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">protocol_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ProtocolName&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scanner_name</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;InstitutionName&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;StationName&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;Manufacturer&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ManufacturerModelName&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scanner_type</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">%</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer_model</span> <span class="ow">or</span> <span class="s">&#39;&#39;</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;MRAcquisitionType&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PixelSpacing&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SpacingBetweenSlices&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;SliceThickness&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;Columns&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;Rows&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="c"># REMINDERS! make sure to do these in mfr specific</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reverse_slice_order</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">SLICE_ORDER_UNKNOWN</span>
+        <span class="c"># DEFAULT THINGS TO NONE!!!!!</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mt_offset_hz</span> <span class="o">=</span> <span class="bp">None</span>               <span class="c"># ge tag</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">effective_echo_spacing</span> <span class="o">=</span> <span class="bp">None</span>     <span class="c"># ge tag, no siemens</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slice_encode_undersample</span> <span class="o">=</span> <span class="bp">None</span>   <span class="c"># ge tag, no siemens</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">phase_encode_undersample</span> <span class="o">=</span> <span class="bp">None</span>   <span class="c"># ge tag, no siemens</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_bands</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_receivers</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="c"># special cases</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_localizer</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_screenshot</span> <span class="o">=</span> <span class="bp">None</span>          <span class="c"># ge specific</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_dwi</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_multicoil</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span><span class="p">:</span>
+            <span class="c"># check if any part of the image type starts with &#39;CSA&#39;</span>
+            <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">sub</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;CSA&#39;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">=</span> <span class="s">&#39;SIEMENS&#39;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;GE MEDICAL SYSTEMS&#39;</span><span class="p">:</span>
+            <span class="n">GEDicom</span><span class="o">.</span><span class="n">parse_one</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;SIEMENS&#39;</span><span class="p">:</span>
+            <span class="n">SiemensDicom</span><span class="o">.</span><span class="n">parse_one</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;dicom manufacturer </span><span class="si">%s</span><span class="s"> is not supported&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;dicom manufacturer not defined. cannot parse any further&#39;</span><span class="p">)</span>
+
+        <span class="c"># manufacturer agnostic</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">acquisition_matrix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;AcquisitionMatrix&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">phase_encode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c"># The Acquisition matrix field includes four values: [freq rows, freq columns, phase rows, phase columns].</span>
+            <span class="c"># E.g., for a 64x64 image, it would be [64,0,0,64] if the image row axis was the frequency encoding axis or</span>
+            <span class="c"># [0,64,64,0] if the image row was the phase encoding axis.</span>
+            <span class="k">if</span> <span class="n">acquisition_matrix</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="n">acquisition_matrix</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov</span> <span class="o">!=</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">):</span>
+                <span class="n">fov_x</span><span class="p">,</span> <span class="n">fov_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov</span>
+                <span class="n">fov_y</span> <span class="o">/=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PercentPhaseFieldOfView&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span> <span class="o">/</span> <span class="mf">100.</span><span class="p">)</span> <span class="k">if</span> <span class="s">&#39;PercentPhaseFieldOfView&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span> <span class="k">else</span> <span class="mf">1.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fov</span> <span class="o">=</span> <span class="n">fov_x</span><span class="p">,</span> <span class="n">fov_y</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c"># We want the acq matrix to always be ROWS,COLS, so we flip the order for the case where the phase encode is the first dim:</span>
+            <span class="k">if</span> <span class="n">acquisition_matrix</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="n">acquisition_matrix</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov</span> <span class="o">!=</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">):</span>
+                <span class="n">fov_x</span><span class="p">,</span> <span class="n">fov_y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fov_x</span> <span class="o">/=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;PercentPhaseFieldOfView&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span> <span class="o">/</span> <span class="mf">100.</span><span class="p">)</span> <span class="k">if</span> <span class="s">&#39;PercentPhaseFieldOfView&#39;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span> <span class="k">else</span> <span class="mf">1.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">fov</span> <span class="o">=</span> <span class="n">fov_x</span><span class="p">,</span> <span class="n">fov_y</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">psd_type</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">infer_psd_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">psd_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">infer_scan_type</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">load_data</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_status</span> <span class="o">=</span> <span class="s">&#39;pending&#39;</span>
+
+<div class="viewcode-block" id="NIMSDicom.load_data"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.NIMSDicom.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load all dicoms and obtain more metadata.</span>
+
+<span class="sd">        Performs manufacturer specific loads. Operates through side-effect, does not return anything.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        None</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%20s</span><span class="s"> - </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s">&#39;start loading dicoms&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())))</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSDicom</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">)</span> <span class="k">as</span> <span class="n">archive</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ti</span> <span class="ow">in</span> <span class="n">archive</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">dcm</span> <span class="o">=</span> <span class="n">dicom</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">cStringIO</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">extractfile</span><span class="p">(</span><span class="n">ti</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()),</span> <span class="n">stop_before_pixels</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dcm</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="k">pass</span>
+        <span class="k">del</span> <span class="n">ti</span>
+        <span class="k">del</span> <span class="n">archive</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%20s</span><span class="s"> - </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s">&#39;done loading dicoms&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;no dicoms loaded?&#39;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">dcm</span><span class="p">:</span> <span class="n">dcm</span><span class="o">.</span><span class="n">InstanceNumber</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;dicoms do not have InstanceNumber. cannot pre-sort&#39;</span><span class="p">)</span>   <span class="c"># these are CSA non-image type</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;GE MEDICAL SYSTEMS&#39;</span><span class="p">:</span>
+            <span class="n">GEDicom</span><span class="o">.</span><span class="n">parse_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">manufacturer</span> <span class="o">==</span> <span class="s">&#39;SIEMENS&#39;</span><span class="p">:</span>
+            <span class="n">SiemensDicom</span><span class="o">.</span><span class="n">parse_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">infer_scan_type</span><span class="p">()</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%20s</span><span class="s"> - </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s">&#39;start recon&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())))</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_non_image</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;file </span><span class="si">%s</span><span class="s"> is a special non-image dicom&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_screenshot</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;screenshot recon&#39;</span><span class="p">)</span>
+            <span class="c"># there are some metadata that should never be set for screenshots</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">slice_order</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c"># slice order is not unknown, just Not Applicable.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">psd_type</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c"># not a real PSD.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dstack</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">pixel_array</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">])}</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_localizer</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;localizer recon&#39;</span><span class="p">)</span>
+            <span class="n">num_ornts</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;ImageOrientationPatient&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.</span><span class="p">]</span> <span class="o">*</span> <span class="mi">6</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_timepoints</span> <span class="o">=</span> <span class="n">num_ornts</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_num_slices</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_timepoints</span>
+            <span class="c"># determine cosines, slice norm and rotation</span>
+            <span class="n">cosines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;ImageOrientationPatient&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">])</span>
+            <span class="n">row_cosines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cosines</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+            <span class="n">col_cosines</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">cosines</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">6</span><span class="p">])</span>
+            <span class="n">slice_norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">row_cosines</span><span class="p">,</span> <span class="n">col_cosines</span><span class="p">)</span>
+            <span class="n">rot</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">compute_rotation</span><span class="p">(</span><span class="n">row_cosines</span><span class="p">,</span> <span class="n">col_cosines</span><span class="p">,</span> <span class="n">slice_norm</span><span class="p">)</span>
+            <span class="c"># determine origin</span>
+            <span class="n">image_position</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="s">&#39;ImagePositionPatient&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">]</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">image_position</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">qto_xyz</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">build_affine</span><span class="p">(</span><span class="n">rot</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox</span><span class="p">,</span> <span class="n">origin</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">swapaxes</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">pixel_array</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">])</span>
+            <span class="n">dims</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">size_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_timepoints</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="s">&#39;F&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">}</span>
+            <span class="c"># FIXME: acq matrix reversed for some localizers?</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c"># check non-mosaic files for incomplete volumes or incomplete single slice dicom sets</span>
+            <span class="c"># AFAIK, mosaics only come in complete volumes, as such, are never missing single slices</span>
+            <span class="k">if</span> <span class="s">&#39;MOSAIC&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_type</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span><span class="p">:</span>                 <span class="c"># this might need &#39;or 0&#39; syntax</span>
+                    <span class="c"># TODO: add comment to notes</span>
+                    <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;cannot reconstruct </span><span class="si">%s</span><span class="s">.</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">,</span> <span class="s">&#39;insufficient dicoms to recon 1 volume&#39;</span><span class="p">))</span>
+                <span class="c"># check for and remove incomplete volumes.</span>
+                <span class="n">partial_vol_dcms</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span>  <span class="c"># this might need &#39;or 0&#39; syntax</span>
+                <span class="k">if</span> <span class="n">partial_vol_dcms</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;number of dicoms is not a integer multiple of number of unique slices positions. trimming.&#39;</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">partial_vol_dcms</span><span class="p">]</span>
+                    <span class="c"># TODO: add comment notes</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_multicoil</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;multicoil recon&#39;</span><span class="p">)</span>
+                <span class="n">stacks</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">group_id</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_groups</span><span class="p">:</span>
+                    <span class="n">group_id</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;multicoil - </span><span class="si">%2s</span><span class="s">, </span><span class="si">%s</span><span class="s"> dicom&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">group_id</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">))))</span>
+                    <span class="n">num_positions</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">SliceLocation</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">group</span><span class="p">]))</span>
+                    <span class="k">if</span> <span class="n">num_positions</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;coil </span><span class="si">%s</span><span class="s"> has </span><span class="si">%s</span><span class="s"> unique positions; expected </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">group_id</span><span class="p">,</span> <span class="n">num_positions</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_slices</span><span class="p">))</span>
+                    <span class="n">stack</span> <span class="o">=</span> <span class="n">NIMSStack</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">dcm</span> <span class="ow">in</span> <span class="n">group</span><span class="p">:</span>
+                        <span class="n">meta</span> <span class="o">=</span> <span class="n">NIMSMetaExtractor</span><span class="p">(</span><span class="n">dcm</span><span class="p">)</span>
+                        <span class="n">stack</span><span class="o">.</span><span class="n">add_dcm</span><span class="p">(</span><span class="n">dcm</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span>
+                    <span class="n">nii_wrp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">to_nifti_wrapper</span><span class="p">()</span>
+                    <span class="n">stacks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nii_wrp</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nii_wrp</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">dcmmeta</span><span class="o">.</span><span class="n">NiftiWrapper</span><span class="o">.</span><span class="n">from_sequence</span><span class="p">(</span><span class="n">stacks</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">InvalidStackError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;cannot reconstruct </span><span class="si">%s</span><span class="s">.</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_groups</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span>
+                <span class="k">del</span> <span class="n">stacks</span>
+                <span class="k">del</span> <span class="n">stack</span>
+                <span class="k">del</span> <span class="n">dcm</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;standard recon&#39;</span><span class="p">)</span>
+                <span class="n">stack</span> <span class="o">=</span> <span class="n">NIMSStack</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">dcm</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span><span class="p">:</span>
+                    <span class="n">stack</span><span class="o">.</span><span class="n">add_dcm</span><span class="p">(</span><span class="n">dcm</span><span class="p">,</span> <span class="n">NIMSMetaExtractor</span><span class="p">(</span><span class="n">dcm</span><span class="p">))</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">nii_wrp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">to_nifti_wrapper</span><span class="p">()</span>
+                <span class="k">except</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">InvalidStackError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">NIMSDicomError</span><span class="p">(</span><span class="s">&#39;cannot reconstruct </span><span class="si">%s</span><span class="s">.</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dcm_list</span>
+                <span class="k">del</span> <span class="n">stack</span>
+                <span class="k">del</span> <span class="n">dcm</span>
+
+            <span class="n">nii</span> <span class="o">=</span> <span class="n">nii_wrp</span><span class="o">.</span><span class="n">nii_img</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;&#39;</span><span class="p">:</span> <span class="n">nii</span><span class="o">.</span><span class="n">get_data</span><span class="p">()}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">qto_xyz</span> <span class="o">=</span> <span class="n">nii</span><span class="o">.</span><span class="n">get_affine</span><span class="p">()</span>
+            <span class="k">del</span> <span class="n">nii_wrp</span>
+            <span class="k">del</span> <span class="n">nii</span>
+
+            <span class="c"># FIXME: is this a GE specific step?</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dwi</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bvecs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bvals</span> <span class="o">=</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">adjust_bvecs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bvecs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bvals</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scanner_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">qto_xyz</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">metadata_status</span> <span class="o">=</span> <span class="s">&#39;complete&#39;</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%20s</span><span class="s"> - </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="s">&#39;done recon&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">())))</span>
+</div>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="NIMSDicom.getelem"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdicom.NIMSDicom.getelem">[docs]</a>    <span class="k">def</span> <span class="nf">getelem</span><span class="p">(</span><span class="n">hdr</span><span class="p">,</span> <span class="n">tag</span><span class="p">,</span> <span class="n">type_</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve a dicom header element by its tag.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hdr : pydicom.dataset or csa_dict from dcmstack.extact.NIMSMetaExtractor</span>
+<span class="sd">            Either a pydicom.dataset object, or a NestedMultiDict as returned by dcmstack.extract.NIMSMetaExtractor.</span>
+<span class="sd">        tag : tuple or str</span>
+<span class="sd">            A tuple or string that indicates which tag to retrieve.  The tuple tag can only be used with a pydicom.dataset.</span>
+<span class="sd">        type_ : class</span>
+<span class="sd">            Attempt to convert the tag&#39;s value to the specified type, such as str, int, float.  Default is None.</span>
+<span class="sd">        default : any</span>
+<span class="sd">            What value to return if the tag cannot be found, or if type conversion fails.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        value : any</span>
+<span class="sd">            the value held at the tag specificed, of type `type_` (if possible).  Or the default value if</span>
+<span class="sd">            the tag does not exist, or could not be converted to `type_`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="c"># get by bytecode tuple</span>
+            <span class="n">elem</span> <span class="o">=</span> <span class="n">hdr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">elem</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">elem</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c"># get by keyword</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">hdr</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tag</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">type_</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">type_</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">value</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="n">type_</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>   <span class="c"># TypeError, for Nones, ValueError for casting</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="n">default</span>
+        <span class="k">return</span> <span class="n">value</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" >nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

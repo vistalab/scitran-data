@@ -1,0 +1,178 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.nimsmontage module &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-nimsdata.nimsmontage">
+<span id="nimsdata-nimsmontage-module"></span><h1>nimsdata.nimsmontage module<a class="headerlink" href="#module-nimsdata.nimsmontage" title="Permalink to this headline">¶</a></h1>
+<p>NIMSMontage provides montage writing capabilities for MR datasets read by any subclass of NIMSMRReader.</p>
+<p>Provides a NIMSMRWriter subclass for creating image pyramids.</p>
+<dl class="class">
+<dt id="nimsdata.nimsmontage.NIMSMontage">
+<em class="property">class </em><tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">NIMSMontage</tt><big>(</big><em>filepath</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="nimsmrdata.html#nimsdata.nimsmrdata.NIMSMRReader" title="nimsdata.nimsmrdata.NIMSMRReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRReader</span></tt></a>, <a class="reference internal" href="nimsmrdata.html#nimsdata.nimsmrdata.NIMSMRWriter" title="nimsdata.nimsmrdata.NIMSMRWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRWriter</span></tt></a></p>
+<dl class="attribute">
+<dt id="nimsdata.nimsmontage.NIMSMontage.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'montage'</em><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.filetype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimsmontage.NIMSMontage.get_info">
+<tt class="descname">get_info</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.get_info" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimsmontage.NIMSMontage.get_tile">
+<tt class="descname">get_tile</tt><big>(</big><em>x</em>, <em>y</em>, <em>z</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.get_tile" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.nimsmontage.NIMSMontage.load_data">
+<tt class="descname">load_data</tt><big>(</big><em>preloaded=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="classmethod">
+<dt id="nimsdata.nimsmontage.NIMSMontage.write">
+<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order='LPS'</em>, <em>mtype='sqlite'</em>, <em>tilesize=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.write" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="nimsdata.nimsmontage.NIMSMontageError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">NIMSMontageError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontageError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontageError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="nimsmrdata.html#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.generate_dir_pyr">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_dir_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=256</em>, <em>panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_dir_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_dir_pyr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.generate_flat">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_flat</tt><big>(</big><em>imagedata</em>, <em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_flat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_flat" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.generate_montage">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_montage</tt><big>(</big><em>imagedata</em>, <em>timepoints=</em>, <span class="optional">[</span><span class="optional">]</span><em>bits16=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_montage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_montage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a montage.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.generate_pyramid">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_pyramid</tt><big>(</big><em>montage</em>, <em>tile_size</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_pyramid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_pyramid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Slice up a NIfTI file into a multi-res pyramid of tiles.
+We use the file name convention suitable for PanoJS (<a class="reference external" href="http://www.dimin.net/software/panojs/">http://www.dimin.net/software/panojs/</a>):
+The zoom level (z) is an integer between 1 and n, where 0 is fully zoomed in and n is zoomed out.
+E.g., z=n is for 1 tile covering the whole world, z=n-1 is for 2x2=4 tiles, ... z=0 is the original resolution.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.generate_sqlite_pyr">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_sqlite_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_sqlite_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_sqlite_pyr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate a multi-resolution image pyramid and store the resulting jpeg files in an sqlite db.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.get_info">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">get_info</tt><big>(</big><em>dbfile</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.get_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the tile_size, x_size, and y_size from the sqlite pyramid db.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsmontage.get_tile">
+<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">get_tile</tt><big>(</big><em>dbfile</em>, <em>z</em>, <em>x</em>, <em>y</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.get_tile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a specific image tile from an sqlite db.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/nimsmontage.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

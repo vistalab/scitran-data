@@ -1,0 +1,135 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.pfile &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
+    <link rel="up" title="nimsdata" href="../nimsdata.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" accesskey="U">nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.pfile</h1><div class="highlight"><pre>
+<span class="c"># @author:  Gunnar Schaefer</span>
+
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+
+<div class="viewcode-block" id="PFileError"><a class="viewcode-back" href="../../nimsdata.pfile.html#nimsdata.pfile.PFileError">[docs]</a><span class="k">class</span> <span class="nc">PFileError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+</div>
+<div class="viewcode-block" id="parse"><a class="viewcode-back" href="../../nimsdata.pfile.html#nimsdata.pfile.parse">[docs]</a><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+    <span class="c"># gzip.open will not read non gzip file, must determine if gz or not</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="n">is_gz</span> <span class="o">=</span> <span class="bp">True</span> <span class="k">if</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="s">&#39;</span><span class="se">\x1f\x8b</span><span class="s">&#39;</span> <span class="k">else</span> <span class="bp">False</span>
+
+    <span class="n">fp</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_gz</span> <span class="k">else</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s">&#39;rb&#39;</span><span class="p">)</span>
+    <span class="n">version_bytes</span> <span class="o">=</span> <span class="n">fp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">fp</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">version_bytes</span> <span class="o">==</span> <span class="s">&#39;</span><span class="se">\x00\x00\xc0</span><span class="s">A&#39;</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">pfile24</span> <span class="kn">as</span> <span class="nn">pfile</span>
+        <span class="k">elif</span> <span class="n">version_bytes</span> <span class="o">==</span> <span class="s">&#39;V</span><span class="se">\x0e\xa0</span><span class="s">A&#39;</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">pfile23</span> <span class="kn">as</span> <span class="nn">pfile</span>
+        <span class="k">elif</span> <span class="n">version_bytes</span> <span class="o">==</span> <span class="s">&#39;J</span><span class="se">\x0c\xa0</span><span class="s">A&#39;</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">pfile22</span> <span class="kn">as</span> <span class="nn">pfile</span>
+        <span class="k">elif</span> <span class="n">version_bytes</span> <span class="o">==</span> <span class="s">&#39;</span><span class="se">\x00\x00</span><span class="s">0A&#39;</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">pfile12</span> <span class="kn">as</span> <span class="nn">pfile</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PFileError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> is not a valid PFile or of an unsupported version&#39;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="s">run mkpfile.py without arguments for generation instructions&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">pool_header</span> <span class="o">=</span> <span class="n">pfile</span><span class="o">.</span><span class="n">POOL_HEADER</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">struct</span><span class="o">.</span><span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">PFileError</span><span class="p">(</span><span class="s">&#39;error reading header field in PFile </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">fp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logo</span> <span class="o">=</span> <span class="n">pool_header</span><span class="o">.</span><span class="n">rec</span><span class="o">.</span><span class="n">logo</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\x00</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">logo</span> <span class="o">!=</span> <span class="s">&#39;GE_MED_NMR&#39;</span> <span class="ow">and</span> <span class="n">logo</span> <span class="o">!=</span> <span class="s">&#39;INVALIDNMR&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PFileError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> is not a valid PFile&#39;</span> <span class="o">%</span> <span class="n">fp</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">fp</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">pool_header</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" >nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

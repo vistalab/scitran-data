@@ -1,0 +1,46 @@
+nimsdata.pfile package
+======================
+
+Submodules
+----------
+
+nimsdata.pfile.pfile12 module
+-----------------------------
+
+.. automodule:: nimsdata.pfile.pfile12
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nimsdata.pfile.pfile22 module
+-----------------------------
+
+.. automodule:: nimsdata.pfile.pfile22
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nimsdata.pfile.pfile23 module
+-----------------------------
+
+.. automodule:: nimsdata.pfile.pfile23
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+nimsdata.pfile.pfile24 module
+-----------------------------
+
+.. automodule:: nimsdata.pfile.pfile24
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: nimsdata.pfile
+    :members:
+    :undoc-members:
+    :show-inheritance:

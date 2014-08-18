@@ -1,0 +1,292 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.mkpfile &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
+    <link rel="up" title="nimsdata" href="../nimsdata.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" accesskey="U">nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.mkpfile</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c">#</span>
+<span class="c"># @author:  Reno Bowen</span>
+<span class="c">#           Gunnar Schaefer</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="kn">as</span> <span class="nn">et</span>
+
+<span class="n">ACCEPTABLE_TYPES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s">&#39;PointerType&#39;</span><span class="p">,</span>
+    <span class="s">&#39;Field&#39;</span><span class="p">,</span>
+    <span class="s">&#39;ArrayType&#39;</span><span class="p">,</span>
+    <span class="s">&#39;FundamentalType&#39;</span><span class="p">,</span>
+    <span class="s">&#39;Struct&#39;</span><span class="p">,</span>
+    <span class="s">&#39;Union&#39;</span><span class="p">,</span>
+    <span class="s">&#39;Typedef&#39;</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="n">FORMAT_CHARS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;pointer&#39;</span><span class="p">:</span> <span class="s">&#39;i&#39;</span><span class="p">,</span> <span class="c"># encode pointers as ints - don&#39;t think they wind up being relevant for anything</span>
+    <span class="s">&#39;short unsigned int&#39;</span><span class="p">:</span> <span class="s">&#39;H&#39;</span><span class="p">,</span>
+    <span class="s">&#39;short int&#39;</span><span class="p">:</span> <span class="s">&#39;h&#39;</span><span class="p">,</span>
+    <span class="s">&#39;int&#39;</span><span class="p">:</span> <span class="s">&#39;i&#39;</span><span class="p">,</span>
+    <span class="s">&#39;double&#39;</span><span class="p">:</span> <span class="s">&#39;d&#39;</span><span class="p">,</span>
+    <span class="s">&#39;float&#39;</span><span class="p">:</span> <span class="s">&#39;f&#39;</span><span class="p">,</span>
+    <span class="s">&#39;long unsigned int&#39;</span><span class="p">:</span> <span class="s">&#39;Q&#39;</span><span class="p">,</span> <span class="c"># typically this would actually be L, but it&#39;s a hack due to a bug in gccxml</span>
+    <span class="s">&#39;char&#39;</span><span class="p">:</span> <span class="s">&#39;s&#39;</span><span class="p">,</span> <span class="c"># we only really look at char arrays, so use s instead of c</span>
+    <span class="s">&#39;signed char&#39;</span><span class="p">:</span> <span class="s">&#39;b&#39;</span><span class="p">,</span>
+    <span class="s">&#39;unsigned int&#39;</span><span class="p">:</span> <span class="s">&#39;I&#39;</span>
+    <span class="p">}</span>
+<span class="n">NODE_DICT</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">OBJECT_DICT</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+<div class="viewcode-block" id="Member"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.Member">[docs]</a><span class="k">class</span> <span class="nc">Member</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">node</span> <span class="o">=</span> <span class="n">node</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;rdb_hdr_&#39;</span><span class="p">,</span><span class="s">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="s">&#39;[a-zA-Z]&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s">&#39;rdb_hdr_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">get_type</span><span class="p">(</span><span class="n">NODE_DICT</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;type&#39;</span><span class="p">]])</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;Member(node=</span><span class="si">%r</span><span class="s">, name=</span><span class="si">%s</span><span class="s">, type=</span><span class="si">%r</span><span class="s">)</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Member.instantiation_str"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.Member.instantiation_str">[docs]</a>    <span class="k">def</span> <span class="nf">instantiation_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">member_name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;self.</span><span class="si">%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">instantiation_str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+
+</div></div>
+<div class="viewcode-block" id="BasicType"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.BasicType">[docs]</a><span class="k">class</span> <span class="nc">BasicType</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">node</span> <span class="o">=</span> <span class="n">node</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type_name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s">&#39;name&#39;</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">attrib</span> <span class="k">else</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_type_def</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;BasicType(node=</span><span class="si">%r</span><span class="s">, type_name=</span><span class="si">%r</span><span class="s">, size=</span><span class="si">%d</span><span class="s">)</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_size</span><span class="p">())</span>
+
+<div class="viewcode-block" id="BasicType.get_size"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.BasicType.get_size">[docs]</a>    <span class="k">def</span> <span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_name</span> <span class="o">==</span> <span class="s">&#39;long unsigned int&#39;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="mi">8</span> <span class="c"># bug in gccxml forces us to hard code this size</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;size&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">8</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+</div>
+<div class="viewcode-block" id="BasicType.instantiation_str"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.BasicType.instantiation_str">[docs]</a>    <span class="k">def</span> <span class="nf">instantiation_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">member_name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;struct.unpack(&quot;{0}&quot;, fp.read(struct.calcsize(&quot;{0}&quot;)))[0]&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">FORMAT_CHARS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type_name</span><span class="p">])</span>
+
+</div></div>
+<div class="viewcode-block" id="ArrayType"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.ArrayType">[docs]</a><span class="k">class</span> <span class="nc">ArrayType</span><span class="p">(</span><span class="n">BasicType</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">BasicType</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span> <span class="o">=</span> <span class="n">get_type</span><span class="p">(</span><span class="n">NODE_DICT</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;type&#39;</span><span class="p">]])</span>
+        <span class="n">num_elems</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;max&#39;</span><span class="p">][:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_elems</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_elems</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">num_elems</span> <span class="k">else</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;ArrayType(node=</span><span class="si">%r</span><span class="s">, elem_type=</span><span class="si">%r</span><span class="s">, num_elems=</span><span class="si">%d</span><span class="s">)</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_size</span><span class="p">())</span>
+
+<div class="viewcode-block" id="ArrayType.get_size"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.ArrayType.get_size">[docs]</a>    <span class="k">def</span> <span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">get_size</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_elems</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+</div>
+<div class="viewcode-block" id="ArrayType.instantiation_str"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.ArrayType.instantiation_str">[docs]</a>    <span class="k">def</span> <span class="nf">instantiation_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">member_name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="p">,</span> <span class="n">BasicType</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="p">,</span> <span class="p">(</span><span class="n">ArrayType</span><span class="p">,</span> <span class="n">StructType</span><span class="p">)):</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="s">&#39;struct.unpack(&quot;{1}{0}&quot;, fp.read(struct.calcsize(&quot;{1}{0}&quot;)))&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">FORMAT_CHARS</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">type_name</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_elems</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">type_name</span> <span class="o">==</span> <span class="s">&#39;char&#39;</span><span class="p">:</span> <span class="n">string</span> <span class="o">+=</span> <span class="s">&#39;[0]&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">string</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;[]</span>
+<span class="s">        for i in range({0}):</span>
+<span class="s">            self.{1}.append({2})&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_elems</span><span class="p">,</span> <span class="n">member_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">instantiation_str</span><span class="p">(</span><span class="n">member_name</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">string</span>
+
+</div></div>
+<div class="viewcode-block" id="StructType"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.StructType">[docs]</a><span class="k">class</span> <span class="nc">StructType</span><span class="p">(</span><span class="n">BasicType</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">BasicType</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
+        <span class="n">member_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;members&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+        <span class="n">member_ids</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">id_</span><span class="p">:</span> <span class="n">id_</span> <span class="ow">in</span> <span class="n">NODE_DICT</span><span class="p">,</span> <span class="n">member_ids</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">Member</span><span class="p">(</span><span class="n">NODE_DICT</span><span class="p">[</span><span class="n">id_</span><span class="p">])</span> <span class="k">for</span> <span class="n">id_</span> <span class="ow">in</span> <span class="n">member_ids</span><span class="p">]</span>
+        <span class="c"># When it&#39;s a union, just take the largest field and roll with it</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;Union&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">members</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">member</span><span class="p">:</span> <span class="n">member</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">get_size</span><span class="p">())]</span>
+
+<div class="viewcode-block" id="StructType.get_size"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.StructType.get_size">[docs]</a>    <span class="k">def</span> <span class="nf">get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">members</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">+=</span> <span class="n">member</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">get_size</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+</div>
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;StructType(node=</span><span class="si">%r</span><span class="s">, members=</span><span class="si">%r</span><span class="s">, size=</span><span class="si">%d</span><span class="s">)</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">members</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_size</span><span class="p">())</span>
+
+<div class="viewcode-block" id="StructType.instantiation_str"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.StructType.instantiation_str">[docs]</a>    <span class="k">def</span> <span class="nf">instantiation_str</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">member_name</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">(fp)&#39;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_name</span>
+
+</div></div>
+<div class="viewcode-block" id="get_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.get_type">[docs]</a><span class="k">def</span> <span class="nf">get_type</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+    <span class="n">id_</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">id_</span> <span class="ow">in</span> <span class="n">OBJECT_DICT</span><span class="p">:</span>
+        <span class="n">object_</span> <span class="o">=</span> <span class="n">OBJECT_DICT</span><span class="p">[</span><span class="n">id_</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;FundamentalType&#39;</span><span class="p">:</span>
+            <span class="n">object_</span> <span class="o">=</span> <span class="n">BasicType</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;ArrayType&#39;</span><span class="p">:</span>
+            <span class="n">object_</span> <span class="o">=</span> <span class="n">ArrayType</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;Struct&#39;</span> <span class="ow">or</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;Union&#39;</span><span class="p">:</span>
+            <span class="n">object_</span> <span class="o">=</span> <span class="n">StructType</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;Typedef&#39;</span><span class="p">:</span>
+            <span class="n">object_</span> <span class="o">=</span> <span class="n">get_type</span><span class="p">(</span><span class="n">NODE_DICT</span><span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;type&#39;</span><span class="p">]])</span> <span class="c"># ignore the name of typedef, jump to its base type</span>
+            <span class="n">object_</span><span class="o">.</span><span class="n">is_type_def</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">elif</span> <span class="n">node</span><span class="o">.</span><span class="n">tag</span> <span class="o">==</span> <span class="s">&#39;PointerType&#39;</span><span class="p">:</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;pointer&#39;</span> <span class="c"># pointers don&#39;t wind up with name fields, so i&#39;m setting it manually and handling it downstream</span>
+            <span class="n">object_</span> <span class="o">=</span> <span class="n">BasicType</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">,</span> <span class="n">node</span>
+        <span class="n">OBJECT_DICT</span><span class="p">[</span><span class="n">id_</span><span class="p">]</span> <span class="o">=</span> <span class="n">object_</span>
+    <span class="k">return</span> <span class="n">object_</span>
+
+</div>
+<div class="viewcode-block" id="get_pool_header"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.get_pool_header">[docs]</a><span class="k">def</span> <span class="nf">get_pool_header</span><span class="p">(</span><span class="n">xml_path</span><span class="p">):</span>
+    <span class="n">all_children</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">et</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">xml_path</span><span class="p">)</span><span class="o">.</span><span class="n">iter</span><span class="p">())</span>
+    <span class="n">acceptable_children</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">element</span><span class="p">:</span> <span class="n">element</span><span class="o">.</span><span class="n">tag</span> <span class="ow">in</span> <span class="n">ACCEPTABLE_TYPES</span><span class="p">,</span> <span class="n">all_children</span><span class="p">)</span>
+    <span class="n">pool_header_node</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">acceptable_children</span><span class="p">:</span>
+        <span class="n">id_</span> <span class="o">=</span> <span class="n">child</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;id&#39;</span><span class="p">]</span>
+        <span class="n">NODE_DICT</span><span class="p">[</span><span class="n">id_</span><span class="p">]</span> <span class="o">=</span> <span class="n">child</span>
+        <span class="k">if</span> <span class="s">&#39;name&#39;</span> <span class="ow">in</span> <span class="n">child</span><span class="o">.</span><span class="n">attrib</span> <span class="ow">and</span> <span class="n">child</span><span class="o">.</span><span class="n">attrib</span><span class="p">[</span><span class="s">&#39;name&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;POOL_HEADER&#39;</span><span class="p">:</span>
+            <span class="n">pool_header_node</span> <span class="o">=</span> <span class="n">child</span>
+    <span class="n">pool_header</span> <span class="o">=</span> <span class="n">get_type</span><span class="p">(</span><span class="n">pool_header_node</span><span class="p">)</span>
+    <span class="n">pool_header</span><span class="o">.</span><span class="n">get_size</span><span class="p">()</span> <span class="c"># force recursing to cache sizes</span>
+    <span class="k">return</span> <span class="n">pool_header</span>
+
+</div>
+<div class="viewcode-block" id="print_parser"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.print_parser">[docs]</a><span class="k">def</span> <span class="nf">print_parser</span><span class="p">(</span><span class="n">pool_header</span><span class="p">,</span> <span class="n">object_dict</span><span class="p">):</span>
+    <span class="n">objects</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">object_dict</span><span class="o">.</span><span class="n">itervalues</span><span class="p">())</span>
+    <span class="n">structs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">object_</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">object_</span><span class="p">,</span> <span class="n">StructType</span><span class="p">),</span> <span class="n">objects</span><span class="p">))</span>
+    <span class="k">print</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&quot;&quot;&quot;AUTO-GENERATED FILE. DO NOT EDIT. USE </span><span class="si">%s</span><span class="s">&quot;&quot;&quot;</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">__file__</span><span class="p">)</span>
+    <span class="k">print</span> <span class="s">&#39;import struct&#39;</span>
+
+    <span class="k">for</span> <span class="n">struct</span> <span class="ow">in</span> <span class="n">structs</span><span class="p">:</span>
+        <span class="k">print</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span>
+        <span class="k">print</span> <span class="s">&#39;class </span><span class="si">%s</span><span class="s">:</span><span class="se">\n</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">struct</span><span class="o">.</span><span class="n">type_name</span>
+        <span class="k">print</span> <span class="s">&#39;    def __init__(self, fp):&#39;</span>
+        <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">struct</span><span class="o">.</span><span class="n">members</span><span class="p">:</span>
+            <span class="k">print</span> <span class="s">&#39;        </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">member</span><span class="o">.</span><span class="n">instantiation_str</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="ArgumentParser"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.ArgumentParser">[docs]</a><span class="k">class</span> <span class="nc">ArgumentParser</span><span class="p">(</span><span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArgumentParser</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">formatter_class</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">RawTextHelpFormatter</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span>  <span class="o">=</span> <span class="s">&#39;Emits Python code to access pfile header information. The code is generated from XML,</span><span class="se">\n</span><span class="s">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+=</span> <span class="s">&#39;which is the result of gccxml compilation of a proprietary GE C program.</span><span class="se">\n\n</span><span class="s">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+=</span> <span class="s">&#39;To generate XML, run:</span><span class="se">\n</span><span class="s">&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">+=</span> <span class="s">&#39;  gccxml -fxml=/tmp/pfile.xml -Iinclude RDSClient.cpp&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;xml_file&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;path to xml file&#39;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ArgumentParser.error"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.mkpfile.ArgumentParser.error">[docs]</a>    <span class="k">def</span> <span class="nf">error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_help</span><span class="p">()</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+</div></div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">pool_header</span> <span class="o">=</span> <span class="n">get_pool_header</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">xml_file</span><span class="p">)</span>
+    <span class="n">print_parser</span><span class="p">(</span><span class="n">pool_header</span><span class="p">,</span> <span class="n">OBJECT_DICT</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li>
+          <li><a href="../nimsdata.html" >nimsdata</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

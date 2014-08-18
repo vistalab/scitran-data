@@ -1,0 +1,8 @@
+nimsdata.nimsmrdata module
+--------------------------
+
+.. automodule:: nimsdata.nimsmrdata
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
