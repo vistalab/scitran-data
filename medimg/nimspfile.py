@@ -2,6 +2,7 @@
 #
 # @author:  Gunnar Schaefer
 #           Kevin S Hahn
+
 """
 nimsdata.nimspfile
 ==================
@@ -21,7 +22,6 @@ import bson
 import gzip
 import json
 import time
-import json
 import shlex
 import struct
 import logging
@@ -32,8 +32,11 @@ import bson.json_util
 
 import numpy as np
 
-import nimsmrdata
-import tempdir as tempfile
+import medimg
+import dcm.mr.ge
+import dcm.mr.generic_mr
+
+from .. import tempdir as tempfile
 
 log = logging.getLogger(__name__)
 
@@ -136,11 +139,11 @@ def get_version(filepath):
     return version
 
 
-class NIMSPFileError(nimsmrdata.NIMSMRDataError):
+class NIMSPFileError(medimg.MedImgError):
     pass
 
 
-class NIMSPFile(nimsmrdata.NIMSMRReader):
+class NIMSPFile(medimg.MedImgReader):
 
     """
     Read pfile data and/or header.
@@ -163,22 +166,21 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
         pf.to_nii(outbase='P56832.7')
 
     """
-
+    domain = u'mr'
     filetype = u'pfile'
     parse_priority = 5
+    state = ['orig']
 
     def __init__(self, filepath, load_data=False, full_parse=False):
         super(NIMSPFile, self).__init__(filepath, load_data)
-        self.full_parse = False                                 # indicates if this reader has 'full_parsed' its file
+        self.full_parse = False  # indicates if this reader has 'full_parsed' its file
         log.debug('parsing pfile %s, full_parse = %s, load_data = %s' % (self.filepath, full_parse, load_data))
         self.dirpath = os.path.dirname(self.filepath)
         self.filename = os.path.basename(self.filepath)
-        self.basename, _ = os.path.splitext(self.filename)      # discard the file extension
+        self.basename, _ = os.path.splitext(self.filename)  # discard the file extension
         self.is_localizer = None
 
-        # determine the format
-        if tarfile.is_tarfile(self.filepath):
-            # tgz; find json with a ['header'] section
+        if tarfile.is_tarfile(self.filepath):  # tgz; find json with a ['header'] section
             log.debug('tgz')
             with tarfile.open(self.filepath) as archive:
                 for ti in archive:
@@ -186,11 +188,9 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
                         continue
                     try:
                         _hdr = json.load(archive.extractfile(ti), object_hook=bson.json_util.object_hook)['header']
-                    except KeyError as e:
-                        # header section does not exist
+                    except KeyError as e:  # header section does not exist
                         log.debug('%s; header section does not exist' % e)
-                    except Exception as e:
-                        # json file does not exist
+                    except Exception as e:  # json file does not exist
                         log.debug('%s; not a json file' % e)
                     else:
                         log.debug('_min_parse_tgz')
@@ -202,8 +202,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
                         break
                 else:
                     raise NIMSPFileError('no json file with header section found. bailing', log_level=logging.WARNING)
-        else:
-            # .7 or .7.gz
+        else:  # .7 or .7.gz
             try:
                 self.version = get_version(filepath)
                 self._full_parse(filepath) if full_parse else self._min_parse(filepath)
@@ -272,7 +271,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
             hour, minute = map(int, self.scan_time.split('\0', 1)[0].split(':'))
             self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute)  # GE's epoch begins in 1900
 
-        self.psd_type = nimsmrdata.infer_psd_type('GE MEDICAL SYSTEMS', self.psd_name)
+        dcm.mr.ge.infer_psd_type(self)  # kinda awkward
         if self.psd_type == 'spiral':
             self.num_timepoints = int(self.rec_user0)
         elif self.psd_type == 'basic':
@@ -280,7 +279,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
         elif self.psd_type == 'muxepi':
             self.num_timepoints = self.num_timepoints + int(self.rec_user6) * self.ileaves * (int(self.rec_user7) - 1)
         self.prescribed_duration = self.num_timepoints * self.tr
-        self.subj_code, self.group_name, self.experiment_name = self.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
+        self.subj_code, self.group_name, self.experiment_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
 
     def _full_parse(self, filepath):
         """work on .7.gz and .7."""
@@ -307,13 +306,13 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
             self.series_desc = self._hdr.series.se_desc.split('\0', 1)[0]
             self.series_uid = unpack_uid(self._hdr.series.series_uid)
             self.acq_no = self._hdr.image.scanactno
-            self.subj_code, self.group_name, self.experiment_name = self.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
+            self.subj_code, self.group_name, self.experiment_name = medimg.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
 
             self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0])
             self.scan_type = self._hdr.image.psd_iname.split('\0', 1)[0]
             self.pfilename = 'P%05d' % self._hdr.rec.run_int
-            self.subj_firstname, self.subj_lastname = self.parse_subject_name(self._hdr.exam.patnameff.split('\0', 1)[0])
-            self.subj_dob = self.parse_subject_dob(self._hdr.exam.dateofbirth.split('\0', 1)[0])
+            self.subj_firstname, self.subj_lastname = medimg.parse_patient_name(self._hdr.exam.patnameff.split('\0', 1)[0])
+            self.subj_dob = medimg.parse_patient_dob(self._hdr.exam.dateofbirth.split('\0', 1)[0])
             self.subj_sex = ('male', 'female')[self._hdr.exam.patsex-1] if self._hdr.exam.patsex in [1, 2] else None
             if self._hdr.image.im_datetime > 0:
                 self.timestamp = datetime.datetime.utcfromtimestamp(self._hdr.image.im_datetime)
@@ -375,7 +374,8 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
             image_brhc = np.array([self._hdr.image.brhc_R, self._hdr.image.brhc_A, self._hdr.image.brhc_S])
 
             # psd-specific params get set here
-            self.psd_type = nimsmrdata.infer_psd_type('GE MEDICAL SYSTEMS', self.psd_name)
+            dcm.mr.ge.infer_psd_type(self)
+            # self.psd_type = dcm.mr.ge.infer_psd_type(self.psd_name)
             if self.psd_type == 'spiral':
                 self.num_timepoints = int(self._hdr.rec.user0)    # not in self._hdr.rec.nframes for sprt
                 self.num_timepoints_available = self.num_timepoints
@@ -451,12 +451,12 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
             else:
                 row_cosines = np.array([1., 0, 0])
                 col_cosines = np.array([0, -1., 0])
-            self.slice_order = nimsmrdata.SLICE_ORDER_UNKNOWN
+            self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_UNKNOWN
             # FIXME: check that this is correct.
             if self._hdr.series.se_sortorder == 0:
-                self.slice_order = nimsmrdata.SLICE_ORDER_SEQ_INC
+                self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_SEQ_INC
             elif self._hdr.series.se_sortorder == 1:
-                self.slice_order = nimsmrdata.SLICE_ORDER_ALT_INC
+                self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_ALT_INC
             slice_norm = np.array([-self._hdr.image.norm_R, -self._hdr.image.norm_A, self._hdr.image.norm_S])
             # This is either the first slice tlhc (image_tlhc) or the last slice tlhc. How to decide?
             # And is it related to wheather I have to negate the slice_norm?
@@ -489,9 +489,10 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
                 log.warning('the data appear to be diffusion-weighted, but image.b_value is 0!')
             # The bvals/bvecs will get set later
             self.bvecs, self.bvals = (None, None)
-            self.image_rotation = nimsmrdata.compute_rotation(row_cosines, col_cosines, slice_norm)
-            self.qto_xyz = nimsmrdata.build_affine(self.image_rotation, self.mm_per_vox, origin)
-            self.scan_type = self.infer_scan_type_all()
+            self.image_rotation = dcm.mr.generic_mr.compute_rotation(row_cosines, col_cosines, slice_norm)
+            self.qto_xyz = dcm.mr.generic_mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
+            # self.scan_type = dcm.mr.generic_mr.infer_scan_type(self)
+            dcm.mr.generic_mr.infer_scan_type(self)
             self.aux_files = None
 
             self.full_parse = True
@@ -537,7 +538,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
                 num_nondwi = self.num_timepoints_available - self.dwi_numdirs
                 bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
                 bvecs = np.hstack((np.zeros((3, num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
-                self.bvecs, self.bvals = nimsmrdata.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
+                self.bvecs, self.bvals = dcm.mr.generic_mr.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
 
     @property
     def recon_func(self):
@@ -607,7 +608,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
                 if self.data is None:
                     if self.recon_func:
                         log.debug('running recon')
-                        self.recon_func(fpath, tempdir=temp_dirpath, num_jobs=num_jobs)
+                        self.recon_func(fpath, temp_dirpath, num_jobs)
                     else:
                         raise NIMSPFileError('Recon not implemented for this type of data')
 
@@ -693,14 +694,15 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
             self.num_timepoints = self.data.shape[3]
         self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echos?
 
-    def recon_hoshim(self, tempdir, num_jobs):
+    def recon_hoshim(self, filepath, tempdir, num_jobs):
         log.debug('Cannot recon HO SHIM data')
 
-    def recon_basic(self, tempdir, num_jobs):
+    def recon_basic(self, filepath, tempdir, num_jobs):
         log.debug('Cannot recon BASIC data')
 
     def recon_spirec(self, tempdir, num_jobs):
         """Do spiral image reconstruction and populate self.imagedata."""
+        log.debug('spiral recon')
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
             if self.compressed:
                 pfile_path = os.path.join(temp_dirpath, self.basename)
@@ -752,6 +754,9 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
         return cal_file,cal_ref_file,cal_vrgf_file,cal_compressed
 
     def recon_mux_epi(self, filepath, tempdir, num_jobs, timepoints=[], octave_bin='octave'):
+        # DOES NOT WORK FOR MICA scans.  Currently, the MICA option causes use of rand_lcg_gcc.m, which relies
+        # on a matlab function to work.  The only way to side-step this.
+        log.debug('mux epi recon')
         start_sec = time.time()
         log.debug(start_sec)
         """Do mux_epi image reconstruction and populate self.data."""
@@ -829,6 +834,7 @@ class NIMSPFile(nimsmrdata.NIMSMRReader):
 
     def recon_mrs(self, filepath, tempdir, num_jobs):
         """Currently just loads raw spectro data into self.imagedata so that we can save it in a nifti."""
+        log.debug('mrs recon')
         # Reorder the data to be in [frame, num_frames, slices, passes (repeats), echos, coils]
         # This roughly complies with the nifti standard of x,y,z,time,[then whatever].
         # Note that the "frame" is the line of k-space and thus the FID timeseries.

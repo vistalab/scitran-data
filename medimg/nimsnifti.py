@@ -19,16 +19,25 @@ import nibabel
 
 import numpy as np
 
-import nimsmrdata
+import medimg
 
 log = logging.getLogger(__name__)
 
+# NIFITI1-style slice order codes:
+SLICE_ORDER_UNKNOWN = 0
+SLICE_ORDER_SEQ_INC = 1
+SLICE_ORDER_SEQ_DEC = 2
+SLICE_ORDER_ALT_INC = 3
+SLICE_ORDER_ALT_DEC = 4
+SLICE_ORDER_ALT_INC2 = 5  # interleaved, increased, starting at 2nd MRI slice
+SLICE_ORDER_ALT_DEC2 = 6  # interleave, decreasing, starting at one before last MRI slice
 
-class NIMSNiftiError(nimsmrdata.NIMSMRDataError):
+
+class NIMSNiftiError(medimg.MedImgError):
     pass
 
 
-class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
+class NIMSNifti(medimg.MedImgReader, medimg.MedImgWriter):
 
     """
     Read elements of a NIMSData subclass.
@@ -44,7 +53,9 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
 
     """
 
+    domain = u'mr'
     filetype = u'nifti'
+    state = ['orig']
 
     def __init__(self, path, load_data=False):
         super(NIMSNifti, self).__init__(path, load_data)
@@ -65,12 +76,10 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
             except Exception as e:
                 raise NIMSNiftiError(e)
 
-        # TODO: read the header
+        # TODO: nibabel nifti header reader
         # self.metadata.group
         # self.metadata.experiment
         # self.metadata.exam_uid
-        # self.
-        # TODO: nibabel nifti header reader
         self.data = nifti.imagedata.squeeze()
         self.metadata.qto_xyz = nifti.get_affine()
         self.metadata.sform = nifti.get_sform()
@@ -92,10 +101,6 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
     @property
     def nims_epoch(self):
         return self.metadata.epoch
-
-    @property
-    def nims_type(self):
-        return ('derived', 'nifti', self.filetype)
 
     @property
     def nims_filename(self):
@@ -131,18 +136,17 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
 
     @property
     def nims_epoch_type(self):
-        pass
+        pass  # read custom 'scan_type' from nifti header
+        # return '%s.%s' % (self.domain, self.scan_type)
 
     @classmethod
     def write(cls, metadata, imagedata, outbase, voxel_order=None):
-        super(NIMSNifti, cls).write(metadata, imagedata, outbase, voxel_order)
-        # when reorienting, do not change the original dataset object
-        results = []         # empty list, append result tuples
+        super(NIMSNifti, cls).write(metadata, imagedata, outbase, voxel_order)      # XXX FAIL! unexpected imagedata = None
+        results = []
         for data_label, data in imagedata.iteritems():
             if data is None:
                 continue
             if voxel_order:
-                log.debug('reorienting')
                 data, qto_xyz = cls.reorder_voxels(data, metadata.qto_xyz, voxel_order)
             else:
                 qto_xyz = metadata.qto_xyz
@@ -150,9 +154,7 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
 
             log.debug('creating nifti for %s' % data_label)
 
-            # if DTI bvec, bvals
-            # TODO: nimsmrdata.adjust_bvecs should go here, occuring AFTER reorientation
-            # such that the bvec and bvals are adjusted with the affine immediately before write
+            # TODO: nimsmrdata.adjust_bvecs to use affine from after reorient
             if metadata.is_dwi and metadata.bvals is not None and metadata.bvecs is not None:
                 filepath = outbase + '.bval'
                 with open(filepath, 'w') as bvals_file:
@@ -167,9 +169,9 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
 
             # write actually nifti
             nifti = nibabel.Nifti1Image(data, None)
-            nii_header = nifti.get_header()     # get the empty header and update the shizzles out of it
+            nii_header = nifti.get_header()
             nifti.update_header()               # TODO: junk? data and header are never "non-harmonious"
-            num_slices = data.shape[2]     # Don't trust metatdata.num_slices; might not match the # acquired.
+            num_slices = data.shape[2]          # Don't trust metatdata.num_slices; might not match the # acquired.
             nii_header.set_xyzt_units('mm', 'sec')
             nii_header.set_qform(qto_xyz, 'scanner')
             nii_header.set_sform(qto_xyz, 'scanner')
@@ -208,25 +210,14 @@ class NIMSNifti(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
                     mt_offset_hz,
                     1. / phase_encode_undersample,
                     )
-            if '3D' in metadata.acquisition_type:
+            if '3D' in (metadata.acquisition_type or ''):
                 nii_header['descrip'] = str(nii_header['descrip']) + 'rs=%.1f' % (1. / slice_encode_undersample)
 
-            nii_header['pixdim'][4] = metadata.tr       # force pixdim[4] to always be TR, even when non-timeseries. not nifti compliant
-            # log.debug(['%1.3f' % pd for pd in nii_header['pixdim']])
-            # log.debug(nii_header['dim'])
-            # log.debug(nii_header['descrip'])
-            # log.debug(nii_header.get_sform())
-
-            # nii_header.extensions = Nifti1Extensions([meta_ext])   # append the meta extension, this is currently a json string
-            # the primary imagedata will go into imagedata, while supporting imagedata's will go into
-            # other fields, such as fieldmap_data
-            #
-            # TODO: think; store the primary data in key '', so all outputs
-            # just append the value to outbase and add extension.
+            nii_header['pixdim'][4] = metadata.tr   # XXX pixdim[4] = TR, even when non-timeseries. not nifti compliant
 
             filepath = outname + '.nii.gz'
             nibabel.save(nifti, filepath)
-            log.info('generated %s' % os.path.basename(filepath))
+            log.debug('generated %s' % os.path.basename(filepath))
             results.append(filepath)
 
         return results

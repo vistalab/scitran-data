@@ -9,7 +9,7 @@ not implemented!
 
 """
 
-import nimsdata
+from .. import nimsdata
 
 
 class NIMSBehaviorError(nimsdata.NIMSDataError):
@@ -17,6 +17,10 @@ class NIMSBehaviorError(nimsdata.NIMSDataError):
 
 
 class NIMSBehavior(nimsdata.NIMSReader):
+
+    domain = u'mr'
+    filetype = u'behavior'
+    state = ['orig']
 
     def __init__(self, filepath):
         raise NIMSBehaviorError('NIMSBehavior Reader class not yet implemented')

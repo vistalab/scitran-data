@@ -1,6 +1,7 @@
 # @author:  Bob Dougherty
 #           Gunnar Schaefer
 #           Kevin S Hahn
+
 """
 nimsdata.nimsmontage
 ====================
@@ -19,7 +20,7 @@ import sqlite3
 import cStringIO
 import numpy as np
 
-import nimsmrdata
+import medimg
 
 log = logging.getLogger(__name__)
 
@@ -158,10 +159,10 @@ def generate_sqlite_pyr(imagedata, outbase, tile_size=512):
     if not os.path.exists(outbase):
         raise NIMSMontageError('montage (sqlite pyramid) not generated')
     else:
-        log.info('generated %s' % os.path.basename(outbase))
+        log.debug('generated %s' % os.path.basename(outbase))
         return outbase
 
-
+# FIXME panojs_url should be a configurable
 def generate_dir_pyr(imagedata, outbase, tile_size=256, panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'):
     montage = generate_montage(imagedata)
     pyramid, pyramid_size = generate_pyramid(montage, tile_size)
@@ -195,7 +196,7 @@ def generate_dir_pyr(imagedata, outbase, tile_size=256, panojs_url='https://cni.
     if not (os.path.exists(os.path.join(outbase, 'pyramid.html')) and os.path.exists(os.path.join(outbase, 'images', '000_000_000.jpg'))):
         raise NIMSMontageError('montage (flat png) not generated')
     else:
-        log.info('generated %s' % outbase)
+        log.debug('generated %s' % outbase)
         return outbase
 
 
@@ -206,17 +207,19 @@ def generate_flat(imagedata, filepath):
     if not os.path.exists(filepath):
         raise NIMSMontageError('montage (flat png) not generated')
     else:
-        log.info('generated %s' % os.path.basename(filepath))
+        log.debug('generated %s' % os.path.basename(filepath))
         return filepath
 
 
-class NIMSMontageError(nimsmrdata.NIMSMRDataError):
+class NIMSMontageError(medimg.MedImgError):
     pass
 
 
-class NIMSMontage(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
+class NIMSMontage(medimg.MedImgReader, medimg.MedImgWriter):
 
+    domain = u'mr'
     filetype = u'montage'
+    state = ['orig']
 
     def __init__(self, filepath, load_data=False):
         super(NIMSMontage, self).__init__(load_data=load_data)
@@ -249,9 +252,6 @@ class NIMSMontage(nimsmrdata.NIMSMRReader, nimsmrdata.NIMSMRWriter):
             else:
                 qto_xyz = metadata.qto_xyz
             outname = outbase + data_label
-            # generate montage
-            # each gets passed an outbase, and appends own extension
-            # this allows appending to outbase before writing.
             if mtype == 'sqlite':
                 log.debug('type: sqlite')
                 result = generate_sqlite_pyr(data, outname + '.pyrdb', tilesize)

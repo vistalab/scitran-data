@@ -6,6 +6,9 @@ nimsdata.nimsgephysio
 
 Parse and identify GE MR Physio files.
 
+nimsdata.medimg.nimsbehavior will need to be paired with a writer that is capable of outputting
+to text or csv.  Currently, there is no such writer.
+
 """
 
 import bson
@@ -13,7 +16,7 @@ import json
 import logging
 import tarfile
 
-import nimsdata
+from .. import nimsdata
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +27,9 @@ class NIMSGEPhysioError(nimsdata.NIMSDataError):
 
 class NIMSGEPhysio(nimsdata.NIMSReader):
 
-    filetype = 'gephysio'
+    domain = u'mr'
+    filetype = u'gephysio'
+    state = ['orig']
 
     def __init__(self, path, load_data=False):
         super(NIMSGEPhysio, self).__init__(path, load_data)
@@ -45,6 +50,7 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         self.session = self._hdr['session']
         self.epoch = self._hdr['epoch']
         self.timestamp = self._hdr['timestamp']
+        self.nims_metadata_status = None
 
     def load_data(self):
         log.debug('nimsgephysio.load_data() has not been implemented yet. sorry!')
@@ -62,30 +68,6 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         return self.session
 
     @property
-    def nims_epoch_id(self):
-        return self.epoch
-
-    @property
-    def nims_type(self):
-        return ('original', 'physio', self.filetype)
-
-    @property
-    def nims_filename(self):
-        return self.epoch + '_' + self.filetype
-
-    @property
-    def nims_file_ext(self):
-        return '.tgz'
-
-    @property
-    def nims_timestamp(self): # FIXME: should return UTC time and timezone
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
-
-    @property
-    def nims_timezone(self):
-        return None
-
-    @property
     def nims_session_label(self):
         return None
 
@@ -94,8 +76,8 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         return None
 
     @property
-    def nims_session_type(self):
-        return None
+    def nims_epoch_id(self):
+        return self.epoch
 
     @property
     def nims_epoch_label(self):
@@ -106,5 +88,33 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         return None
 
     @property
-    def nims_epoch_type(self):
+    def nims_file_name(self):
+        return self.epoch + '_' + self.filetype
+
+    @property
+    def nims_file_ext(self):
+        return '.tgz'
+
+    @property
+    def nims_file_domain(self):
+        return self.domain
+
+    @property
+    def nims_file_type(self):
+        return self.filetype
+
+    @property
+    def nims_file_kinds(self):
+        return ['resp', 'ecg']
+
+    @property
+    def nims_file_state(self):
+        return self.state
+
+    @property
+    def nims_timestamp(self): # FIXME: should return UTC time and timezone
+        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+
+    @property
+    def nims_timezone(self):
         return None

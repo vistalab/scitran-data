@@ -4,23 +4,61 @@
 
 This package provides DICOM reading, DICOM to png and DICOM to nifti.
 
-## Documentation:
-todo: sphinx-docs on gh-pages
 
-## Running Tests:
-todo: doctest + pyunit + nose? end-to-end testing
 
-## Installing:
-clone this reposity, and install dependencies.
+--------------------
 
-	git clone git@github.com:scitran/nimsdata.git
+# installation on fresh ubuntu 14.04
 
-	pip install numpy pydicom nibabel
-	pip install PIL --allow-external PIL --allow-unverified PIL
-	curl -o dcmstack-master.zip https://github.com/moloney/dcmstack/archive/master.zip
-	pip install dcmstack-master.zip
+    sudo apt-get update
+    sudo apt-get upgrade
+    sudo apt-get install python-dev python-virtualenv git mercurial
 
-todo: setup.py
+**had to chmod o+w /var/local to allow regular user to write; BAD!**
+
+create virtualenv
+
+    virtualenv /var/local/nimsdata_env
+
+activate virtualenv
+    
+    source /var/local/nimsdata_env/bin/activate
+
+install dependencies, these are VERY specific version. once these versions are available
+through pypi, these installation commands will change (to simpler).
+    
+    pip install git+https://github.com/nipy/nibabel.git     # also install numpy
+    hg clone https://kevinshahn@code.google.com/r/kevinshahn-pydicom-val-vr-mismatch ./pydicom
+    pip install ./pydicom/source                            # pip install pydicom
+    pip install git+http://github.com/moloney/dcmstack
+    pip install pymongo                                     # just want bson
+    pip install PIL --allow-unverfied PIL --allow-external PIL
+    
+    
+finally install nimsdata from github
+    
+    git clone https://github.com/scitran/nimsdata.git /var/local/nimsdata
+    cd /var/local/nimsdata
+    git submodule init
+    git submodule update
+
+# pfile, spirec and mux_recon_epi
+	sudo apt-get install libatlas-base-dev gfortran
+    sudo apt-get install octave
+    pip install scipy
+    
+    sudo apt-get install octave
+    
+	libfftw3-3
+	libfftw3-dev
+	gfortran
+	libatlas-base-dev
+	octave
+	
+	cd /var/local/
+	virtualenv nims
+	source /var/local/nimsenv/bin/activate
+	pip install scipy
 
 
 ## Developer Notes:
@@ -40,3 +78,4 @@ docs are generated with sphinx-apidoc, using the following extensions
 
 - numpydoc  (sphinx.ext.napoleon? google style docstrings?)
 - autodoc
+

@@ -1,0 +1,19 @@
+{
+    "mr": "medimg",
+    "mr.spectroscopy": "medimg",
+    "mr.perfusion": "medimg",
+    "mr.diffusion": "medimg",
+    "mr.fieldmap": "medimg",
+    "mr.functional": "medimg",
+    "mr.calibration": "medimg",
+    "mr.localizer": "medimg",
+    "mr.anatomy_t1w": "medimg",
+    "mr.anatomy_t2w": "medimg",
+    "mr.anatomy": "medimg",
+    "mr.unknown": "medimg",
+    "mr.eprime_txt": "medimg",
+    "mr.montage": "medimg",
+    "mr.nifti": "medimg",
+    "mr.behavior": "nimsdata",
+    "mr.gephysio": "nimsdata"
+}
