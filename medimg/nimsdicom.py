@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 
 dicom.config.auto_convert_VR_mismatch = True
-
+nibabel.nicom.csareader.MAX_CSA_ITEMS = 300
 dcmstack.DicomStack.sort_guesses.append('CsaImage.ImaCoilString')
 try:
     dcmstack.DicomStack.sort_guesses.remove('InversionTime')
