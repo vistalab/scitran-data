@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 GEMS_TYPE_ORIG = ['ORIGINAL', 'PRIMARY', 'OTHER']
 GEMS_TYPE_DERIVED_RFMT = ['DERIVED', 'SECONDARY', 'REFORMATTED', 'AVERAGE']
+TAG_RECON_FLAG = (0x0043, 0x107d)
 TAG_BVALUE = (0x0043, 0x1039)                                       # CSA_BVALUE = 'Slop_int_6...Slop_int_9'
 TAG_BVEC = [(0x0019, 0x10bb), (0x0019, 0x10bc), (0x0019, 0x10bd)]   # CSA_BVEC = ['UserData20', 'UserData21', 'UserData22']
 MAX_LOC_DCMS = nimsdicom.MAX_LOC_DCMS
@@ -170,25 +171,14 @@ def parse_all(self):
         self.bvals = np.array([float(self.getelem(d, TAG_BVALUE)[0]) for d in self._dcm_list[0::self.num_slices]])
         self.bvecs = np.array([[self.getelem(d, TAG_BVEC[i], float) for i in range(3)] for d in self._dcm_list[0::self.num_slices]]).transpose()
 
-    if not self.is_dwi and self.psd_type != 'asl' and self.psd_type != 'fieldmap':
-        # XXX multicoil DTI, ASL and fieldmap currently not supported
-        # slice position should be repeated the same number of time as there are temporal positions
-        # if num repeat slice position exceeds 1, could be timeseries, dti, or multicoil, or multi-echo
-        # if num repeat slice positions > num_timepoints, could be dti or multicoil, or multi-echo
-        # if not DTI AND num repeat slice positions > num_timepoints, then must be multi-coil or DTI
-        # if not DTI and num repeat slice positions > num_timepoints * num_echos, then must be multicoil
-        vol_counter = 0
-        ref_position = self.getelem(self._hdr, 'ImagePositionPatient')
-        for d in self._dcm_list:
-            if np.allclose(self.getelem(d, 'ImagePositionPatient'), ref_position):
-                vol_counter += 1
-        # some asl scans contain TWO volumes
-        if vol_counter > (self.num_timepoints or 1) * (self.num_echos or 1):
-            log.debug('attempting to guess multicoil groupings')
-            self.is_multicoil = True
-            self.num_receivers = (self.total_num_slices / self.num_slices) - 1   # actual #recv = -1 of num volumes
-            self._dcm_groups = [self._dcm_list[x::self.num_receivers + 1] for x in xrange(0, self.num_receivers + 1)]
-            log.debug('groups: %3d; %3d coils + 1 combined' % (len(self._dcm_groups), self.num_receivers))
+    recon_mode_flag = np.unique([self.getelem(d, TAG_RECON_FLAG, int, 0) for d in self._dcm_list])
+    log.debug('recon mode flag word: %s' % (recon_mode_flag))
+    if recon_mode_flag == [1]:
+        log.debug('attempting to guess multicoil groupings')
+        self.is_multicoil = True
+        self.num_receivers = (self.total_num_slices / self.num_slices) - 1   # actual #recv = -1 of num volumes
+        self._dcm_groups = [self._dcm_list[x::self.num_receivers + 1] for x in xrange(0, self.num_receivers + 1)]
+        log.debug('groups: %3d; %3d coils + 1 combined' % (len(self._dcm_groups), self.num_receivers))
 
     # attempt to calculate trigger times and slice duration, if the first dicom reports trigger time
     self.slice_duration = None
