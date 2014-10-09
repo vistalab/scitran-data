@@ -257,6 +257,11 @@ _epoch_properties = {
         'title': 'Effective Echo Spacing',
         'type': 'number',
     },
+    'phase_encode_direction': {
+        'field': 'phase_encode_direction',
+        'title': 'Phase-encode Direction',
+        'type': 'integer',
+    },
     'duration': {
         'field': 'duration',
         'title': 'Duration',

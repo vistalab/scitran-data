@@ -62,7 +62,7 @@ def infer_psd_type(self):
             self.psd_type = 'hoshim'
         elif self.psd_name == 'basic':
             self.psd_type = 'basic'
-        elif 'mux' in self.psd_name:
+        elif 'mux' in self.psd_name or 'mb_' in self.psd_name:
             self.psd_type = 'muxepi'
         elif 'epi' in self.psd_name:
             self.psd_type = 'epi'

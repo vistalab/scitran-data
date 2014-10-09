@@ -155,6 +155,8 @@ class NIMSPFile(medimg.MedImgReader):
     .tgz of directory containing Pfile, auxillary files such as ref.dat, vrgf.dat and tensor.dat
     .gz of single pfile
 
+    tgz cannot be "full parsed".  setting full_parse=True, with an input tgz, will raise an exception.
+
     the old way is no longer supported.
     Pfile.gz + _Pfile.7_ref.dat + _PFile.7._vrgf.dat _PFile.7_refscan.7, _P02048.7_param.dat
 
@@ -171,14 +173,17 @@ class NIMSPFile(medimg.MedImgReader):
     parse_priority = 5
     state = ['orig']
 
-    def __init__(self, filepath, load_data=False, full_parse=False):
+    def __init__(self, filepath, load_data=False, full_parse=False, num_jobs=8, num_virtual_coils=16, notch_thresh=0, recon_type=None):
         super(NIMSPFile, self).__init__(filepath, load_data)
-        self.full_parse = False  # indicates if this reader has 'full_parsed' its file
+        self.full_parse = False  # self.full_parse = False indicates file is not fully parsed
         log.debug('parsing pfile %s, full_parse = %s, load_data = %s' % (self.filepath, full_parse, load_data))
         self.dirpath = os.path.dirname(self.filepath)
         self.filename = os.path.basename(self.filepath)
         self.basename, _ = os.path.splitext(self.filename)  # discard the file extension
         self.is_localizer = None
+        self.num_vcoils = num_virtual_coils
+        self.notch_thresh = notch_thresh
+        self.recon_type = recon_type
 
         if tarfile.is_tarfile(self.filepath):  # tgz; find json with a ['header'] section
             log.debug('tgz')
@@ -188,10 +193,10 @@ class NIMSPFile(medimg.MedImgReader):
                         continue
                     try:
                         _hdr = json.load(archive.extractfile(ti), object_hook=bson.json_util.object_hook)['header']
+                    except ValueError as e:  # json file does not exist
+                        log.debug('%s; not a json file' % e)
                     except KeyError as e:  # header section does not exist
                         log.debug('%s; header section does not exist' % e)
-                    except Exception as e:  # json file does not exist
-                        log.debug('%s; not a json file' % e)
                     else:
                         log.debug('_min_parse_tgz')
                         self.exam_uid = _hdr.get('session')
@@ -202,17 +207,17 @@ class NIMSPFile(medimg.MedImgReader):
                         break
                 else:
                     raise NIMSPFileError('no json file with header section found. bailing', log_level=logging.WARNING)
-        else:  # .7 or .7.gz
+        else:  # .7 or .7.gz, doing it old world style
             try:
                 self.version = get_version(filepath)
-                self._full_parse(filepath) if full_parse else self._min_parse(filepath)
+                self._full_parse(filepath) if full_parse else self._min_parse(filepath)  # full_parse arg indicates run full_parse
             except:
                 raise NIMSPFileError('not a PFile')
 
         self.metadata_status = 'pending'
 
-        if load_data:
-            self.load_data()
+        if load_data:  # load_data arg indicates run load_data
+            self.load_data(num_jobs)  # load_data checks self.full_parse to see if full_parse is needed
 
     def _min_parse(self, filepath):
         """
@@ -282,7 +287,11 @@ class NIMSPFile(medimg.MedImgReader):
         self.subj_code, self.group_name, self.experiment_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
 
     def _full_parse(self, filepath):
-        """work on .7.gz and .7."""
+        """
+        Work on .7.gz and .7.
+
+        Requires the pfile submodule.
+        """
         log.debug('full_parse')
         if tarfile.is_tarfile(filepath):
             raise NIMSPFileError('Cannot Full Parse a tgz, need to load all data first. bailing.', log_level=logging.WARNING)
@@ -296,8 +305,9 @@ class NIMSPFile(medimg.MedImgReader):
             if not self._hdr:
                 raise NIMSPFileError('no pfile read', log_level=logging.WARNING)
 
-            self.data = None
-            self.fm_data = None
+            self.data = {}      # empty dict to start
+            # self.data = None
+            # self.fm_data = None
 
             self.exam_no = self._hdr.exam.ex_no
             self.exam_uid = unpack_uid(self._hdr.exam.study_uid)
@@ -378,7 +388,6 @@ class NIMSPFile(medimg.MedImgReader):
             # self.psd_type = dcm.mr.ge.infer_psd_type(self.psd_name)
             if self.psd_type == 'spiral':
                 self.num_timepoints = int(self._hdr.rec.user0)    # not in self._hdr.rec.nframes for sprt
-                self.num_timepoints_available = self.num_timepoints
                 self.deltaTE = self._hdr.rec.user15
                 self.band_spacing = 0
                 self.scale_data = True
@@ -396,14 +405,16 @@ class NIMSPFile(medimg.MedImgReader):
                 # first 6 are ref scans, so ignore those. Also, two acquired timepoints are used
                 # to generate each reconned time point.
                 self.num_timepoints = (self._hdr.rec.npasses * self._hdr.rec.nechoes - 6) / 2
-                self.num_timepoints_available = self.num_timepoints
                 self.num_echos = 1
             elif self.psd_type == 'muxepi':
                 self.num_bands = int(self._hdr.rec.user6)
                 self.num_mux_cal_cycle = int(self._hdr.rec.user7)
                 self.band_spacing_mm = self._hdr.rec.user8
-                self.num_timepoints = self._hdr.rec.npasses + self.num_bands * self._hdr.rec.ileaves * (self.num_mux_cal_cycle-1)
-                self.num_timepoints_available = self._hdr.rec.npasses - self.num_bands * self._hdr.rec.ileaves * (self.num_mux_cal_cycle-1) + self.num_mux_cal_cycle
+                # When ARC is used with mux, the number of acquired TRs is greater than what's Rxed.
+                # ARC calibration uses multi-shot, so the additional TRs = num_bands*(ileaves-1)*num_mux_cal_cycle
+                self.num_timepoints = self._hdr.rec.npasses + self.num_bands * (self._hdr.rec.ileaves-1) * self.num_mux_cal_cycle
+                # The actual number of images returned by the mux recon is npasses - num_calibration_passes + num_mux_cal_cycle
+                self.num_timepoints_available = self._hdr.rec.npasses - self.num_bands * self.num_mux_cal_cycle + self.num_mux_cal_cycle
                 # TODO: adjust the image.tlhc... fields to match the correct geometry.
             elif self.psd_type == 'mrs':
                 self._hdr.image.scanspacing = 0.
@@ -429,15 +440,18 @@ class NIMSPFile(medimg.MedImgReader):
             # TODO: Set this correctly! (it's in the dicom at (0x0043, 0x1083))
             self.slice_encode_undersample = 1.          # FIXME
             self.acquisition_matrix_x, self.acquisition_matrix_y = [self._hdr.rec.rc_xres, self._hdr.rec.rc_yres]
+            # TODO: it looks like the pfile now has a 'grad_data' field!
             # Diffusion params
             self.dwi_numdirs = self._hdr.rec.numdifdirs
-            # You might think that the b-valuei for diffusion scans would be stored in self._hdr.image.b_value.
+            # You might think that the b-value for diffusion scans would be stored in self._hdr.image.b_value.
             # But alas, this is GE. Apparently, that var stores the b-value of the just the first image, which is
             # usually a non-dwi. So, we had to modify the PSD and stick the b-value into an rhuser CV. Sigh.
-            self.dwi_bvalue = self._hdr.rec.user22
+            self.dwi_bvalue = self._hdr.rec.user22 if self.version == 24 else self._hdr.rec.user1
             self.is_dwi = True if self.dwi_numdirs >= 6 else False
             # if bit 4 of rhtype(int16) is set, then fractional NEX (i.e., partial ky acquisition) was used.
             self.partial_ky = self._hdr.rec.scan_type & np.uint16(16) > 0
+            # was pepolar used to flip the phase encode direction?
+            self.phase_encode_direction = -1 if np.bitwise_and(self._hdr.rec.dacq_ctrl,4)==4 else 1
             self.caipi = self._hdr.rec.user13   # true: CAIPIRINHA-type acquisition; false: Direct aliasing of simultaneous slices.
             self.cap_blip_start = self._hdr.rec.user14   # Starting index of the kz blips. 0~(mux-1) correspond to -kmax~kmax.
             self.cap_blip_inc = self._hdr.rec.user15   # Increment of the kz blip index for adjacent acquired ky lines.
@@ -457,7 +471,9 @@ class NIMSPFile(medimg.MedImgReader):
                 self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_SEQ_INC
             elif self._hdr.series.se_sortorder == 1:
                 self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_ALT_INC
+            # header geometry is LPS, but we need RAS, so negate R and A.
             slice_norm = np.array([-self._hdr.image.norm_R, -self._hdr.image.norm_A, self._hdr.image.norm_S])
+
             # This is either the first slice tlhc (image_tlhc) or the last slice tlhc. How to decide?
             # And is it related to wheather I have to negate the slice_norm?
             # Tuned this empirically by comparing spiral and EPI data with the same Rx.
@@ -465,7 +481,7 @@ class NIMSPFile(medimg.MedImgReader):
             # I have no idea why I need that! But the flipping only seems necessary for axials, not
             # coronals or the few obliques I've tested.
             # FIXME: haven't tested sagittals!
-            if (self._hdr.series.start_ras == 'S' or self._hdr.series.start_ras == 'I') and self._hdr.series.start_loc > self._hdr.series.end_loc:
+            if (self._hdr.series.start_ras in 'SI' and self._hdr.series.start_loc > self._hdr.series.end_loc):
                 self.reverse_slice_order = True
                 slice_fov = np.abs(self._hdr.series.start_loc - self._hdr.series.end_loc)
                 image_position = image_tlhc - slice_norm * slice_fov
@@ -473,6 +489,16 @@ class NIMSPFile(medimg.MedImgReader):
             else:
                 image_position = image_tlhc
                 self.reverse_slice_order = False
+
+            # not sure why the following is needed.
+            # TODO: * test non-slice-reversed coronals-- do they also need l/r flip?
+            #       * test sagitals-- do they need any flipping?
+            if (self._hdr.series.start_ras in 'AP' and self._hdr.series.start_loc > self._hdr.series.end_loc):
+                slice_norm = -slice_norm
+                self.flip_lr = True
+            else:
+                self.flip_lr = False
+
             if self.num_bands > 1:
                 image_position = image_position - slice_norm * self.band_spacing_mm * (self.num_bands - 1.0) / 2.0
 
@@ -486,7 +512,9 @@ class NIMSPFile(medimg.MedImgReader):
             row_cosines[0:2] = -row_cosines[0:2]
             col_cosines[0:2] = -col_cosines[0:2]
             if self.is_dwi and self.dwi_bvalue == 0:
-                log.warning('the data appear to be diffusion-weighted, but image.b_value is 0!')
+                log.warning('the data appear to be diffusion-weighted, but image.b_value is 0! Setting it to 10.')
+                # Set it to something other than 0 so non-dwi's can be distinguised from dwi's
+                self.dwi_bvalue = 10.
             # The bvals/bvecs will get set later
             self.bvecs, self.bvals = (None, None)
             self.image_rotation = dcm.mr.generic_mr.compute_rotation(row_cosines, col_cosines, slice_norm)
@@ -523,18 +551,22 @@ class NIMSPFile(medimg.MedImgReader):
             except KeyError:
                 log.warning('%s; tensor file not found')
             else:
-                uid = fp.readline().rstrip()
-                ndirs = int('0' + fp.readline().rstrip())
+                try:
+                    uid = fp.readline().rstrip()
+                    ndirs = int('0' + fp.readline().rstrip())
+                except:
+                    fp.seek(0, 0)
+                    uid = None
+                    ndirs = int('0' + fp.readline().rstrip())
                 bvecs = np.fromfile(fp, sep=' ')
 
-            if (uid or None) != self._hdr.series.series_uid:
+            if uid and uid != self._hdr.series.series_uid:  # if uid is provided, and does not match
                 raise NIMSPFileError('tensor file UID does not match PFile UID!')
             if (ndirs or None) != self.dwi_numdirs or self.dwi_numdirs != bvecs.size / 3.:
                 log.warning('tensor file numdirs does not match PFile header numdirs!')
                 self.bvecs = None
                 self.bvals = None
             else:
-                # FIXME: assumes that all the non-dwi images are acquired first.
                 num_nondwi = self.num_timepoints_available - self.dwi_numdirs
                 bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
                 bvecs = np.hstack((np.zeros((3, num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
@@ -605,7 +637,7 @@ class NIMSPFile(medimg.MedImgReader):
                 if self.is_dwi:
                     self.get_bvecs_bvals()      # needs to know where to look
 
-                if self.data is None:
+                if not self.data:  # data starts as empty dict
                     if self.recon_func:
                         log.debug('running recon')
                         self.recon_func(fpath, temp_dirpath, num_jobs)
@@ -620,7 +652,7 @@ class NIMSPFile(medimg.MedImgReader):
                 self._full_parse(self.filepath)
             # handle lone P file
 
-            if self.data is None:
+            if not self.data:
                 if self.recon_func:
                     log.debug('running recon')
                     self.recon_func(self.filepath, tempdir=tempdir, num_jobs=num_jobs)
@@ -632,11 +664,15 @@ class NIMSPFile(medimg.MedImgReader):
         # how to deal wih datasets that have both self.data and self.fm_data?
         # nimsnifti can only write a single file at a time.
         # TODO: pfile needs to be updated to return data in dictionary
-        if self.data is not None:
+        if self.data.get('') is not None:   # data dictionary is not empty
             if self.reverse_slice_order:
-                self.data = self.data[:,:,::-1,]
-                if self.fm_data is not None:
-                    self.fm_data = self.fm_data[:,:,::-1,]
+                self.data[''] = self.data[''][:,:,::-1,]
+                if self.data.get('fieldmap') is not None:
+                    self.data['fieldmap'] = self.data['fieldmap'][:,:,::-1,]
+            if self.flip_lr:
+                self.data[''] = self.data[''][::-1,:,:,]
+                if self.data.get('fieldmap') is not None:
+                    self.data['fieldmap'] = self.data['fieldmap'][::-1,:,:,]
             if self.psd_type == 'spiral' and self.num_echos == 2:
                 # Uncomment to save spiral in/out
                 # nimsnifti.NIMSNifti.write(self, self.imagedata[:,:,:,:,0], outbase + '_in')
@@ -644,21 +680,22 @@ class NIMSPFile(medimg.MedImgReader):
                 # FIXME: Do a more robust test for spiralio!
                 # Assume spiralio, so do a weighted average of the two echos.
                 # FIXME: should do a quick motion correction here
-                w_in = np.mean(self.data[:,:,:,:,0], 3)
-                w_out = np.mean(self.data[:,:,:,:,1], 3)
+                w_in = np.mean(self.data[''][:,:,:,:,0], 3)
+                w_out = np.mean(self.data[''][:,:,:,:,1], 3)
                 inout_sum = w_in + w_out
                 w_in = w_in / inout_sum
                 w_out = w_out / inout_sum
-                avg = np.zeros(self.data.shape[0:4])
-                for tp in range(self.edata.shape[3]):
-                    avg[:,:,:,tp] = w_in*self.data[:,:,:,tp,0] + w_out*self.data[:,:,:,tp,1]
-                self.data = avg
+                avg = np.zeros(self.data[''].shape[0:4])
+                for tp in range(self.data[''].shape[3]):
+                    avg[:,:,:,tp] = w_in*self.data[''][:,:,:,tp,0] + w_out*self.data[''][:,:,:,tp,1]
+                self.data[''] = avg
                 log.debug('writing spiral IO')
             else:
                 log.debug('writing spiral')
 
-            if self.fm_data is not None:
-                log.debug('writing fieldmaps')
+            # field map data is automatically written if it exists in self.data dictionary
+            # if self.data.get('fieldmap') is not None:
+            #     log.debug('writing fieldmaps')   # logging message is performed by nimsnifti
 
     def load_imagedata_from_file(self, filepath):
         """Load raw image data from a file and do some sanity checking on num slices, matrix size, etc."""
@@ -670,6 +707,9 @@ class NIMSPFile(medimg.MedImgReader):
             slice_locs = mat['sl_loc'].flatten().astype(int) - 1
             imagedata = np.zeros(sz, mat['d'].dtype)
             raw = np.atleast_3d(mat['d'])
+            if len(slice_locs)<raw.shape[2]:
+                slice_locs = range(raw.shape[2])
+                log.warning('Slice_locs is too short. Assuming slice_locs=[0,1,...,nslices]')
             imagedata[:,:,slice_locs,...] = raw[::-1,...]
         elif 'MIP_res' in mat:
             imagedata = np.atleast_3d(mat['MIP_res'])
@@ -679,20 +719,20 @@ class NIMSPFile(medimg.MedImgReader):
         return imagedata
 
     def update_imagedata(self, imagedata):
-        self.data = imagedata
-        if self.data.shape[0] != self.size[0] or self.data.shape[1] != self.size[1]:
+        if imagedata.shape[0] != self.size[0] or imagedata.shape[1] != self.size[1]:
             log.warning('Image matrix discrepancy. Fixing the header, assuming imagedata is correct...')
-            self.size = [self.data.shape[0], self.data.shape[1]]
+            self.size = [imagedata.shape[0], imagedata.shape[1]]
             self.mm_per_vox_x = self.fov_x / self.size_y
             self.mm_per_vox_y = self.fov_y / self.size_y
-        if self.data.shape[2] != self.num_slices * self.num_bands:
+        if imagedata.shape[2] != self.num_slices * self.num_bands:
             log.warning('Image slice count discrepancy. Fixing the header, assuming imagedata is correct...')
-            self.num_slices = self.data.shape[2]
-        if self.data.shape[3] != self.num_timepoints:
+            self.num_slices = imagedata.shape[2]
+        if imagedata.shape[3] != self.num_timepoints:
             log.warning('Image time frame discrepancy (header=%d, array=%d). Fixing the header, assuming imagedata is correct...'
-                    % (self.num_timepoints, self.data.shape[3]))
-            self.num_timepoints = self.data.shape[3]
+                    % (self.num_timepoints, imagedata.shape[3]))
+            self.num_timepoints = imagedata.shape[3]
         self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echos?
+        self.data = {'': imagedata}
 
     def recon_hoshim(self, filepath, tempdir, num_jobs):
         log.debug('Cannot recon HO SHIM data')
@@ -780,11 +820,19 @@ class NIMSPFile(medimg.MedImgReader):
         ref_file = self.cal_ref_file
         vrgf_file = self.cal_vrgf_file
 
-        # HACK to force SENSE recon for caipi data
-        #sense_recon = 1 if 'CAIPI' in self.series_desc else 0
-        sense_recon = 0
+        if self.recon_type == None:
+            # set the recon type automatically
+            # scans with mux>1, arc>1, caipi
+            if self.is_dwi and self.num_bands>1 and self.phase_encode_undersample<1. and self.caipi:
+                sense_recon = 1
+            else:
+                sense_recon = 0
+        elif self.recon_type == 'sense':
+            sense_recon = 1
+        else:
+            sense_recon = 0
+
         fermi_filt = 1
-        notch_thresh = 0
 
         # already have a tempdir open...
         # with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
@@ -792,7 +840,7 @@ class NIMSPFile(medimg.MedImgReader):
             pfile_path = filepath
             temp_dirpath = tempdir
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d, notch=%f).'
-                    % (self.num_vcoils, filepath, tempdir, num_jobs, sense_recon, fermi_filt, notch_thresh))
+                    % (self.num_vcoils, filepath, tempdir, num_jobs, sense_recon, fermi_filt, self.notch_thresh))
             if cal_file!='':
                 log.info('Using calibration file: %s.' % cal_file)
             recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mux_epi_recon'))
@@ -807,7 +855,7 @@ class NIMSPFile(medimg.MedImgReader):
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
                     cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s, %s);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(notch_thresh)))
+                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(self.notch_thresh)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1

@@ -212,6 +212,8 @@ class NIMSNifti(medimg.MedImgReader, medimg.MedImgWriter):
                     )
             if '3D' in (metadata.acquisition_type or ''):
                 nii_header['descrip'] = str(nii_header['descrip']) + 'rs=%.1f' % (1. / slice_encode_undersample)
+            if metadata.phase_encode_direction != None:
+                nii_header['descrip'] = str(nii_header['descrip']) + 'pe=%d' % (metadata.phase_encode_direction)
 
             nii_header['pixdim'][4] = metadata.tr   # XXX pixdim[4] = TR, even when non-timeseries. not nifti compliant
 
