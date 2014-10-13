@@ -1,9 +1,0 @@
-nimsdata.nimspng module
------------------------
-
-.. automodule:: nimsdata.nimspng
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-

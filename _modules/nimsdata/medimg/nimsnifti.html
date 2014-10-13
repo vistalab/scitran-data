@@ -6,38 +6,38 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>nimsdata.nimsnifti &mdash; NIMSData  documentation</title>
+    <title>nimsdata.medimg.nimsnifti &mdash; NIMSData  documentation</title>
     
-    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../../',
+        URL_ROOT:    '../../../',
         VERSION:     '',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
       };
     </script>
-    <script type="text/javascript" src="../../_static/jquery.js"></script>
-    <script type="text/javascript" src="../../_static/underscore.js"></script>
-    <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
-    <link rel="up" title="Module code" href="../index.html" /> 
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" /> 
   </head>
   <body>
     <div class="related">
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
+          <a href="../../../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
+          <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+        <li><a href="../../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -46,7 +46,7 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <h1>Source code for nimsdata.nimsnifti</h1><div class="highlight"><pre>
+  <h1>Source code for nimsdata.medimg.nimsnifti</h1><div class="highlight"><pre>
 <span class="c"># @author:  Gunnar Schaefer</span>
 <span class="c">#           Bob Dougherty</span>
 <span class="c">#           Kevin S Hahn</span>
@@ -68,16 +68,25 @@
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">nimsmrdata</span>
+<span class="kn">import</span> <span class="nn">medimg</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
 
+<span class="c"># NIFITI1-style slice order codes:</span>
+<span class="n">SLICE_ORDER_UNKNOWN</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">SLICE_ORDER_SEQ_INC</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">SLICE_ORDER_SEQ_DEC</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">SLICE_ORDER_ALT_INC</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">SLICE_ORDER_ALT_DEC</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">SLICE_ORDER_ALT_INC2</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c"># interleaved, increased, starting at 2nd MRI slice</span>
+<span class="n">SLICE_ORDER_ALT_DEC2</span> <span class="o">=</span> <span class="mi">6</span>  <span class="c"># interleave, decreasing, starting at one before last MRI slice</span>
 
-<div class="viewcode-block" id="NIMSNiftiError"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNiftiError">[docs]</a><span class="k">class</span> <span class="nc">NIMSNiftiError</span><span class="p">(</span><span class="n">nimsmrdata</span><span class="o">.</span><span class="n">NIMSMRDataError</span><span class="p">):</span>
+
+<div class="viewcode-block" id="NIMSNiftiError"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNiftiError">[docs]</a><span class="k">class</span> <span class="nc">NIMSNiftiError</span><span class="p">(</span><span class="n">medimg</span><span class="o">.</span><span class="n">MedImgError</span><span class="p">):</span>
     <span class="k">pass</span>
 
 </div>
-<div class="viewcode-block" id="NIMSNifti"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti">[docs]</a><span class="k">class</span> <span class="nc">NIMSNifti</span><span class="p">(</span><span class="n">nimsmrdata</span><span class="o">.</span><span class="n">NIMSMRReader</span><span class="p">,</span> <span class="n">nimsmrdata</span><span class="o">.</span><span class="n">NIMSMRWriter</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti">[docs]</a><span class="k">class</span> <span class="nc">NIMSNifti</span><span class="p">(</span><span class="n">medimg</span><span class="o">.</span><span class="n">MedImgReader</span><span class="p">,</span> <span class="n">medimg</span><span class="o">.</span><span class="n">MedImgWriter</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Read elements of a NIMSData subclass.</span>
@@ -93,7 +102,9 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
+    <span class="n">domain</span> <span class="o">=</span> <span class="s">u&#39;mr&#39;</span>
     <span class="n">filetype</span> <span class="o">=</span> <span class="s">u&#39;nifti&#39;</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;orig&#39;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">NIMSNifti</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">)</span>
@@ -106,7 +117,7 @@
         <span class="c"># self.metadata._hdr = get header</span>
         <span class="c"># first simple parse of _hdr</span>
 
-<div class="viewcode-block" id="NIMSNifti.load_data"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">preloaded</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.load_data"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">preloaded</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">NIMSNifti</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">load_data</span><span class="p">(</span><span class="n">preloaded</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">preloaded</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
@@ -125,70 +136,66 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">image_type</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;derived&#39;</span><span class="p">,</span> <span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span><span class="p">]</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_group"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_group">[docs]</a>    <span class="k">def</span> <span class="nf">nims_group</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_group"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_group">[docs]</a>    <span class="k">def</span> <span class="nf">nims_group</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">group</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_experiment"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_experiment">[docs]</a>    <span class="k">def</span> <span class="nf">nims_experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_experiment"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_experiment">[docs]</a>    <span class="k">def</span> <span class="nf">nims_experiment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">experiment</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_session"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_session">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_session"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">exam_uid</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="s">&#39;_&#39;</span><span class="p">)</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_epoch"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_epoch">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_epoch"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">epoch</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span><span class="s">&#39;derived&#39;</span><span class="p">,</span> <span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span><span class="p">)</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_filename"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_filename">[docs]</a>    <span class="k">def</span> <span class="nf">nims_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_filename"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_filename">[docs]</a>    <span class="k">def</span> <span class="nf">nims_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nims_epoch</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_timestamp"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>       <span class="c"># FIXME: should return UTC time and timezone</span>
+<div class="viewcode-block" id="NIMSNifti.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>       <span class="c"># FIXME: should return UTC time and timezone</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span>  <span class="c"># FIXME: use pytz</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_timezone"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">None</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_session_name"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_session_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_session_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">series_no</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">acq_no</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="bp">None</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_session_subject"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_session_subject"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">subj_code</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_session_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_session_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_session_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>  <span class="c"># FIXME</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_epoch_name"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_epoch_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_epoch_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_epoch_description"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_epoch_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSNifti.nims_epoch_description"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSNifti.nims_epoch_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.nims_epoch_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span>
+<div class="viewcode-block" id="NIMSNifti.nims_epoch_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>  <span class="c"># read custom &#39;scan_type&#39; from nifti header</span>
+        <span class="c"># return &#39;%s.%s&#39; % (self.domain, self.scan_type)</span>
 </div>
     <span class="nd">@classmethod</span>
-<div class="viewcode-block" id="NIMSNifti.write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsnifti.NIMSNifti.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSNifti</span><span class="p">,</span> <span class="n">cls</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>
+<div class="viewcode-block" id="NIMSNifti.write"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsnifti.NIMSNifti.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSNifti</span><span class="p">,</span> <span class="n">cls</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>      <span class="c"># XXX FAIL! unexpected imagedata = None</span>
         <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">data_label</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">imagedata</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
                 <span class="k">continue</span>
             <span class="k">if</span> <span class="n">voxel_order</span><span class="p">:</span>
-                <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;reorienting&#39;</span><span class="p">)</span>
                 <span class="n">data</span><span class="p">,</span> <span class="n">qto_xyz</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">reorder_voxels</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">metadata</span><span class="o">.</span><span class="n">qto_xyz</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">qto_xyz</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">qto_xyz</span>
@@ -252,14 +259,16 @@
                     <span class="n">mt_offset_hz</span><span class="p">,</span>
                     <span class="mf">1.</span> <span class="o">/</span> <span class="n">phase_encode_undersample</span><span class="p">,</span>
                     <span class="p">)</span>
-            <span class="k">if</span> <span class="s">&#39;3D&#39;</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">acquisition_type</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s">&#39;3D&#39;</span> <span class="ow">in</span> <span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">acquisition_type</span> <span class="ow">or</span> <span class="s">&#39;&#39;</span><span class="p">):</span>
                 <span class="n">nii_header</span><span class="p">[</span><span class="s">&#39;descrip&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">nii_header</span><span class="p">[</span><span class="s">&#39;descrip&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="s">&#39;rs=</span><span class="si">%.1f</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="mf">1.</span> <span class="o">/</span> <span class="n">slice_encode_undersample</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">metadata</span><span class="o">.</span><span class="n">phase_encode_direction</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">nii_header</span><span class="p">[</span><span class="s">&#39;descrip&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">nii_header</span><span class="p">[</span><span class="s">&#39;descrip&#39;</span><span class="p">])</span> <span class="o">+</span> <span class="s">&#39;pe=</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">phase_encode_direction</span><span class="p">)</span>
 
             <span class="n">nii_header</span><span class="p">[</span><span class="s">&#39;pixdim&#39;</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">tr</span>   <span class="c"># XXX pixdim[4] = TR, even when non-timeseries. not nifti compliant</span>
 
             <span class="n">filepath</span> <span class="o">=</span> <span class="n">outname</span> <span class="o">+</span> <span class="s">&#39;.nii.gz&#39;</span>
             <span class="n">nibabel</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nifti</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
-            <span class="c"># log.info(&#39;generated %s&#39; % os.path.basename(filepath))</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;generated </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filepath</span><span class="p">))</span>
             <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">results</span>
@@ -274,7 +283,7 @@
         <div class="sphinxsidebarwrapper">
 <div id="searchbox" style="display: none">
   <h3>Quick search</h3>
-    <form class="search" action="../../search.html" method="get">
+    <form class="search" action="../../../search.html" method="get">
       <input type="text" name="q" />
       <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
@@ -293,13 +302,13 @@
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
+          <a href="../../../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
+          <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+        <li><a href="../../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

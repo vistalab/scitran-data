@@ -54,38 +54,120 @@
             
   <div class="section" id="extending-nimsdata">
 <h1>Extending NIMSData<a class="headerlink" href="#extending-nimsdata" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="creating-a-custom-nimsreader">
-<h2>Creating a custom NIMSReader<a class="headerlink" href="#creating-a-custom-nimsreader" title="Permalink to this headline">¶</a></h2>
-<p>Readers generally have three specific roles</p>
-<ol class="arabic simple">
-<li>be capable of reading a specific filetype, e.g. dicom, nifti.</li>
-<li>be capable of parsing metadata necessary for identification and sorting, defined in __init__</li>
-<li>be capable of converting the data to a specified intermediate format, defined in load_data</li>
-</ol>
-<p>Readers may manipulate the file they are working on, e.g. NIMSdicom anonymizing patient information of it&#8217;s own dicoms.</p>
-<p>Readers, being readers, should generally avoid:</p>
-<ol class="arabic simple">
-<li>writing a filetype other than their own, e.g. NIMSDicom attempting to write a nifti</li>
-<li>other restriction...</li>
-</ol>
-<p>NIMSReader should be subclasses to add support for additional scientific data domains/types.</p>
-<p>For Example, NIMSMRReader and NIMSMRWriters are subclasses of NIMSReader and NIMSWriter, respectively.  The subclasses
-add MR data specific properties and functions.  NIMSDicom and NIMSPFile are subclasses of NIMSMRReader, that add
-more specific functions with respect to their datatypes.</p>
+<p>Support for additional varieties of data can be added by creating additional parsers and writers.  New parsers and
+writers can be subclassed from the base nimsdata.NIMSReader and nimsdata.NIMSWriter, or from domain specific
+base classes, such as nimsdata.medimg.MedImgReader and nimsdata.medimg.MedImgWriter.</p>
+<div class="section" id="nimsdata-input-file-format">
+<h2>NIMSdata input file format<a class="headerlink" href="#nimsdata-input-file-format" title="Permalink to this headline">¶</a></h2>
+<p>The standard NIMSdata format is a .tar.gz/.tgz file.  The input .tar.gz/.tgz should contain metadata.json, and a
+dataset. The json file, metadata.json, should be the first regular file in the archive. The metadata.json file should contain
+at least one section sections, &#8216;filetype&#8217;, and may contain two additional sections, &#8216;header&#8217; and &#8216;overwrite&#8217;. Filetype
+will be used to match the input file to it&#8217;s parser. The header section is used to define any metadata that is not naturally
+part of the dataset.  For example, if a dataset does not contain anything that identifies the data, then identification information
+can be added to the header section of metadata.json.  The overwrite section is used to overwrite metadata.  The overwrite section will
+overwrite any metadata that is contained in the data, or in the header section of metadata.json.</p>
+<div class="code json highlight-python"><div class="highlight"><pre><span class="p">{</span>
+ <span class="s">&quot;filetype&quot;</span><span class="p">:</span> <span class="s">&quot;dicom&quot;</span><span class="p">,</span>
+ <span class="s">&quot;header&quot;</span><span class="p">:</span>
+        <span class="p">{</span>
+        <span class="s">&quot;&quot;</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">,</span>
+        <span class="s">&quot;&quot;</span><span class="p">:</span> <span class="s">&quot;&quot;</span>
+        <span class="p">},</span>
+ <span class="s">&quot;overwrite&quot;</span><span class="p">:</span>
+        <span class="p">{</span>
+        <span class="s">&quot;&quot;</span><span class="p">:</span> <span class="s">&quot;&quot;</span><span class="p">,</span>
+        <span class="s">&quot;&quot;</span><span class="p">:</span> <span class="s">&quot;&quot;</span>
+        <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="creating-a-new-nimsreader">
+<h2>Creating a new NIMSReader<a class="headerlink" href="#creating-a-new-nimsreader" title="Permalink to this headline">¶</a></h2>
+<p>The nimsdata.NIMSReader base class can be subclassed to created additional data readers.</p>
+<p>A subclass of nimsdata.NIMSReader must implement the following:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">__init__ method:</p>
+<p>the init method should call <cite>super</cite> to perform the parent class&#8217;s __init__ method, which will perform some setup.
+The __init__ function should read one file from the tar archive, and parse metadata that can be collected from a
+single file.  In cases where the input is several files, some information might not be parseable until all the
+inputs have been read in.  __init__ should implement opening the tar archive, and streaming the first file into
+a StringIO/ByteIO/cStringIO file like object in self._hdr.  __init__ should also parse necessary sorting
+information.  __init__ should also be capable of assigning an unique ID to the file, some files may already have
+unique IDs that can be used as the nims unique ID.</p>
+<p>__init__ should invoke the parent class&#8217;s __init__.</p>
+</li>
+<li><p class="first">load_data method</p>
+<p>load_data should read in all the data files contained within the input .tar.gz/.tgz.  This method should
+parse metadata that requires multiple, or all, input files to be present.  This method should also convert
+data into an intermediate format.</p>
+</li>
+<li><p class="first">nims_group_id property</p>
+</li>
+<li><p class="first">nims_experiment property</p>
+</li>
+<li><p class="first">nims_session_id property</p>
+</li>
+<li><p class="first">nims_session_label property</p>
+</li>
+<li><p class="first">nims_session_subject property</p>
+</li>
+<li><p class="first">nims_epoch_id property</p>
+</li>
+<li><p class="first">nims_epoch_label property</p>
+</li>
+<li><p class="first">nims_epoch_description property</p>
+</li>
+<li><p class="first">nims_file_name property</p>
+</li>
+<li><p class="first">nims_file_ext property</p>
+</li>
+<li><p class="first">nims_file_domain property</p>
+</li>
+<li><p class="first">nims_file_type property</p>
+</li>
+<li><p class="first">nims_file_kind property</p>
+</li>
+<li><p class="first">nims_file_state property</p>
+</li>
+<li><p class="first">nims_timestamp property</p>
+</li>
+<li><p class="first">nims_timezone property</p>
+</li>
+</ul>
+</div></blockquote>
 </div>
 <div class="section" id="creating-a-custom-nimswriter">
 <h2>Creating a custom NIMSWriter<a class="headerlink" href="#creating-a-custom-nimswriter" title="Permalink to this headline">¶</a></h2>
-<p>Subclasses of NIMSWriter should stick to the following conventions:</p>
-<p>1. NIMSWriter appends its own file extension.  The writer can optionally append a name suffix
-to differentiate different types of outputs, or differentiate multiple outputs.</p>
-<p>NIMS intermediate formats are always a dictionary of data.  each intermediate format is relatively
-unique to each data domain.  see NIMSMRReader and NIMSMRWriter...</p>
-<p>add instructions for subclassing NIMSWriter.</p>
+<p>The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.</p>
+<p>A subclass of nimsdata.NIMSWriter must implement the following:</p>
+<blockquote>
+<div><ul>
+<li><p class="first">write classmethod:</p>
+<p>The write class method should call super to perform the parent class&#8217;s write.  The use of super in this case is
+a bit tricky.  NIMSWriter.write does not actually perform a write.  An abstract base class&#8217;s write
+method performs a &#8220;setup&#8221; on the writer. A concrete class&#8217;s implementation of write should call super to
+use the setup, and then write the file.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>Other considerations:</p>
+<blockquote>
+<div><ul class="simple">
+<li>NIMSWriter appends its own file extension.  It should accept a basename, without extention.</li>
+</ul>
+</div></blockquote>
 </div>
 <div class="section" id="creating-a-data-domain">
 <h2>Creating a data domain<a class="headerlink" href="#creating-a-data-domain" title="Permalink to this headline">¶</a></h2>
-<p>Is &#8216;data domain&#8217; okay name for categories of data that can share an intermediate data format, such as &#8220;MR&#8221;, or  &#8220;Genetics&#8221;?</p>
-<p>These data domains would define compatibility between readers and writers.</p>
+<p>Readers and Writers can be grouped together based on their data domain.  A domain is similar to a scientific domain, such as
+neuro-imaging or genetics.  Readers and writers in the same domain should have an intermediate format that allows &#8220;mix-and-matching&#8221;
+of readers and writers within a domain.</p>
+<p>Creating a new data domain involves sublcasses NIMSReader and NIMSWriter into new abstract base classes that define
+additional properties, metadata and methods that will be shared within that data domain.</p>
+<p>see nimsdata.medimg.medimg for an example of defining a data domain (domain is medical images).
+See nimsdata.medimg.nimsdicom for an example of creating a specific reader for a daomain (read dicoms, within medical image domain).</p>
 </div>
 </div>
 
@@ -98,7 +180,8 @@ unique to each data domain.  see NIMSMRReader and NIMSMRWriter...</p>
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Extending NIMSData</a><ul>
-<li><a class="reference internal" href="#creating-a-custom-nimsreader">Creating a custom NIMSReader</a></li>
+<li><a class="reference internal" href="#nimsdata-input-file-format">NIMSdata input file format</a></li>
+<li><a class="reference internal" href="#creating-a-new-nimsreader">Creating a new NIMSReader</a></li>
 <li><a class="reference internal" href="#creating-a-custom-nimswriter">Creating a custom NIMSWriter</a></li>
 <li><a class="reference internal" href="#creating-a-data-domain">Creating a data domain</a></li>
 </ul>

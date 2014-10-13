@@ -57,183 +57,13 @@
 <p>The nimsdata package provides two interfaces; one for reading from file, and the other for writing to file.</p>
 <p>Readers and Writers are defined in external json files, readers.json and writers.json.  New readers and writers can be added to
 a running system by defining it in the appropriate json file.</p>
-<dl class="function">
-<dt id="nimsdata.get_handler">
-<tt class="descclassname">nimsdata.</tt><tt class="descname">get_handler</tt><big>(</big><em>name</em>, <em>handlerdict</em><big>)</big><a class="reference internal" href="_modules/nimsdata.html#get_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.get_handler" title="Permalink to this definition">¶</a></dt>
-<dd><p>Retrieve the class object of reader or writer from its string label.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> : str</p>
-<blockquote>
-<div><p>reader or writer name, by string</p>
-</div></blockquote>
-<p><strong>handlerdict</strong> : dict</p>
-<blockquote>
-<div><p>name of which handler dict to search from, READERS or WRITERS</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>handler</strong> : NIMSReader subclass</p>
-<blockquote class="last">
-<div><p>NIMSReader subclass capable of reading</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.getnattr">
-<tt class="descclassname">nimsdata.</tt><tt class="descname">getnattr</tt><big>(</big><em>obj</em>, <em>attr</em><big>)</big><a class="reference internal" href="_modules/nimsdata.html#getnattr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.getnattr" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get nested attribute.</p>
-<p>getnattr(foo, &#8216;bar.face&#8217;)</p>
-<p>This function is not needed anymore. safe to delete?</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.parse">
-<tt class="descclassname">nimsdata.</tt><tt class="descname">parse</tt><big>(</big><em>path</em>, <em>load_data=False</em>, <em>ignore_json=False</em>, <em>filetype=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/nimsdata.html#parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.parse" title="Permalink to this definition">¶</a></dt>
-<dd><p>Infer the type of file at path and parse with filetype-specific parser.</p>
-<p>The parse function expects a tgz of raw input files and a metadata.json file that
-declares the filetype, and any metadata that should be overwritten.  The parse
-function will pass the input file to the appropriate handler, if available.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>path</strong> : str</p>
-<blockquote>
-<div><p>input path</p>
-</div></blockquote>
-<p><strong>load_data</strong> : bool  [default False]</p>
-<blockquote>
-<div><p>attempt to load all metadata and data at parse.  like running parse, then load_data</p>
-</div></blockquote>
-<p><strong>ignore_json</strong> : bool [default False]</p>
-<blockquote>
-<div><p>True, don&#8217;t look for json file. therefore the parser cannot be read from the json, and
-a parser MUST be specfied if ignore_json is true
-False, do look for json file.</p>
-</div></blockquote>
-<p><strong>filetype</strong> : str</p>
-<blockquote>
-<div><p>string name of parser to use.  no special search or inferences will be made if this
-option is specified. if the specified parser does not exist, an error will be raised.</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>parser_class</strong> : obj</p>
-<blockquote class="last">
-<div><p>NIMSReader populated with data and metadata attributes. this NIMSReader object can be
-passed to any compatible writer to complete the conversion process</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-<p class="rubric">Notes</p>
-<table border="1" class="docutils">
-<colgroup>
-<col width="16%" />
-<col width="12%" />
-<col width="72%" />
-</colgroup>
-<thead valign="bottom">
-<tr class="row-odd"><th class="head">ignore_json</th>
-<th class="head">filetype</th>
-<th class="head">behavior</th>
-</tr>
-</thead>
-<tbody valign="top">
-<tr class="row-even"><td>False</td>
-<td>None</td>
-<td><strong>DEFAULT</strong> try to read json, use parser from json</td>
-</tr>
-<tr class="row-odd"><td>False</td>
-<td>&#8216;dicom&#8217;</td>
-<td>try to read json, use &#8216;dicom&#8217; parser</td>
-</tr>
-<tr class="row-even"><td>True</td>
-<td>None</td>
-<td><strong>INVALID</strong></td>
-</tr>
-<tr class="row-odd"><td>True</td>
-<td>&#8216;dicom&#8217;</td>
-<td>don&#8217;t try to read json AT ALL, use &#8216;dicom&#8217; parser</td>
-</tr>
-</tbody>
-</table>
-<p>TODO: expand the notes table section to be MUCH more descriptive of the behavior
-of nimsdata.parse&#8217;s multiple combinations of options.</p>
-<p class="rubric">Examples</p>
-<p>convert dicom.tgz to dicoms.nii.gz</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
-<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;dicoms.tgz&#39;</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
-<span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
-<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>TODO: convert all in-line code EXAMPLES to using doc-string code.  and then run test with
-doctests. this makes sure that the provided examples actually work. The only downside,
-is that provided code examples must be very explicit.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.write">
-<tt class="descclassname">nimsdata.</tt><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>filetype</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/nimsdata.html#write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.write" title="Permalink to this definition">¶</a></dt>
-<dd><p>Write the metadata, imagedata, into file outbase, with the specified filetype writer.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>metadata</strong> : dataset object</p>
-<blockquote>
-<div><p>dataset from parse</p>
-</div></blockquote>
-<p><strong>imagedata</strong> : dict</p>
-<blockquote>
-<div><p>dictionary of np.arrays with string labels as keys.  The primary dataset should
-be in imagedata[&#8216;&#8217;], while secondary data, such as fieldmap, should be stored in
-imagedata[&#8216;_fieldmap&#8217;].</p>
-</div></blockquote>
-<p><strong>outbase</strong> : string</p>
-<blockquote>
-<div><p>base of name to use</p>
-</div></blockquote>
-<p><strong>filetype</strong> : string</p>
-<blockquote>
-<div><p>string name of writer to use</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>output_list</strong> : list</p>
-<blockquote class="last">
-<div><p>list of created output filepaths</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-<p class="rubric">Examples</p>
-<p>convert dicom.tgz to dicoms.nii.gz</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
-<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;dicoms.tgz&#39;</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
-<span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
-<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-</dd></dl>
-
 </div>
 <span class="target" id="module-nimsdata.nimsdata"></span><div class="section" id="nimsdata-nimsdata">
 <h2>nimsdata.nimsdata<a class="headerlink" href="#nimsdata-nimsdata" title="Permalink to this headline">¶</a></h2>
 <p>provides base classes for NIMS related exceptions and an abstract implementation of
 a NIMSData object. nimsdata.nimsdata module provides base classes for Exceptions,
-Readers and Writers.  Also provides the nimsdata command line interface.</p>
-<p>The NIMSData object is meant to be subclassed to create abstract classes for data domains
+Readers and Writers.  Also provides the nimsdata command line interarray
+The NIMSData object is meant to be subclassed to create abstract classes for data domains
 (e.g. MRData) and concrete classes for domain specific data type (e.g. Dicom).</p>
 <p>In some cases, such as with MR data, there are functions and definitions that
 are used by multiple data types, such as MR Dicoms, MR Nifti, and MR PFiles,
@@ -308,7 +138,7 @@ must be a valid logging level class, such as
 </table>
 <dl class="attribute">
 <dt id="nimsdata.nimsdata.NIMSReader.epoch_properties">
-<tt class="descname">epoch_properties</tt><em class="property"> = {'description': {'field': 'nims_epoch_description', 'maxLength': 64, 'type': 'string', 'title': 'Description'}, 'datatype': {'field': 'nims_epoch_type', 'maxLength': 32, 'type': 'string', 'title': 'Datatype'}, 'timestamp': {'field': 'nims_timestamp', 'format': 'date-time', 'type': 'string', 'title': 'Timestamp'}, 'label': {'field': 'nims_epoch_label', 'maxLength': 32, 'type': 'string', 'title': 'Label'}, 'timezone': {'field': 'nims_timezone', 'type': 'string', 'title': 'Timezone'}, 'uid': {'field': 'nims_epoch_id', 'type': 'string'}}</em><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.epoch_properties" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">epoch_properties</tt><em class="property"> = {'state': {'field': 'nims_file_state', 'type': 'string', 'title': 'State'}, 'uid': {'field': 'nims_epoch_id', 'type': 'string'}, 'timezone': {'field': 'nims_timezone', 'type': 'string', 'title': 'Timezone'}, 'datatype': {'type': 'array', 'title': 'Datatype'}, 'timestamp': {'field': 'nims_timestamp', 'format': 'date-time', 'type': 'string', 'title': 'Timestamp'}, 'description': {'field': 'nims_epoch_description', 'maxLength': 64, 'type': 'string', 'title': 'Description'}, 'filetype': {'field': 'nims_file_type', 'type': 'string', 'title': 'Filetype'}, 'label': {'field': 'nims_epoch_label', 'maxLength': 32, 'type': 'string', 'title': 'Label'}}</em><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.epoch_properties" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -337,13 +167,13 @@ must be a valid logging level class, such as
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsdata.NIMSReader.nims_epoch_type">
-<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.nimsdata.NIMSReader.nims_experiment">
+<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_experiment" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsdata.NIMSReader.nims_experiment">
-<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_experiment" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.nimsdata.NIMSReader.nims_file_domain">
+<tt class="descname">nims_file_domain</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_file_domain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_file_domain" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -352,8 +182,23 @@ must be a valid logging level class, such as
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsdata.NIMSReader.nims_filename">
-<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_filename" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.nimsdata.NIMSReader.nims_file_kind">
+<tt class="descname">nims_file_kind</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_file_kind"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_file_kind" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimsdata.NIMSReader.nims_file_name">
+<tt class="descname">nims_file_name</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_file_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_file_name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimsdata.NIMSReader.nims_file_state">
+<tt class="descname">nims_file_state</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_file_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_file_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.nimsdata.NIMSReader.nims_file_type">
+<tt class="descname">nims_file_type</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_file_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_file_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -377,11 +222,6 @@ must be a valid logging level class, such as
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsdata.NIMSReader.nims_session_type">
-<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_session_type" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
 <dt id="nimsdata.nimsdata.NIMSReader.nims_timestamp">
 <tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/nimsdata.html#NIMSReader.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.nims_timestamp" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -393,7 +233,7 @@ must be a valid logging level class, such as
 
 <dl class="attribute">
 <dt id="nimsdata.nimsdata.NIMSReader.session_properties">
-<tt class="descname">session_properties</tt><em class="property"> = {'uid': {'field': 'nims_session_id', 'type': 'string'}, 'datatype': {'field': 'nims_session_type', 'type': 'array', 'title': 'Type'}, 'timestamp': {'format': 'date-time', 'type': 'string', 'title': 'Timestamp'}, 'label': {'field': 'nims_session_label', 'maxLength': 32, 'type': 'string', 'title': 'Label'}, 'timezone': {'type': 'string', 'title': 'Timezone'}, 'subject': {'type': 'object', 'properties': {'code': {'field': 'nims_session_subject', 'maxLength': 16, 'type': 'string', 'title': 'Code'}}, 'title': 'Subject'}}</em><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.session_properties" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">session_properties</tt><em class="property"> = {'uid': {'field': 'nims_session_id', 'type': 'string'}, 'timestamp': {'format': 'date-time', 'type': 'string', 'title': 'Timestamp'}, 'label': {'field': 'nims_session_label', 'maxLength': 32, 'type': 'string', 'title': 'Label'}, 'timezone': {'type': 'string', 'title': 'Timezone'}, 'type': {'type': 'array', 'title': 'Type'}, 'subject': {'type': 'object', 'properties': {'code': {'field': 'nims_session_subject', 'maxLength': 16, 'type': 'string', 'title': 'Code'}}, 'title': 'Subject'}}</em><a class="headerlink" href="#nimsdata.nimsdata.NIMSReader.session_properties" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -452,38 +292,210 @@ may way to build upon write, such as performing voxel reordering of MR data.</p>
 
 <dl class="function">
 <dt id="nimsdata.nimsdata.dict_merge">
-<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">dict_merge</tt><big>(</big><em>a</em>, <em>b</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#dict_merge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.dict_merge" title="Permalink to this definition">¶</a></dt>
-<dd><p>Recursively merge two dictionaries.</p>
-<p>If a key exists in both dictionary_A and dictionary_B, then the resulting
-dictionary will contain the value from dictionary_B.</p>
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">dict_merge</tt><big>(</big><em>a</em>, <em>b=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#dict_merge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.dict_merge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Recursively merge dictionaries.</p>
+<p>if a and b are both dictionaries, merge them.</p>
+<p>if a is a list of dicionaries, b is None,
+then merge all the dictionaries.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.epoch_properties_by_type_list">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">epoch_properties_by_type_list</tt><big>(</big><em>type_list</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#epoch_properties_by_type_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.epoch_properties_by_type_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assemble epoch properties from list of types.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.experiment_properties_by_type_list">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">experiment_properties_by_type_list</tt><big>(</big><em>type_list</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#experiment_properties_by_type_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.experiment_properties_by_type_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assembled experiment properties from list of types.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.module_by_type">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">module_by_type</tt><big>(</big><em>domain</em>, <em>kind</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#module_by_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.module_by_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve a module based on it&#8217;s datatype.</p>
+<p>Requires that modules have schema elevated to module level</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.parse">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">parse</tt><big>(</big><em>path</em>, <em>load_data=False</em>, <em>ignore_json=False</em>, <em>filetype=None</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#parse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.parse" title="Permalink to this definition">¶</a></dt>
+<dd><p>Infer the type of file at path and parse with filetype-specific parser.</p>
+<p>The parse function expects a tgz of raw input files and a metadata.json file that
+declares the filetype, and any metadata that should be overwritten.  The parse
+function will pass the input file to the appropriate handler, if available.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>a</strong> : dict</p>
-<p><strong>b</strong> : dict</p>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>path</strong> : str</p>
+<blockquote>
+<div><p>input path</p>
+</div></blockquote>
+<p><strong>load_data</strong> : bool  [default False]</p>
+<blockquote>
+<div><p>attempt to load all metadata and data at parse.  like running parse, then load_data</p>
+</div></blockquote>
+<p><strong>ignore_json</strong> : bool [default False]</p>
+<blockquote>
+<div><p>True, don&#8217;t look for json file. therefore the parser cannot be read from the json, and
+a parser MUST be specfied if ignore_json is true
+False, do look for json file.</p>
+</div></blockquote>
+<p><strong>filetype</strong> : str  [defulat False]</p>
+<blockquote>
+<div><p>string name of parser to use.  no special search or inferences will be made if this
+option is specified. if the specified parser does not exist, an error will be raised.</p>
+</div></blockquote>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>result</strong> : dict</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>parser_class</strong> : obj</p>
+<blockquote class="last">
+<div><p>NIMSReader populated with data and metadata attributes. this NIMSReader object can be
+passed to any compatible writer to complete the conversion process.</p>
+</div></blockquote>
 </td>
 </tr>
 </tbody>
 </table>
+<p class="rubric">Notes</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="12%" />
+<col width="72%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">ignore_json</th>
+<th class="head">filetype</th>
+<th class="head">behavior</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>False</td>
+<td>None</td>
+<td><strong>DEFAULT</strong> try to read json, use parser from json</td>
+</tr>
+<tr class="row-odd"><td>False</td>
+<td>&#8216;dicom&#8217;</td>
+<td>try to read json, use &#8216;dicom&#8217; parser</td>
+</tr>
+<tr class="row-even"><td>True</td>
+<td>None</td>
+<td><strong>INVALID</strong></td>
+</tr>
+<tr class="row-odd"><td>True</td>
+<td>&#8216;dicom&#8217;</td>
+<td>don&#8217;t try to read json AT ALL, use &#8216;dicom&#8217; parser</td>
+</tr>
+</tbody>
+</table>
+<p>TODO: expand the notes table section to be MUCH more descriptive of the behavior
+of nimsdata.parse&#8217;s multiple combinations of options.</p>
+<p class="rubric">Examples</p>
+<p>convert dicom.tgz to dicoms.nii.gz</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;dicoms.tgz&#39;</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>TODO: convert all in-line code EXAMPLES to using doc-string code.  and then run test with
+doctests. this makes sure that the provided examples actually work. The only downside,
+is that provided code examples must be very explicit.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.session_properties_by_type_list">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">session_properties_by_type_list</tt><big>(</big><em>type_list</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#session_properties_by_type_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.session_properties_by_type_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assemble session properties from list of types.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="nimsdata.nimsdata.write">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>filetype</em>, <em>**kwargs</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the metadata, imagedata, into file outbase, with the specified filetype writer.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>metadata</strong> : dataset object</p>
+<blockquote>
+<div><p>dataset from parse</p>
+</div></blockquote>
+<p><strong>imagedata</strong> : dict</p>
+<blockquote>
+<div><p>dictionary of np.arrays with string labels as keys.  The primary dataset should
+be in imagedata[&#8216;&#8217;], while secondary data, such as fieldmap, should be stored in
+imagedata[&#8216;_fieldmap&#8217;].</p>
+</div></blockquote>
+<p><strong>outbase</strong> : string</p>
+<blockquote>
+<div><p>base of name to use</p>
+</div></blockquote>
+<p><strong>filetype</strong> : string</p>
+<blockquote>
+<div><p>string name of writer to use</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>output_list</strong> : list</p>
+<blockquote class="last">
+<div><p>list of created output filepaths</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Examples</p>
+<p>convert dicom.tgz to dicoms.nii.gz</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;dicoms.tgz&#39;</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </div>
-<span class="target" id="module-nimsdata.nimsmrdata"></span><div class="section" id="nimsdata-nimsmrdata">
-<h2>nimsdata.nimsmrdata<a class="headerlink" href="#nimsdata-nimsmrdata" title="Permalink to this headline">¶</a></h2>
-<p>Provides base class, and functions that apply to Magnetic Resonsnace (MR) data.</p>
+<span class="target" id="module-nimsdata.medimg"></span><div class="section" id="nimsdata-medimg">
+<h2>nimsdata.medimg<a class="headerlink" href="#nimsdata-medimg" title="Permalink to this headline">¶</a></h2>
+<p>handle various types of medical images. currently supports reading MR
+data from dicoms, and writing niftis.</p>
+<p>Subclasses of MedImgReader and MedImgWriters use the following intermediate format.</p>
+<p>MedImgReaders should assign their data to self.data as a dictionary of numpy ndarrays.
+The primary dataset should be assigned to the key &#8220;&#8221; (empty string), while any
+additional secondary data should be assigned to a user-defined key.</p>
+<blockquote>
+<div><dl class="docutils">
+<dt>self.data = {&#8220;&#8221;: numpy.ndarray(),</dt>
+<dd>&#8220;fieldmap&#8221;: numpy.ndarray()}</dd>
+</dl>
+</div></blockquote>
+<p>MedImgWriters will read from self.data.  For each item in the dictionary,
+the writer will write each value into a file suffixed with the corresponding key.</p>
+<p>The same metadata will be written for each array of data in the self.data dictionary.</p>
+</div>
+<span class="target" id="module-nimsdata.medimg.medimg"></span><div class="section" id="id1">
+<h2>nimsdata.medimg<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>Generally useful medical images functions, classes and definitions.</p>
+<p>Contains general useful functions to parse information from a medical image,
+such as dicom, pfile, siemens raw, or nifti. Which allows all such medical images
+to use the same fxns to parse data in a consistent way.</p>
+<p>Contains base class MedImgReader, MedImgWriter, which provide schema information,
+propertiess and functions for subclasses.</p>
+<p>functions that have to do with parsing names, dob (which has nothing to do with MR data)
+are located here.  MR fxns are contained with dcm.mr.generic_mr</p>
 <dl class="exception">
-<dt id="nimsdata.nimsmrdata.NIMSMRDataError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">NIMSMRDataError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRDataError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRDataError" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.medimg.MedImgError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">MedImgError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgError" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSDataError" title="nimsdata.nimsdata.NIMSDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSDataError</span></tt></a></p>
 </dd></dl>
 
 <dl class="class">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">NIMSMRReader</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.medimg.MedImgReader">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">MedImgReader</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSReader" title="nimsdata.nimsdata.NIMSReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSReader</span></tt></a></p>
 <p>Base MR data reader class.</p>
 <p>A NIMSMRReader object will have a few special attributes that must be defined in order
@@ -513,125 +525,193 @@ all of the included voxel arrays in ds.data.</p>
 </tbody>
 </table>
 <dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.acquisition_matrix">
-<tt class="descname">acquisition_matrix</tt><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.acquisition_matrix" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.medimg.MedImgReader.acquisition_matrix">
+<tt class="descname">acquisition_matrix</tt><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.acquisition_matrix" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.epoch_properties">
-<tt class="descname">epoch_properties</tt><em class="property"> = {'protocol': {'field': 'protocol_name', 'title': 'Protocol', 'type': 'string', 'maxLength': 64}, 'uid': {'field': 'nims_epoch_id', 'type': 'string'}, 'series': {'field': 'series_no', 'type': 'integer', 'title': 'Series'}, 'slice_encode_undersample': {'field': 'slice_encode_undersample', 'type': 'integer', 'title': 'Slice Encode Undersample'}, 'duration': {'field': 'duration', 'type': 'number', 'title': 'Duration'}, 'timezone': {'field': 'nims_timezone', 'type': 'string', 'title': 'Timezone'}, 'label': {'field': 'nims_epoch_label', 'title': 'Label', 'type': 'string', 'maxLength': 32}, 'size': {'type': 'object', 'properties': {'y': {'field': 'size_y', 'type': 'integer', 'title': 'Y'}, 'x': {'field': 'size_x', 'type': 'integer', 'title': 'X'}}, 'title': 'Size'}, 'fov': {'type': 'object', 'properties': {'y': {'field': 'fov_y', 'type': 'integer', 'title': 'Y'}, 'x': {'field': 'fov_x', 'type': 'integer', 'title': 'X'}}, 'title': 'Field of View'}, 'mm_per_voxel': {'type': 'object', 'properties': {'y': {'field': 'mm_per_vox_x', 'type': 'number', 'title': 'Y'}, 'x': {'field': 'mm_per_vox_x', 'type': 'number', 'title': 'X'}, 'z': {'field': 'mm_per_vox_z', 'type': 'number', 'title': 'Z'}}, 'title': 'mm per Voxel'}, 'tr': {'field': 'tr', 'type': 'number', 'title': 'Tr'}, 'num_averages': {'field': 'num_averages', 'type': 'integer', 'title': 'Averages'}, 'num_slices': {'field': 'num_slices', 'type': 'integer', 'title': 'Slices'}, 'num_bands': {'field': 'num_bands', 'type': 'integer', 'title': 'Bands'}, 'num_receivers': {'field': 'num_receivers', 'type': 'integer', 'title': 'Receivers'}, 'ti': {'field': 'ti', 'type': 'number', 'title': 'Ti'}, 'te': {'field': 'te', 'type': 'number', 'title': 'Te'}, 'prescribed_duration': {'field': 'prescribed_duration', 'type': 'number', 'title': 'Prescribed Duration'}, 'description': {'field': 'nims_epoch_description', 'title': 'Description', 'type': 'string', 'maxLength': 64}, 'timestamp': {'field': 'nims_timestamp', 'title': 'Timestamp', 'type': 'string', 'format': 'date-time'}, 'psd': {'field': 'psd_name', 'title': 'PSD', 'type': 'string', 'maxLength': 64}, 'effective_echo_spacing': {'field': 'effective_echo_spacing', 'type': 'number', 'title': 'Effective Echo Spacing'}, 'device': {'field': 'scanner_name', 'title': 'Device', 'type': 'string', 'maxLength': 64}, 'phase_encode_undersample': {'field': 'phase_encode_undersample', 'type': 'integer', 'title': 'Phase Encode Undersample'}, 'rx_coil': {'field': 'receive_coil_name', 'title': 'Coil', 'type': 'string', 'maxLength': 64}, 'flip_angle': {'field': 'flip_angle', 'type': 'integer', 'title': 'Flip Angle'}, 'datatype': {'field': 'nims_epoch_type', 'title': 'Datatype', 'type': 'string', 'maxLength': 32}, 'pixel_bandwidth': {'field': 'pixel_bandwidth', 'type': 'number', 'title': 'Pixel Bandwidth'}, 'series_uid': {'field': 'series_uid', 'type': 'string', 'title': 'DICOM UID'}, 'num_timepoints': {'field': 'num_timepoints', 'type': 'integer', 'title': 'Time Points'}, 'acquisition_matrix': {'type': 'object', 'properties': {'y': {'field': 'acquisition_matrix_y', 'type': 'number', 'title': 'Y'}, 'x': {'field': 'acquisition_matrix_x', 'type': 'number', 'title': 'X'}}, 'title': 'Acquisition Matrix'}, 'num_echos': {'field': 'num_echos', 'type': 'integer', 'title': 'Echos'}, 'acquisition': {'field': 'acq_no', 'type': 'integer', 'title': 'Acquisition'}}</em><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.epoch_properties" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.medimg.MedImgReader.epoch_properties">
+<tt class="descname">epoch_properties</tt><em class="property"> = {'protocol': {'field': 'protocol_name', 'title': 'Protocol', 'type': 'string', 'maxLength': 64}, 'uid': {'field': 'nims_epoch_id', 'type': 'string'}, 'series': {'field': 'series_no', 'type': 'integer', 'title': 'Series'}, 'filetype': {'field': 'nims_file_type', 'type': 'string', 'title': 'Filetype'}, 'slice_encode_undersample': {'field': 'slice_encode_undersample', 'type': 'integer', 'title': 'Slice Encode Undersample'}, 'phase_encode_direction': {'field': 'phase_encode_direction', 'type': 'integer', 'title': 'Phase-encode Direction'}, 'duration': {'field': 'duration', 'type': 'number', 'title': 'Duration'}, 'timezone': {'field': 'nims_timezone', 'type': 'string', 'title': 'Timezone'}, 'label': {'field': 'nims_epoch_label', 'title': 'Label', 'type': 'string', 'maxLength': 32}, 'size': {'type': 'object', 'properties': {'y': {'field': 'size_y', 'type': 'integer', 'title': 'Y'}, 'x': {'field': 'size_x', 'type': 'integer', 'title': 'X'}}, 'title': 'Size'}, 'fov': {'type': 'object', 'properties': {'y': {'field': 'fov_y', 'type': 'integer', 'title': 'Y'}, 'x': {'field': 'fov_x', 'type': 'integer', 'title': 'X'}}, 'title': 'Field of View'}, 'mm_per_voxel': {'type': 'object', 'properties': {'y': {'field': 'mm_per_vox_y', 'type': 'number', 'title': 'Y'}, 'x': {'field': 'mm_per_vox_x', 'type': 'number', 'title': 'X'}, 'z': {'field': 'mm_per_vox_z', 'type': 'number', 'title': 'Z'}}, 'title': 'mm per Voxel'}, 'tr': {'field': 'tr', 'type': 'number', 'title': 'Tr'}, 'num_averages': {'field': 'num_averages', 'type': 'integer', 'title': 'Averages'}, 'num_slices': {'field': 'num_slices', 'type': 'integer', 'title': 'Slices'}, 'state': {'field': 'nims_file_state', 'type': 'string', 'title': 'State'}, 'num_bands': {'field': 'num_bands', 'type': 'integer', 'title': 'Bands'}, 'num_receivers': {'field': 'num_receivers', 'type': 'integer', 'title': 'Receivers'}, 'ti': {'field': 'ti', 'type': 'number', 'title': 'Ti'}, 'te': {'field': 'te', 'type': 'number', 'title': 'Te'}, 'prescribed_duration': {'field': 'prescribed_duration', 'type': 'number', 'title': 'Prescribed Duration'}, 'description': {'field': 'nims_epoch_description', 'title': 'Description', 'type': 'string', 'maxLength': 64}, 'timestamp': {'field': 'nims_timestamp', 'title': 'Timestamp', 'type': 'string', 'format': 'date-time'}, 'psd': {'field': 'psd_name', 'title': 'PSD', 'type': 'string', 'maxLength': 64}, 'effective_echo_spacing': {'field': 'effective_echo_spacing', 'type': 'number', 'title': 'Effective Echo Spacing'}, 'device': {'field': 'scanner_name', 'title': 'Device', 'type': 'string', 'maxLength': 64}, 'phase_encode_undersample': {'field': 'phase_encode_undersample', 'type': 'integer', 'title': 'Phase Encode Undersample'}, 'rx_coil': {'field': 'receive_coil_name', 'title': 'Coil', 'type': 'string', 'maxLength': 64}, 'flip_angle': {'field': 'flip_angle', 'type': 'integer', 'title': 'Flip Angle'}, 'datatype': {'type': 'array', 'title': 'Datatype'}, 'pixel_bandwidth': {'field': 'pixel_bandwidth', 'type': 'number', 'title': 'Pixel Bandwidth'}, 'series_uid': {'field': 'series_uid', 'type': 'string', 'title': 'DICOM UID'}, 'num_timepoints': {'field': 'num_timepoints', 'type': 'integer', 'title': 'Time Points'}, 'acquisition_matrix': {'type': 'object', 'properties': {'y': {'field': 'acquisition_matrix_y', 'type': 'number', 'title': 'Y'}, 'x': {'field': 'acquisition_matrix_x', 'type': 'number', 'title': 'X'}}, 'title': 'Acquisition Matrix'}, 'num_echos': {'field': 'num_echos', 'type': 'integer', 'title': 'Echos'}, 'acquisition': {'field': 'acq_no', 'type': 'integer', 'title': 'Acquisition'}}</em><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.epoch_properties" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.fov">
-<tt class="descname">fov</tt><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.fov" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.medimg.MedImgReader.experiment_properties">
+<tt class="descname">experiment_properties</tt><em class="property"> = {'timestamp': {'format': 'date-time', 'type': 'string', 'title': 'Timestamp'}, 'gid': {'field': 'nims_group_id', 'type': 'string'}, 'group': {'type': 'string', 'title': 'Group'}, 'name': {'field': 'nims_experiment', 'maxLength': 32, 'type': 'string', 'title': 'Name'}, 'timezone': {'type': 'string', 'title': 'Timezone'}}</em><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.experiment_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.fov">
+<tt class="descname">fov</tt><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.fov" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.infer_scan_type">
-<tt class="descname">infer_scan_type</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.infer_scan_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.infer_scan_type" title="Permalink to this definition">¶</a></dt>
-<dd><p>Infer the scan type given common scan parameters.</p>
-<p>Invokes either infer_scan_type_one or infer_scan_type_all, if data is loaded.</p>
+<dt id="nimsdata.medimg.medimg.MedImgReader.load_data">
+<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.mm_per_vox">
+<tt class="descname">mm_per_vox</tt><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.mm_per_vox" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_epoch_description">
+<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_epoch_id">
+<tt class="descname">nims_epoch_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_epoch_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_epoch_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_epoch_label">
+<tt class="descname">nims_epoch_label</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_epoch_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_epoch_label" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_experiment">
+<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_experiment" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_file_domain">
+<tt class="descname">nims_file_domain</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_file_domain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_file_domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_file_ext">
+<tt class="descname">nims_file_ext</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_file_ext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_file_ext" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_file_kind">
+<tt class="descname">nims_file_kind</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_file_kind"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_file_kind" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_file_state">
+<tt class="descname">nims_file_state</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_file_state"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_file_state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_file_type">
+<tt class="descname">nims_file_type</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_file_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_file_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_filename">
+<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_filename" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_group_id">
+<tt class="descname">nims_group_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_group_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_group_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_session_id">
+<tt class="descname">nims_session_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_session_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_session_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_session_label">
+<tt class="descname">nims_session_label</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_session_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_session_label" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_session_subject">
+<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_session_subject" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_timestamp">
+<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_timestamp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.nims_timezone">
+<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgReader.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.nims_timezone" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.session_properties">
+<tt class="descname">session_properties</tt><em class="property"> = {'exam': {'field': 'exam_no', 'type': 'integer', 'title': 'Exam Number'}, 'uid': {'field': 'nims_session_id', 'type': 'string'}, 'timestamp': {'title': 'Timestamp', 'type': 'string', 'format': 'date-time'}, 'label': {'field': 'nims_session_label', 'title': 'Label', 'type': 'string', 'maxLength': 32}, 'instrument': {'type': 'object', 'properties': {'model': {'field': 'manufacturer_model', 'type': 'string', 'title': 'Model'}, 'uid': {'field': 'scanner_name', 'type': 'string', 'title': 'ID'}, 'manufacturer': {'field': 'manufacturer', 'type': 'string', 'title': 'Manufacturer'}}, 'title': 'Instrument'}, 'exam_uid': {'field': 'exam_uid', 'type': 'string', 'title': 'DICOM UID'}, 'timezone': {'type': 'string', 'title': 'Timezone'}, 'patient_id': {'field': 'patient_id', 'type': 'string', 'title': 'Patient ID'}, 'type': {'type': 'array', 'title': 'Type'}, 'subject': {'type': 'object', 'properties': {'dob': {'field': 'subj_dob', 'title': 'Date of Birth', 'type': 'string', 'format': 'date'}, 'lastname': {'field': 'subj_lastname', 'type': 'string', 'title': 'Last Name'}, 'code': {'field': 'nims_session_subject', 'title': 'Code', 'type': 'string', 'maxLength': 16}, 'firstname': {'field': 'subj_firstname', 'type': 'string', 'title': 'First Name'}, 'sex': {'field': 'subj_sex', 'enum': ['male', 'female'], 'type': 'string', 'title': 'Sex'}}, 'title': 'Subject'}}</em><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.session_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.medimg.MedImgReader.size">
+<tt class="descname">size</tt><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgReader.size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="nimsdata.medimg.medimg.MedImgWriter">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">MedImgWriter</tt><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgWriter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgWriter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSWriter" title="nimsdata.nimsdata.NIMSWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSWriter</span></tt></a></p>
+<p>Base MR data writer class.</p>
+<p>Cannot be instantiated.  This class serves as a container for static and class methods</p>
+<dl class="staticmethod">
+<dt id="nimsdata.medimg.medimg.MedImgWriter.reorder_voxels">
+<em class="property">static </em><tt class="descname">reorder_voxels</tt><big>(</big><em>imagedata</em>, <em>qto_xyz</em>, <em>voxel_order</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgWriter.reorder_voxels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgWriter.reorder_voxels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reorder voxel data to the specified voxel_order.</p>
+<p>Does not directly manipulate imagedata or qto_xyz.
+Returns manipulated copies of imagedata and qto_xyz.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>None</strong></td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>scan_type</strong> : str</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>imagedata</strong> : np.array</p>
+<blockquote>
+<div><p>single np.array of image data</p>
+</div></blockquote>
+<p><strong>qto_xyz</strong> : np.matrix, 4x4</p>
+<blockquote>
+<div><p>patient space</p>
+</div></blockquote>
+<p><strong>voxel_order</strong> : str, 3 char</p>
+<blockquote class="last">
+<div><p>3 character voxel order string, such as &#8216;LPS&#8217; or &#8216;RAI&#8217;</p>
+</div></blockquote>
+</td>
 </tr>
 </tbody>
 </table>
 </dd></dl>
 
-<dl class="method">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.load_data">
-<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.load_data" title="Permalink to this definition">¶</a></dt>
+<dl class="classmethod">
+<dt id="nimsdata.medimg.medimg.MedImgWriter.write">
+<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#MedImgWriter.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.MedImgWriter.write" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.mm_per_vox">
-<tt class="descname">mm_per_vox</tt><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.mm_per_vox" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+</dd></dl>
 
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_description">
-<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dl class="function">
+<dt id="nimsdata.medimg.medimg.parse_patient_dob">
+<tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">parse_patient_dob</tt><big>(</big><em>dob</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#parse_patient_dob"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.parse_patient_dob" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse date string and sanity check.</p>
+<p>expects date string in YYYYMMDD format</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>dob</strong> : str</p>
+<blockquote>
+<div><p>dob as string YYYYMMDD</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>dob</strong> : datetime object</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
 
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_id">
-<tt class="descname">nims_epoch_id</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_epoch_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_label">
-<tt class="descname">nims_epoch_label</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_epoch_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_label" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_type">
-<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_experiment">
-<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_experiment" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_file_ext">
-<tt class="descname">nims_file_ext</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_file_ext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_file_ext" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_filename">
-<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_filename" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_group_id">
-<tt class="descname">nims_group_id</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_group_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_group_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_session_id">
-<tt class="descname">nims_session_id</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_session_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_session_id" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_session_label">
-<tt class="descname">nims_session_label</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_session_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_session_label" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_session_subject">
-<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_session_subject" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_session_type">
-<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_session_type" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_timestamp">
-<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_timestamp" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_timezone">
-<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_timezone" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.nims_type">
-<tt class="descname">nims_type</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.nims_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.nims_type" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.parse_patient_id">
-<tt class="descname">parse_patient_id</tt><big>(</big><em>patient_id</em>, <em>default_subj_code</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.parse_patient_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.parse_patient_id" title="Permalink to this definition">¶</a></dt>
+<dl class="function">
+<dt id="nimsdata.medimg.medimg.parse_patient_id">
+<tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">parse_patient_id</tt><big>(</big><em>patient_id</em>, <em>default_subj_code</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#parse_patient_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.parse_patient_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parse a subject code, group name and experiment name from patient_id.</p>
 <p>If the patient id does not contain a subject code, rely on default (exam no).</p>
 <p>Expects formatting
@@ -664,31 +744,9 @@ all of the included voxel arrays in ds.data.</p>
 </table>
 </dd></dl>
 
-<dl class="method">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.parse_subject_dob">
-<tt class="descname">parse_subject_dob</tt><big>(</big><em>dob</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.parse_subject_dob"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.parse_subject_dob" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse date string and sanity check.</p>
-<p>expects date string in YYYYMMDD format</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>dob</strong> : str</p>
-<blockquote>
-<div><p>dob as string YYYYMMDD</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>dob</strong> : datetime object</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.parse_subject_name">
-<tt class="descname">parse_subject_name</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRReader.parse_subject_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.parse_subject_name" title="Permalink to this definition">¶</a></dt>
+<dl class="function">
+<dt id="nimsdata.medimg.medimg.parse_patient_name">
+<tt class="descclassname">nimsdata.medimg.medimg.</tt><tt class="descname">parse_patient_name</tt><big>(</big><em>name</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/medimg.html#parse_patient_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.medimg.parse_patient_name" title="Permalink to this definition">¶</a></dt>
 <dd><p>Parse subject name.</p>
 <p>TODO: accepts a list of delimiters. if none are provided, default list is used</p>
 <p>expects &#8220;lastname&#8221; + &#8220;delimiter&#8221; + &#8220;firstname&#8221;.</p>
@@ -716,350 +774,25 @@ all of the included voxel arrays in ds.data.</p>
 </table>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.session_properties">
-<tt class="descname">session_properties</tt><em class="property"> = {'exam': {'field': 'exam_no', 'type': 'integer', 'title': 'Exam Number'}, 'uid': {'field': 'nims_session_id', 'type': 'string'}, 'datatype': {'field': 'nims_session_type', 'type': 'array', 'title': 'Type'}, 'timestamp': {'title': 'Timestamp', 'type': 'string', 'format': 'date-time'}, 'label': {'field': 'nims_session_label', 'title': 'Label', 'type': 'string', 'maxLength': 32}, 'instrument': {'type': 'object', 'properties': {'model': {'field': 'manufacturer_model', 'type': 'string', 'title': 'Model'}, 'uid': {'field': 'scanner_name', 'type': 'string', 'title': 'ID'}, 'manufacturer': {'field': 'manufacturer', 'type': 'string', 'title': 'Manufacturer'}}, 'title': 'Instrument'}, 'exam_uid': {'field': 'exam_uid', 'type': 'string', 'title': 'DICOM UID'}, 'timezone': {'type': 'string', 'title': 'Timezone'}, 'patient_id': {'field': 'patient_id', 'type': 'string', 'title': 'Patient ID'}, 'subject': {'type': 'object', 'properties': {'dob': {'field': 'subj_dob', 'title': 'Date of Birth', 'type': 'string', 'format': 'date'}, 'lastname': {'field': 'subj_lastname', 'type': 'string', 'title': 'Last Name'}, 'code': {'field': 'nims_session_subject', 'title': 'Code', 'type': 'string', 'maxLength': 16}, 'firstname': {'field': 'subj_firstname', 'type': 'string', 'title': 'First Name'}, 'sex': {'field': 'subj_sex', 'enum': ['male', 'female'], 'type': 'string', 'title': 'Sex'}}, 'title': 'Subject'}}</em><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.session_properties" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.NIMSMRReader.size">
-<tt class="descname">size</tt><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRReader.size" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="nimsdata.nimsmrdata.NIMSMRWriter">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">NIMSMRWriter</tt><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRWriter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRWriter" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSWriter" title="nimsdata.nimsdata.NIMSWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSWriter</span></tt></a></p>
-<p>Base MR data writer class.</p>
-<p>Cannot be instantiated.  This class serves as a container for static and class methods</p>
-<dl class="staticmethod">
-<dt id="nimsdata.nimsmrdata.NIMSMRWriter.reorder_voxels">
-<em class="property">static </em><tt class="descname">reorder_voxels</tt><big>(</big><em>imagedata</em>, <em>qto_xyz</em>, <em>voxel_order</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRWriter.reorder_voxels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRWriter.reorder_voxels" title="Permalink to this definition">¶</a></dt>
-<dd><p>Reorder voxel data to the specified voxel_order.</p>
-<p>Does not directly manipulate imagedata or qto_xyz.
-Returns manipulated copies of imagedata and qto_xyz.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>imagedata</strong> : np.array</p>
-<blockquote>
-<div><p>single np.array of image data</p>
-</div></blockquote>
-<p><strong>qto_xyz</strong> : np.matrix, 4x4</p>
-<blockquote>
-<div><p>patient space</p>
-</div></blockquote>
-<p><strong>voxel_order</strong> : str, 3 char</p>
-<blockquote class="last">
-<div><p>3 character voxel order string, such as &#8216;LPS&#8217; or &#8216;RAI&#8217;</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="nimsdata.nimsmrdata.NIMSMRWriter.write">
-<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#NIMSMRWriter.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.NIMSMRWriter.write" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.adjust_bvecs">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">adjust_bvecs</tt><big>(</big><em>bvecs</em>, <em>bvals</em>, <em>vendor</em>, <em>rotation=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#adjust_bvecs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.adjust_bvecs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute bvec and bvals given bvecs, bvals and rotation.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>bvecs</strong> : list of floats</p>
-<blockquote>
-<div><p>b vectors, extracted once per volume</p>
-</div></blockquote>
-<p><strong>bvals</strong> : list of floats</p>
-<blockquote>
-<div><p>b value, extracted once per volume</p>
-</div></blockquote>
-<p><strong>vendor</strong> : str</p>
-<blockquote>
-<div><p>manufacturer, exactly as it is in the dicom</p>
-</div></blockquote>
-<p><strong>rotation: np.array</strong></p>
-<blockquote>
-<div><p>rotation</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>(bvecs, bvals)</strong> : tuple(list of floats, list of floats)</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.build_affine">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">build_affine</tt><big>(</big><em>rotation</em>, <em>scale</em>, <em>origin</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#build_affine"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.build_affine" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute affine matrix given rotation, scaling, and origin.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>rotation</strong> : np.array</p>
-<blockquote>
-<div><p>rotation</p>
-</div></blockquote>
-<p><strong>scale</strong> : np.array</p>
-<blockquote>
-<div><p>scale factor</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>aff</strong> : np.array [4x4]</p>
-<blockquote class="last">
-<div><p>affine matrix</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.compute_rotation">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">compute_rotation</tt><big>(</big><em>row_cos</em>, <em>col_cos</em>, <em>slice_norm</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#compute_rotation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.compute_rotation" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute rotation given row cosines, column cosines and slice norm.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>row_cos</strong> : np.array</p>
-<blockquote>
-<div><p>numpy array of 3 floats</p>
-</div></blockquote>
-<p><strong>col_cos</strong> : np.array</p>
-<blockquote>
-<div><p>numpy array of 3 floats</p>
-</div></blockquote>
-<p><strong>slice_norm</strong> : np.array</p>
-<blockquote>
-<div><p>numpy array of 3 floats</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>rot</strong> : np.array</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.infer_psd_type">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">infer_psd_type</tt><big>(</big><em>manufacturer</em>, <em>psd_name</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#infer_psd_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.infer_psd_type" title="Permalink to this definition">¶</a></dt>
-<dd><p>Infer the psd type based on the manufacturer and psd name.</p>
-<p>This heuristic is entirely based on parsing the name.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>manufacturer</strong> : str</p>
-<blockquote>
-<div><p>manufacturer, the same as it is contained within dicom</p>
-</div></blockquote>
-<p><strong>psd_name</strong> : str</p>
-<blockquote>
-<div><p>psd_name, the sme as it is contained within the dicom</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>psd_type</strong> : str</p>
-<blockquote class="last">
-<div><p>psd category</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.infer_scan_type">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">infer_scan_type</tt><big>(</big><em>psd_type</em>, <em>num_timepoints</em>, <em>te</em>, <em>fov</em>, <em>mm_per_vox</em>, <em>is_dwi=None</em>, <em>is_localizer=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#infer_scan_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.infer_scan_type" title="Permalink to this definition">¶</a></dt>
-<dd><p>Infer scan type, based on metadata.</p>
-<p>Some scan types, such as localizer and DWI, can be positively identified if examining
-all the dicoms from a scan series.  Special params for positive identification can be used
-to &#8220;shortcut&#8221;, these args default to None.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>psd_type</strong> : str</p>
-<blockquote>
-<div><p>psd type, as output by infer_psd_type()</p>
-</div></blockquote>
-<p><strong>num_timepoints</strong> : int</p>
-<blockquote>
-<div><p>repetitions, link to MR definition</p>
-</div></blockquote>
-<p><strong>te</strong> : float</p>
-<blockquote>
-<div><p>echo time, link to MR definition</p>
-</div></blockquote>
-<p><strong>fov</strong> : list, 2 item</p>
-<p><strong>mm_per_vox</strong> : list, 3 item</p>
-<blockquote>
-<div><p>voxel size, link to MR definition</p>
-</div></blockquote>
-<p><strong>is_dwi</strong> : boolean</p>
-<blockquote>
-<div><p>boolean indicate if this scan is diffusion weight image</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>scan_type</strong> : str</p>
-<blockquote class="last">
-<div><p>category of scan type</p>
-</div></blockquote>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.rotate_bvecs">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">rotate_bvecs</tt><big>(</big><em>bvecs</em>, <em>bvals</em>, <em>rotation</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#rotate_bvecs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.rotate_bvecs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Rotate diffusion gradient directions (bvecs) based on the 3x3 rotation matrix.</p>
-<p>Returns the adjusted bvecs and bvals.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>bvecs</strong> : list of floats</p>
-<blockquote>
-<div><p>b-vector list</p>
-</div></blockquote>
-<p><strong>bvals</strong> : list of floats</p>
-<blockquote>
-<div><p>b-value list</p>
-</div></blockquote>
-<p><strong>rotation</strong> : 3x3 np array</p>
-<blockquote>
-<div><p>rotation matrix</p>
-</div></blockquote>
-<p><strong>Returns</strong></p>
-<p><strong>&#8212;&#8212;</strong></p>
-<p class="last"><strong>(bvecs, bvals)</strong> : tuple(list of floats, list of floats)</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsmrdata.scale_bvals">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">scale_bvals</tt><big>(</big><em>bvecs</em>, <em>bvals</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmrdata.html#scale_bvals"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmrdata.scale_bvals" title="Permalink to this definition">¶</a></dt>
-<dd><p>Scale the b-values given non-unit-lengh bvecs.</p>
-<p>Scale the b-values in bvals given non-unit-length bvecs. E.g., if the magnitude a
-bvec is 0.5, the corresponding bvalue will be scaled by 0.5^2. The bvecs are also
-scaled to be unit-length. Returns the adjusted bvecs and bvals.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>bvecs</strong> : list of floats</p>
-<blockquote>
-<div><p>b-vector list</p>
-</div></blockquote>
-<p><strong>bvals</strong> : list of floats</p>
-<blockquote>
-<div><p>b-value list</p>
-</div></blockquote>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><strong>(bvecs, bvals)</strong> : tuple(list of floats, list of floats)</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsmrdata.scan_types">
-<tt class="descclassname">nimsdata.nimsmrdata.</tt><tt class="descname">scan_types</tt><a class="headerlink" href="#nimsdata.nimsmrdata.scan_types" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <tt class="xref py py-class docutils literal"><span class="pre">Enum</span></tt></p>
-</dd></dl>
-
 </div>
-<span class="target" id="module-nimsdata.nimsdicom"></span><div class="section" id="nimsdata-nimsdicom">
+<span class="target" id="module-nimsdata.medimg.nimsdicom"></span><div class="section" id="nimsdata-nimsdicom">
 <h2>nimsdata.nimsdicom<a class="headerlink" href="#nimsdata-nimsdicom" title="Permalink to this headline">¶</a></h2>
-<p>nimsdicom stuff, extends nimsmrdata, and adds dicom specific parsing routines.</p>
-<p>compatible with any subclass of NIMSMRWriter</p>
+<p>nimsdicom stuff, and adds dicom specific parsing routines.</p>
 <dl class="class">
-<dt id="nimsdata.nimsdicom.GEDicom">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">GEDicom</tt><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#GEDicom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">object</span></tt></p>
-<p>load all data from a set of GE Dicoms, almost all information is available via non-private tags.</p>
-<p>Cannot be instantiated.  This object is merely a container for GE specific processing functions.</p>
-<p>GE saves screenshot of the graphical prescription for each scan, the image contains some useful metadata.
-therefore, any missing values should remain MISSING, regardless if they are needed in calculations, to
-attempt to ensure correctness.</p>
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.GEDicom.GEMS_DERIVED_RFMT">
-<tt class="descname">GEMS_DERIVED_RFMT</tt><em class="property"> = ['DERIVED', 'SECONDARY', 'REFORMATTED', 'AVERAGE']</em><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.GEMS_DERIVED_RFMT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.GEDicom.GEMS_TYPE_ORIG">
-<tt class="descname">GEMS_TYPE_ORIG</tt><em class="property"> = ['ORIGINAL', 'PRIMARY', 'OTHER']</em><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.GEMS_TYPE_ORIG" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.GEDicom.GEMS_TYPE_SCREEN">
-<tt class="descname">GEMS_TYPE_SCREEN</tt><em class="property"> = ['DERIVED', 'SECONDARY', 'SCREEN SAVE']</em><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.GEMS_TYPE_SCREEN" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.GEDicom.TAG_BVALUE">
-<tt class="descname">TAG_BVALUE</tt><em class="property"> = (67, 4153)</em><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.TAG_BVALUE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.GEDicom.TAG_BVEC">
-<tt class="descname">TAG_BVEC</tt><em class="property"> = [(25, 4283), (25, 4284), (25, 4285)]</em><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.TAG_BVEC" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="nimsdata.nimsdicom.GEDicom.parse_all">
-<em class="property">classmethod </em><tt class="descname">parse_all</tt><big>(</big><em>ds</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#GEDicom.parse_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.parse_all" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse all metadata that requires all dicoms.</p>
-<p>Called by NIMSDicom load_data, if dicom manufacturer is GE Medical System.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="nimsdata.nimsdicom.GEDicom.parse_one">
-<em class="property">classmethod </em><tt class="descname">parse_one</tt><big>(</big><em>ds</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#GEDicom.parse_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.GEDicom.parse_one" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse all metadata that can be parsed from a single dicom.</p>
-<p>Called by NIMSData init, if dicom manufacturer is GE Medical Sytems.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="nimsdata.nimsdicom.NIMSDicom">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">NIMSDicom</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#NIMSDicom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRReader" title="nimsdata.nimsmrdata.NIMSMRReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRReader</span></tt></a></p>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimsdicom.</tt><tt class="descname">NIMSDicom</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgReader" title="nimsdata.medimg.medimg.MedImgReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgReader</span></tt></a></p>
 <p>should be able to read either manufacturer dicoms.</p>
 <p>if load_data is set to True, the load_data method will be called at the end of init. scan identification
 is done during load_data. although some types can be determined with minimal data, identification is
 done at the same place across venders to provide consistency.</p>
 <p>parse gives a ball park idea of &#8220;what it is,&#8221; without loading everything.</p>
+<p>NIMSDicom is a special composer class.  Upon instantiation, NIMSDicom evaluates the input
+file to determine it&#8217;s image type, manufactuere and SOP class.  Using that information, NIMSDicom
+imports the appropriate group of functions, and assigns each function as a member to itself.</p>
+<p>NIMSDicom will initally parse the SOP Class UID, image type, and manufacturer, to determine
+what parsing needs to be done.  NIMSDicom will compose itself by selecting functions that are
+specific to a mfr.sop such as ge.mr, or siemens.syngo_csa.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -1076,22 +809,33 @@ done at the same place across venders to provide consistency.</p>
 </tr>
 </tbody>
 </table>
+<dl class="method">
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.convert">
+<tt class="descname">convert</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom.convert"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.convert" title="Permalink to this definition">¶</a></dt>
+<dd><p>No-op.</p>
+</dd></dl>
+
 <dl class="attribute">
-<dt id="nimsdata.nimsdicom.NIMSDicom.filetype">
-<tt class="descname">filetype</tt><em class="property"> = u'dicom'</em><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom.filetype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.domain">
+<tt class="descname">domain</tt><em class="property"> = u'mr'</em><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'dicom'</em><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.filetype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="staticmethod">
-<dt id="nimsdata.nimsdicom.NIMSDicom.getelem">
-<em class="property">static </em><tt class="descname">getelem</tt><big>(</big><em>hdr</em>, <em>tag</em>, <em>type_=None</em>, <em>default=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#NIMSDicom.getelem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom.getelem" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.getelem">
+<em class="property">static </em><tt class="descname">getelem</tt><big>(</big><em>hdr</em>, <em>tag</em>, <em>type_=None</em>, <em>default=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom.getelem"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.getelem" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve a dicom header element by its tag.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>hdr</strong> : pydicom.dataset or csa_dict from dcmstack.extact.NIMSMetaExtractor</p>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>hdr</strong> : pydicom.dataset or csa_dict from dcmstack.extact.MetaExtractor</p>
 <blockquote>
-<div><p>Either a pydicom.dataset object, or a NestedMultiDict as returned by dcmstack.extract.NIMSMetaExtractor.</p>
+<div><p>Either a pydicom.dataset object, or a NestedMultiDict as returned by dcmstack.extract.MetaExtractor.</p>
 </div></blockquote>
 <p><strong>tag</strong> : tuple or str</p>
 <blockquote>
@@ -1119,10 +863,11 @@ the tag does not exist, or could not be converted to <cite>type_</cite>.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsdicom.NIMSDicom.load_data">
-<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#NIMSDicom.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom.load_data" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.load_data">
+<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.load_data" title="Permalink to this definition">¶</a></dt>
 <dd><p>Load all dicoms and obtain more metadata.</p>
 <p>Performs manufacturer specific loads. Operates through side-effect, does not return anything.</p>
+<p>calls mfr sop specific parse_all and convert functions.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -1135,140 +880,58 @@ the tag does not exist, or could not be converted to <cite>type_</cite>.</p>
 </table>
 </dd></dl>
 
+<dl class="method">
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.parse_all">
+<tt class="descname">parse_all</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom.parse_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.parse_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>No-op.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.parse_one">
+<tt class="descname">parse_one</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicom.parse_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.parse_one" title="Permalink to this definition">¶</a></dt>
+<dd><p>No-op.</p>
+</dd></dl>
+
 <dl class="attribute">
-<dt id="nimsdata.nimsdicom.NIMSDicom.parse_priority">
-<tt class="descname">parse_priority</tt><em class="property"> = 9</em><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom.parse_priority" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.parse_priority">
+<tt class="descname">parse_priority</tt><em class="property"> = 9</em><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.parse_priority" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsdicom.NIMSDicom.priority">
-<tt class="descname">priority</tt><em class="property"> = 0</em><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicom.priority" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.priority">
+<tt class="descname">priority</tt><em class="property"> = 0</em><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.priority" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicom.state">
+<tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicom.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimsdicom.NIMSDicomError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">NIMSDicomError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#NIMSDicomError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.NIMSDicomError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="nimsdata.nimsdicom.NIMSStack">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">NIMSStack</tt><big>(</big><em>time_order=None</em>, <em>vector_order=None</em>, <em>allow_dummies=False</em>, <em>meta_filter=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#NIMSStack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.NIMSStack" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">dcmstack.dcmstack.DicomStack</span></tt></p>
-<p>subclass of dcmstack.DicomStack with slightly altered behavior.</p>
-</dd></dl>
-
-<dl class="class">
-<dt id="nimsdata.nimsdicom.SiemensDicom">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">SiemensDicom</tt><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#SiemensDicom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <tt class="xref py py-class docutils literal"><span class="pre">object</span></tt></p>
-<p>Load all data from a set of siemens dicoms.</p>
-<p>Not all information required is available via non-private tags.</p>
-<p>Cannot be instantiated.  This is merely a container for Siemens specific functions.</p>
-<p>however, the CSA Series Header and CSA Image Header are stored in non-private tag groups (even group #).
-csa header tags are preferred over standard dicom tags. Although some information overlaps between
-the dicom standard tags and CSA headers, patient information is not included in the CSA.  Therefore,
-anonymization doesn&#8217;t need to fiddle with the CSA headers.</p>
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_SOPCLASS_SC">
-<tt class="descname">SIEMENS_SOPCLASS_SC</tt><em class="property"> = '1.2.840.10008.5.1.4.1.1.7'</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_SOPCLASS_SC" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_ASL_TTEST">
-<tt class="descname">SIEMENS_TYPE_ASL_TTEST</tt><em class="property"> = [u'DERIVED', u'PRIMARY', u'PERFUSION', u'ASL', u'ND', u'NORM', u'FILTERED', u'MOCO', u'SUB', u'TTEST', u'MOSAIC']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_ASL_TTEST" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSA">
-<tt class="descname">SIEMENS_TYPE_CSA</tt><em class="property"> = [u'ORIGINAL', u'PRIMARY', u'OTHER', u'CSA REPORT']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSA" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSAPARALLEL">
-<tt class="descname">SIEMENS_TYPE_CSAPARALLEL</tt><em class="property"> = [u'DERIVED', u'SECONDARY', u'MPR', u'CSA MPR', u'', u'CSAPARALLEL', u'M', u'ND']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSAPARALLEL" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSA_3D">
-<tt class="descname">SIEMENS_TYPE_CSA_3D</tt><em class="property"> = [u'DERIVED', u'SECONDARY', u'OTHER', u'CSA 3D EDITOR']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_CSA_3D" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_DIFF_FA">
-<tt class="descname">SIEMENS_TYPE_DIFF_FA</tt><em class="property"> = [u'DERIVED', u'PRIMARY', u'DIFFUSION', u'FA', u'ND']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_DIFF_FA" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_DIFF_FA_NORM">
-<tt class="descname">SIEMENS_TYPE_DIFF_FA_NORM</tt><em class="property"> = [u'DERIVED', u'PRIMARY', u'DIFFUSION', u'FA', u'ND', u'NORM']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_DIFF_FA_NORM" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_POSDISP">
-<tt class="descname">SIEMENS_TYPE_POSDISP</tt><em class="property"> = [u'DERIVED', u'SECONDARY', u'POSDISP', u'M', u'ND', u'NORM', u'CSA RESAMPLED']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_POSDISP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_RELCBF_TTEST">
-<tt class="descname">SIEMENS_TYPE_RELCBF_TTEST</tt><em class="property"> = [u'DERIVED', u'PRIMARY', u'PERFUSION', u'ASL', u'RELCBF', u'ND', u'NORM', u'FILTERED', u'MOCO', u'SUB', u'TTEST', u'MOSAIC']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_RELCBF_TTEST" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_TENSOR">
-<tt class="descname">SIEMENS_TYPE_TENSOR</tt><em class="property"> = [u'DERIVED', u'PRIMARY', u'DIFFUSION', u'TENSOR', u'ND']</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.SIEMENS_TYPE_TENSOR" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.TAG_BVALUE">
-<tt class="descname">TAG_BVALUE</tt><em class="property"> = 'CsaSeries.MrPhoenixProtocol.sDiffusion.alBValue[1]'</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.TAG_BVALUE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="nimsdata.nimsdicom.SiemensDicom.TAG_BVEC">
-<tt class="descname">TAG_BVEC</tt><em class="property"> = 'CsaImage.DiffusionGradientDirection'</em><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.TAG_BVEC" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="classmethod">
-<dt id="nimsdata.nimsdicom.SiemensDicom.parse_all">
-<em class="property">classmethod </em><tt class="descname">parse_all</tt><big>(</big><em>ds</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#SiemensDicom.parse_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.parse_all" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse all metadata that requires all dicoms.</p>
-<p>Called by NIMSDicom load_data, if dicom manufacturer is Siemens.</p>
-</dd></dl>
-
-<dl class="classmethod">
-<dt id="nimsdata.nimsdicom.SiemensDicom.parse_one">
-<em class="property">classmethod </em><tt class="descname">parse_one</tt><big>(</big><em>ds</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#SiemensDicom.parse_one"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.SiemensDicom.parse_one" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse all metadata that can be parsed from a single dicom.</p>
-<p>Called by NIMSDicom init, if dicom manufacturer is Siemens.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsdicom.csa_series_trans_func">
-<tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">csa_series_trans_func</tt><big>(</big><em>elem</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#csa_series_trans_func"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.csa_series_trans_func" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function for parsing the CSA series sub header element by element.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="nimsdata.nimsdicom.parse_phoenix_prot">
-<tt class="descclassname">nimsdata.nimsdicom.</tt><tt class="descname">parse_phoenix_prot</tt><big>(</big><em>prot_key</em>, <em>prot_val</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdicom.html#parse_phoenix_prot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdicom.parse_phoenix_prot" title="Permalink to this definition">¶</a></dt>
-<dd><p>Parse a siemens MrProtocol or MrPhoenixProtocol string.</p>
-<p>modified from dcmstack, to not bail on an Exception.</p>
+<dt id="nimsdata.medimg.nimsdicom.NIMSDicomError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimsdicom.</tt><tt class="descname">NIMSDicomError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsdicom.html#NIMSDicomError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsdicom.NIMSDicomError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgError" title="nimsdata.medimg.medimg.MedImgError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgError</span></tt></a></p>
 </dd></dl>
 
 </div>
-<span class="target" id="module-nimsdata.nimsnifti"></span><div class="section" id="nimsdata-nimsnifti">
+<span class="target" id="module-nimsdata.medimg.dcm"></span><div class="section" id="nimsdata-medimg-dcm">
+<h2>nimsdata.medimg.dcm<a class="headerlink" href="#nimsdata-medimg-dcm" title="Permalink to this headline">¶</a></h2>
+<p>Container for medical images in dicom format.</p>
+</div>
+<span class="target" id="module-nimsdata.medimg.dcm.mr"></span><div class="section" id="nimsdata-medimg-dcm-mr">
+<h2>nimsdata.medimg.dcm.mr<a class="headerlink" href="#nimsdata-medimg-dcm-mr" title="Permalink to this headline">¶</a></h2>
+<p>MR specifics.</p>
+</div>
+<span class="target" id="module-nimsdata.medimg.dcm.sc"></span><span class="target" id="module-nimsdata.medimg.dcm.enhanced_sr"></span><span class="target" id="module-nimsdata.medimg.dcm.syngo_csa"></span><span class="target" id="module-nimsdata.medimg.nimsnifti"></span><div class="section" id="nimsdata-nimsnifti">
 <h2>nimsdata.nimsnifti<a class="headerlink" href="#nimsdata-nimsnifti" title="Permalink to this headline">¶</a></h2>
 <p>NIMSNifti provide NIfti writing capabilities for MR datasets read by any subclass of NIMSMRReader.</p>
 <p>Provides nifti specifics, inherits from NIMSMRReader, NIMSMRWriter.</p>
 <dl class="class">
-<dt id="nimsdata.nimsnifti.NIMSNifti">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsnifti.</tt><tt class="descname">NIMSNifti</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRReader" title="nimsdata.nimsmrdata.NIMSMRReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRReader</span></tt></a>, <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRWriter" title="nimsdata.nimsmrdata.NIMSMRWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRWriter</span></tt></a></p>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimsnifti.</tt><tt class="descname">NIMSNifti</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgReader" title="nimsdata.medimg.medimg.MedImgReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgReader</span></tt></a>, <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgWriter" title="nimsdata.medimg.medimg.MedImgWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgWriter</span></tt></a></p>
 <p>Read elements of a NIMSData subclass.</p>
 <p>Dataset must have a &#8216;data&#8217; attribute that contains voxel data in a np.darray.
 Dataset must also have contain metadata attributes to define nims required
@@ -1286,194 +949,209 @@ attributes.</p>
 </tbody>
 </table>
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.filetype">
-<tt class="descname">filetype</tt><em class="property"> = u'nifti'</em><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.filetype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.domain">
+<tt class="descname">domain</tt><em class="property"> = u'mr'</em><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'nifti'</em><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.filetype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsnifti.NIMSNifti.load_data">
-<tt class="descname">load_data</tt><big>(</big><em>preloaded</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.load_data" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.load_data">
+<tt class="descname">load_data</tt><big>(</big><em>preloaded</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.load_data" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_epoch">
-<tt class="descname">nims_epoch</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_epoch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_epoch" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch">
+<tt class="descname">nims_epoch</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_epoch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_epoch_description">
-<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_description">
+<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_epoch_name">
-<tt class="descname">nims_epoch_name</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_epoch_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_epoch_name" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_name">
+<tt class="descname">nims_epoch_name</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_epoch_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_epoch_type">
-<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_type">
+<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_experiment">
-<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_experiment" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_experiment">
+<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_experiment" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_filename">
-<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_filename" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_filename">
+<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_filename" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_group">
-<tt class="descname">nims_group</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_group"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_group" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_group">
+<tt class="descname">nims_group</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_group"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_group" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_session">
-<tt class="descname">nims_session</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_session" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_session">
+<tt class="descname">nims_session</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_session"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_session_name">
-<tt class="descname">nims_session_name</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_session_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_session_name" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_name">
+<tt class="descname">nims_session_name</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_session_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_session_subject">
-<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_session_subject" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_subject">
+<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_subject" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_session_type">
-<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_session_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_type">
+<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_session_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_timestamp">
-<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_timestamp" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_timestamp">
+<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_timestamp" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_timezone">
-<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_timezone" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.nims_timezone">
+<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.nims_timezone" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsnifti.NIMSNifti.nims_type">
-<tt class="descname">nims_type</tt><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.nims_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.nims_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.state">
+<tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
-<dt id="nimsdata.nimsnifti.NIMSNifti.write">
-<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNifti.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNifti.write" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNifti.write">
+<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNifti.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNifti.write" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimsnifti.NIMSNiftiError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsnifti.</tt><tt class="descname">NIMSNiftiError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsnifti.html#NIMSNiftiError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsnifti.NIMSNiftiError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
+<dt id="nimsdata.medimg.nimsnifti.NIMSNiftiError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimsnifti.</tt><tt class="descname">NIMSNiftiError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsnifti.html#NIMSNiftiError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsnifti.NIMSNiftiError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgError" title="nimsdata.medimg.medimg.MedImgError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgError</span></tt></a></p>
 </dd></dl>
 
 </div>
-<span class="target" id="module-nimsdata.nimspng"></span><p>NIMSMRPNG provides PNG image writing capabilities for MR datasets read by any subclass of NIMSMRReader.</p>
+<span class="target" id="module-nimsdata.medimg.nimspng"></span><p>NIMSMRPNG provides PNG image writing capabilities for MR datasets read by any subclass of NIMSMRReader.</p>
 <p>NIMSPNG is a subclass of NIMSMRWriter, accepts data as a list of data components.</p>
 <dl class="class">
-<dt id="nimsdata.nimspng.NIMSPNG">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimspng.</tt><tt class="descname">NIMSPNG</tt><a class="reference internal" href="_modules/nimsdata/nimspng.html#NIMSPNG"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspng.NIMSPNG" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRWriter" title="nimsdata.nimsmrdata.NIMSMRWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRWriter</span></tt></a></p>
+<dt id="nimsdata.medimg.nimspng.NIMSPNG">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimspng.</tt><tt class="descname">NIMSPNG</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimspng.html#NIMSPNG"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNG" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgWriter" title="nimsdata.medimg.medimg.MedImgWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgWriter</span></tt></a></p>
 <dl class="attribute">
-<dt id="nimsdata.nimspng.NIMSPNG.datakind">
-<tt class="descname">datakind</tt><em class="property"> = u'derived'</em><a class="headerlink" href="#nimsdata.nimspng.NIMSPNG.datakind" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimspng.NIMSPNG.datakind">
+<tt class="descname">datakind</tt><em class="property"> = u'derived'</em><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNG.datakind" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimspng.NIMSPNG.datatype">
-<tt class="descname">datatype</tt><em class="property"> = u'bitmap'</em><a class="headerlink" href="#nimsdata.nimspng.NIMSPNG.datatype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimspng.NIMSPNG.datatype">
+<tt class="descname">datatype</tt><em class="property"> = u'bitmap'</em><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNG.datatype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimspng.NIMSPNG.filetype">
-<tt class="descname">filetype</tt><em class="property"> = u'png'</em><a class="headerlink" href="#nimsdata.nimspng.NIMSPNG.filetype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimspng.NIMSPNG.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'png'</em><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNG.filetype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
-<dt id="nimsdata.nimspng.NIMSPNG.write">
-<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order='LPS'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspng.html#NIMSPNG.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspng.NIMSPNG.write" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimspng.NIMSPNG.write">
+<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order='LPS'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimspng.html#NIMSPNG.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNG.write" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create png files for each image in a list of pixel data.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimspng.NIMSPNGError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimspng.</tt><tt class="descname">NIMSPNGError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimspng.html#NIMSPNGError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimspng.NIMSPNGError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
+<dt id="nimsdata.medimg.nimspng.NIMSPNGError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimspng.</tt><tt class="descname">NIMSPNGError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimspng.html#NIMSPNGError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimspng.NIMSPNGError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgError" title="nimsdata.medimg.medimg.MedImgError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgError</span></tt></a></p>
 </dd></dl>
 
-<span class="target" id="module-nimsdata.nimsmontage"></span><div class="section" id="nimsdata-nimsmontage">
+<span class="target" id="module-nimsdata.medimg.nimsmontage"></span><div class="section" id="nimsdata-nimsmontage">
 <h2>nimsdata.nimsmontage<a class="headerlink" href="#nimsdata-nimsmontage" title="Permalink to this headline">¶</a></h2>
 <p>NIMSMontage provides montage writing capabilities for MR datasets read by any subclass of NIMSMRReader.</p>
 <p>Provides a NIMSMRWriter subclass for creating image pyramids.</p>
 <dl class="class">
-<dt id="nimsdata.nimsmontage.NIMSMontage">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">NIMSMontage</tt><big>(</big><em>filepath</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRReader" title="nimsdata.nimsmrdata.NIMSMRReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRReader</span></tt></a>, <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRWriter" title="nimsdata.nimsmrdata.NIMSMRWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRWriter</span></tt></a></p>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">NIMSMontage</tt><big>(</big><em>filepath</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgReader" title="nimsdata.medimg.medimg.MedImgReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgReader</span></tt></a>, <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgWriter" title="nimsdata.medimg.medimg.MedImgWriter"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgWriter</span></tt></a></p>
 <dl class="attribute">
-<dt id="nimsdata.nimsmontage.NIMSMontage.filetype">
-<tt class="descname">filetype</tt><em class="property"> = u'montage'</em><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.filetype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.domain">
+<tt class="descname">domain</tt><em class="property"> = u'mr'</em><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'montage'</em><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.filetype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsmontage.NIMSMontage.get_info">
-<tt class="descname">get_info</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.get_info" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.get_info">
+<tt class="descname">get_info</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontage.get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.get_info" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsmontage.NIMSMontage.get_tile">
-<tt class="descname">get_tile</tt><big>(</big><em>x</em>, <em>y</em>, <em>z</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.get_tile" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.get_tile">
+<tt class="descname">get_tile</tt><big>(</big><em>x</em>, <em>y</em>, <em>z</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontage.get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.get_tile" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsmontage.NIMSMontage.load_data">
-<tt class="descname">load_data</tt><big>(</big><em>preloaded=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.load_data" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.load_data">
+<tt class="descname">load_data</tt><big>(</big><em>preloaded=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontage.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.state">
+<tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="classmethod">
-<dt id="nimsdata.nimsmontage.NIMSMontage.write">
-<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order='LPS'</em>, <em>mtype='sqlite'</em>, <em>tilesize=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontage.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontage.write" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontage.write">
+<em class="property">classmethod </em><tt class="descname">write</tt><big>(</big><em>metadata</em>, <em>imagedata</em>, <em>outbase</em>, <em>voxel_order='LPS'</em>, <em>mtype='sqlite'</em>, <em>tilesize=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontage.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontage.write" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimsmontage.NIMSMontageError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">NIMSMontageError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#NIMSMontageError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.NIMSMontageError" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsmrdata.NIMSMRDataError" title="nimsdata.nimsmrdata.NIMSMRDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsmrdata.NIMSMRDataError</span></tt></a></p>
+<dt id="nimsdata.medimg.nimsmontage.NIMSMontageError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">NIMSMontageError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#NIMSMontageError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.NIMSMontageError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nimsdata.medimg.medimg.MedImgError" title="nimsdata.medimg.medimg.MedImgError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.medimg.medimg.MedImgError</span></tt></a></p>
 </dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.generate_dir_pyr">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_dir_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=256</em>, <em>panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_dir_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_dir_pyr" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.generate_dir_pyr">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">generate_dir_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=256</em>, <em>panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#generate_dir_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.generate_dir_pyr" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.generate_flat">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_flat</tt><big>(</big><em>imagedata</em>, <em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_flat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_flat" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.generate_flat">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">generate_flat</tt><big>(</big><em>imagedata</em>, <em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#generate_flat"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.generate_flat" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.generate_montage">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_montage</tt><big>(</big><em>imagedata</em>, <em>timepoints=</em>, <span class="optional">[</span><span class="optional">]</span><em>bits16=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_montage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_montage" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.generate_montage">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">generate_montage</tt><big>(</big><em>imagedata</em>, <em>timepoints=</em>, <span class="optional">[</span><span class="optional">]</span><em>bits16=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#generate_montage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.generate_montage" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generate a montage.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.generate_pyramid">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_pyramid</tt><big>(</big><em>montage</em>, <em>tile_size</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_pyramid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_pyramid" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.generate_pyramid">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">generate_pyramid</tt><big>(</big><em>montage</em>, <em>tile_size</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#generate_pyramid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.generate_pyramid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Slice up a NIfTI file into a multi-res pyramid of tiles.</p>
 <p>We use the file name convention suitable for PanoJS (<a class="reference external" href="http://www.dimin.net/software/panojs/">http://www.dimin.net/software/panojs/</a>):
 The zoom level (z) is an integer between 1 and n, where 0 is fully zoomed in and n is zoomed out.
@@ -1481,142 +1159,162 @@ E.g., z=n is for 1 tile covering the whole world, z=n-1 is for 2x2=4 tiles, ... 
 </dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.generate_sqlite_pyr">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">generate_sqlite_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#generate_sqlite_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.generate_sqlite_pyr" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.generate_sqlite_pyr">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">generate_sqlite_pyr</tt><big>(</big><em>imagedata</em>, <em>outbase</em>, <em>tile_size=512</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#generate_sqlite_pyr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.generate_sqlite_pyr" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generate a multi-resolution image pyramid and store the resulting jpeg files in an sqlite db.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.get_info">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">get_info</tt><big>(</big><em>dbfile</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.get_info" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.get_info">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">get_info</tt><big>(</big><em>dbfile</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#get_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.get_info" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return the tile_size, x_size, and y_size from the sqlite pyramid db.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="nimsdata.nimsmontage.get_tile">
-<tt class="descclassname">nimsdata.nimsmontage.</tt><tt class="descname">get_tile</tt><big>(</big><em>dbfile</em>, <em>z</em>, <em>x</em>, <em>y</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsmontage.html#get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsmontage.get_tile" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsmontage.get_tile">
+<tt class="descclassname">nimsdata.medimg.nimsmontage.</tt><tt class="descname">get_tile</tt><big>(</big><em>dbfile</em>, <em>z</em>, <em>x</em>, <em>y</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsmontage.html#get_tile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsmontage.get_tile" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get a specific image tile from an sqlite db.</p>
 </dd></dl>
 
 </div>
-<span class="target" id="module-nimsdata.nimsbehavior"></span><div class="section" id="nimsdata-nimsbehavior">
+<span class="target" id="module-nimsdata.medimg.nimsbehavior"></span><div class="section" id="nimsdata-nimsbehavior">
 <h2>nimsdata.nimsbehavior<a class="headerlink" href="#nimsdata-nimsbehavior" title="Permalink to this headline">¶</a></h2>
 <p>not implemented!</p>
 <dl class="class">
-<dt id="nimsdata.nimsbehavior.NIMSBehavior">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsbehavior.</tt><tt class="descname">NIMSBehavior</tt><big>(</big><em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsbehavior.html#NIMSBehavior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsbehavior.NIMSBehavior" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimsbehavior.</tt><tt class="descname">NIMSBehavior</tt><big>(</big><em>filepath</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsbehavior.html#NIMSBehavior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSReader" title="nimsdata.nimsdata.NIMSReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSReader</span></tt></a></p>
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.domain">
+<tt class="descname">domain</tt><em class="property"> = u'mr'</em><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'behavior'</em><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.filetype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
-<dt id="nimsdata.nimsbehavior.NIMSBehavior.load_data">
-<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsbehavior.html#NIMSBehavior.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsbehavior.NIMSBehavior.load_data" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.load_data">
+<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsbehavior.html#NIMSBehavior.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.load_data" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.state">
+<tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimsbehavior.NIMSBehaviorError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsbehavior.</tt><tt class="descname">NIMSBehaviorError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsbehavior.html#NIMSBehaviorError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsbehavior.NIMSBehaviorError" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehaviorError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimsbehavior.</tt><tt class="descname">NIMSBehaviorError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsbehavior.html#NIMSBehaviorError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehaviorError" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSDataError" title="nimsdata.nimsdata.NIMSDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSDataError</span></tt></a></p>
 </dd></dl>
 
 </div>
-<span class="target" id="module-nimsdata.nimsgephysio"></span><div class="section" id="nimsdata-nimsgephysio">
+<span class="target" id="module-nimsdata.medimg.nimsgephysio"></span><div class="section" id="nimsdata-nimsgephysio">
 <h2>nimsdata.nimsgephysio<a class="headerlink" href="#nimsdata-nimsgephysio" title="Permalink to this headline">¶</a></h2>
 <p>Parse and identify GE MR Physio files.</p>
 <dl class="class">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio">
-<em class="property">class </em><tt class="descclassname">nimsdata.nimsgephysio.</tt><tt class="descname">NIMSGEPhysio</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio">
+<em class="property">class </em><tt class="descclassname">nimsdata.medimg.nimsgephysio.</tt><tt class="descname">NIMSGEPhysio</tt><big>(</big><em>path</em>, <em>load_data=False</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSReader" title="nimsdata.nimsdata.NIMSReader"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSReader</span></tt></a></p>
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.filetype">
-<tt class="descname">filetype</tt><em class="property"> = 'gephysio'</em><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.filetype" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.domain">
+<tt class="descname">domain</tt><em class="property"> = u'mr'</em><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.domain" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.filetype">
+<tt class="descname">filetype</tt><em class="property"> = u'gephysio'</em><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.filetype" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.load_data">
-<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.load_data" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.load_data">
+<tt class="descname">load_data</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.load_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.load_data" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_description">
-<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_description">
+<tt class="descname">nims_epoch_description</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_epoch_description"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_description" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_id">
-<tt class="descname">nims_epoch_id</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_epoch_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_id" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_id">
+<tt class="descname">nims_epoch_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_epoch_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_label">
-<tt class="descname">nims_epoch_label</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_epoch_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_label" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_label">
+<tt class="descname">nims_epoch_label</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_epoch_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_label" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_type">
-<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_type">
+<tt class="descname">nims_epoch_type</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_epoch_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_experiment">
-<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_experiment" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_experiment">
+<tt class="descname">nims_experiment</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_experiment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_experiment" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_file_ext">
-<tt class="descname">nims_file_ext</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_file_ext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_file_ext" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_ext">
+<tt class="descname">nims_file_ext</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_file_ext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_ext" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_filename">
-<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_filename" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_filename">
+<tt class="descname">nims_filename</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_filename"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_filename" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_group_id">
-<tt class="descname">nims_group_id</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_group_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_group_id" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_group_id">
+<tt class="descname">nims_group_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_group_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_group_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_id">
-<tt class="descname">nims_session_id</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_session_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_id" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_id">
+<tt class="descname">nims_session_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_session_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_id" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_label">
-<tt class="descname">nims_session_label</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_session_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_label" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_label">
+<tt class="descname">nims_session_label</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_session_label"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_label" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_subject">
-<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_subject" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_subject">
+<tt class="descname">nims_session_subject</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_session_subject"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_subject" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_type">
-<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_session_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_type">
+<tt class="descname">nims_session_type</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_session_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_type" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_timestamp">
-<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_timestamp" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timestamp">
+<tt class="descname">nims_timestamp</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_timestamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timestamp" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_timezone">
-<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_timezone" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timezone">
+<tt class="descname">nims_timezone</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_timezone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timezone" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysio.nims_type">
-<tt class="descname">nims_type</tt><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysio.nims_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysio.nims_type" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.state">
+<tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="exception">
-<dt id="nimsdata.nimsgephysio.NIMSGEPhysioError">
-<em class="property">exception </em><tt class="descclassname">nimsdata.nimsgephysio.</tt><tt class="descname">NIMSGEPhysioError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsgephysio.html#NIMSGEPhysioError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsgephysio.NIMSGEPhysioError" title="Permalink to this definition">¶</a></dt>
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysioError">
+<em class="property">exception </em><tt class="descclassname">nimsdata.medimg.nimsgephysio.</tt><tt class="descname">NIMSGEPhysioError</tt><big>(</big><em>message</em>, <em>log_level=None</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysioError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysioError" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#nimsdata.nimsdata.NIMSDataError" title="nimsdata.nimsdata.NIMSDataError"><tt class="xref py py-class docutils literal"><span class="pre">nimsdata.nimsdata.NIMSDataError</span></tt></a></p>
 </dd></dl>
 
@@ -1634,8 +1332,11 @@ E.g., z=n is for 1 tile covering the whole world, z=n-1 is for 2x2=4 tiles, ... 
 <li><a class="reference internal" href="#">nimsdata package</a><ul>
 <li><a class="reference internal" href="#nimsdata">nimsdata</a></li>
 <li><a class="reference internal" href="#nimsdata-nimsdata">nimsdata.nimsdata</a></li>
-<li><a class="reference internal" href="#nimsdata-nimsmrdata">nimsdata.nimsmrdata</a></li>
+<li><a class="reference internal" href="#nimsdata-medimg">nimsdata.medimg</a></li>
+<li><a class="reference internal" href="#id1">nimsdata.medimg</a></li>
 <li><a class="reference internal" href="#nimsdata-nimsdicom">nimsdata.nimsdicom</a></li>
+<li><a class="reference internal" href="#nimsdata-medimg-dcm">nimsdata.medimg.dcm</a></li>
+<li><a class="reference internal" href="#nimsdata-medimg-dcm-mr">nimsdata.medimg.dcm.mr</a></li>
 <li><a class="reference internal" href="#nimsdata-nimsnifti">nimsdata.nimsnifti</a></li>
 <li><a class="reference internal" href="#nimsdata-nimsmontage">nimsdata.nimsmontage</a></li>
 <li><a class="reference internal" href="#nimsdata-nimsbehavior">nimsdata.nimsbehavior</a></li>

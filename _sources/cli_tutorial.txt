@@ -11,6 +11,11 @@ nimsdata can be used as a command line utility.
     - *ignore_json*, *-i*
     - *--verbose*, *-v*
 
+parser_kwarg are specific to the parser being used.  For example, pfiles have an option to "full_parse" a file.
+
+writer_kwarg are specific to the writer being used.  For example, niftis have an 'voxel_order' kwarg, that determines
+the voxel order of the output nifti.
+
 
 Basic Usage
 -----------
@@ -26,5 +31,3 @@ convert tgz of dicoms, input_dicoms.tgz, to a nifti file, output_nifti_LPS.nii.g
 .. code-block:: sh
 
     nimsdata.py -p dicom /path/to/input_dicoms.tgz -w nifti output_nifti_LPS.nii.gz --write_kwarg voxel_order=LPS
-
-

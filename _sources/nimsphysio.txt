@@ -1,9 +1,0 @@
-nimsdata.nimsphysio module
---------------------------
-
-.. automodule:: nimsdata.nimsphysio
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-

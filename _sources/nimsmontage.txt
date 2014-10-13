@@ -1,8 +1,0 @@
-nimsdata.nimsmontage module
----------------------------
-
-.. automodule:: nimsdata.nimsmontage
-    :members:
-    :undoc-members:
-    :show-inheritance:
-

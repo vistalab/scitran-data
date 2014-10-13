@@ -1,8 +1,0 @@
-nimsdata.nimsdicom module
--------------------------
-
-.. automodule:: nimsdata.nimsdicom
-    :members:
-    :undoc-members:
-    :show-inheritance:
-

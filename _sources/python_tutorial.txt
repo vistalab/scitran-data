@@ -9,19 +9,15 @@ Performing conversions from Python requires a few extra steps compared to the co
 
 .. code-block:: python
 
-    import nimsdata
-
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     # ds, the dataset contains metadata, such as affine info
-    # ds.data contains np array of pixel data
+    # ds.data contains a dictionary of np arrays of pixel data
     nimsdata.write(ds, ds.data, outpath, filetype='nifti')
 
 
 **dcm to nifti, reorient to 'LAS'**
 
 .. code-block:: python
-
-    import nimsdata
 
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LAS')
@@ -31,10 +27,18 @@ Performing conversions from Python requires a few extra steps compared to the co
 
 .. code-block:: python
 
-    import nimsdata
-
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+
+
+**pfile to nifti, where there is primary data, and secondary field map data**
+
+.. code-block:: python
+
+    ds = nimsdata.parse(pfile_tgz, load_data=True, ignore_json=False, filetype='pfile')
+    # ds.data is {'': primary_data_array, 'fieldmap': secondary_data_array}
+    nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+    # creates outpath.nii.gz and outpath_fieldmap.nii.gz
 
 
 Advanced Usage
@@ -72,6 +76,3 @@ Advanced Usage
         nimsdata.nimsmontage.NIMSMontage.write(ds, ds.data, outpath)
         # Nifti default voxel_order=None
         nimsdata.nimsnifti.NIMSNifti.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
-
-
-
