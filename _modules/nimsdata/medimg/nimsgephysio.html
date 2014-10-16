@@ -50,10 +50,13 @@
 <span class="c"># @author:  Gunnar Schaefer</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">nimsdata.nimsgephysio</span>
-<span class="sd">=====================</span>
+<span class="sd">nimsdata.medimg.nimsgephysio</span>
+<span class="sd">============================</span>
 
 <span class="sd">Parse and identify GE MR Physio files.</span>
+
+<span class="sd">nimsdata.medimg.nimsbehavior will need to be paired with a writer that is capable of outputting</span>
+<span class="sd">to text or csv.  Currently, there is no such writer.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -72,6 +75,9 @@
 
 </div>
 <div class="viewcode-block" id="NIMSGEPhysio"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio">[docs]</a><span class="k">class</span> <span class="nc">NIMSGEPhysio</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSReader</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Parse and identify GE Physio data.&quot;&quot;&quot;</span>
+
 
     <span class="n">domain</span> <span class="o">=</span> <span class="s">u&#39;mr&#39;</span>
     <span class="n">filetype</span> <span class="o">=</span> <span class="s">u&#39;gephysio&#39;</span>
@@ -113,26 +119,6 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_epoch_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_filename"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_filename">[docs]</a>    <span class="k">def</span> <span class="nf">nims_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_file_ext"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="c"># FIXME: should return UTC time and timezone</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span><span class="o">*</span><span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span> <span class="c">#FIXME: use pytz</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">None</span>
-</div>
-    <span class="nd">@property</span>
 <div class="viewcode-block" id="NIMSGEPhysio.nims_session_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">None</span>
 </div>
@@ -141,8 +127,8 @@
         <span class="k">return</span> <span class="bp">None</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_session_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_session_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">None</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_epoch_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span>
 </div>
     <span class="nd">@property</span>
 <div class="viewcode-block" id="NIMSGEPhysio.nims_epoch_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -153,8 +139,36 @@
         <span class="k">return</span> <span class="bp">None</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="NIMSGEPhysio.nims_epoch_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_epoch_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">None</span>  <span class="c"># %&#39;%s.%s&#39; % (self.domain, self.phys_type)</span></div></div>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_ext"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_domain"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_domain">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_kinds"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_kinds">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s">&#39;resp&#39;</span><span class="p">,</span> <span class="s">&#39;ecg&#39;</span><span class="p">]</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_file_state"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_file_state">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="c"># FIXME: should return UTC time and timezone</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span><span class="o">*</span><span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span> <span class="c">#FIXME: use pytz</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="NIMSGEPhysio.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">None</span></div></div>
 </pre></div>
 
           </div>

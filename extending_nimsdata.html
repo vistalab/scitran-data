@@ -24,8 +24,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="NIMSData  documentation" href="index.html" />
-    <link rel="next" title="API Documentation" href="api_documentation.html" />
-    <link rel="prev" title="Python Tutorial" href="python_tutorial.html" /> 
+    <link rel="prev" title="nimsdata package" href="nimsdata.html" /> 
   </head>
   <body>
     <div class="related">
@@ -38,10 +37,7 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="api_documentation.html" title="API Documentation"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="python_tutorial.html" title="Python Tutorial"
+          <a href="nimsdata.html" title="nimsdata package"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
       </ul>
@@ -140,15 +136,15 @@ data into an intermediate format.</p>
 </div>
 <div class="section" id="creating-a-custom-nimswriter">
 <h2>Creating a custom NIMSWriter<a class="headerlink" href="#creating-a-custom-nimswriter" title="Permalink to this headline">¶</a></h2>
-<p>The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.</p>
+<p>The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.  New writer classes
+should inherit from an abstract class whose implementation of write does not write to a file.  This is to
+avoid accidentally writing a file by using <cite>super</cite>. Thus if you need to create multiple writers that share
+a common setup, it is recommended to create an abstract base class to inherit from.</p>
 <p>A subclass of nimsdata.NIMSWriter must implement the following:</p>
 <blockquote>
 <div><ul>
 <li><p class="first">write classmethod:</p>
-<p>The write class method should call super to perform the parent class&#8217;s write.  The use of super in this case is
-a bit tricky.  NIMSWriter.write does not actually perform a write.  An abstract base class&#8217;s write
-method performs a &#8220;setup&#8221; on the writer. A concrete class&#8217;s implementation of write should call super to
-use the setup, and then write the file.</p>
+<p>The write class method should call super to perform the parent class&#8217;s write.</p>
 </li>
 </ul>
 </div></blockquote>
@@ -189,11 +185,8 @@ See nimsdata.medimg.nimsdicom for an example of creating a specific reader for a
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="python_tutorial.html"
-                        title="previous chapter">Python Tutorial</a></p>
-  <h4>Next topic</h4>
-  <p class="topless"><a href="api_documentation.html"
-                        title="next chapter">API Documentation</a></p>
+  <p class="topless"><a href="nimsdata.html"
+                        title="previous chapter">nimsdata package</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/extending_nimsdata.txt"
@@ -226,10 +219,7 @@ See nimsdata.medimg.nimsdicom for an example of creating a specific reader for a
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="api_documentation.html" title="API Documentation"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="python_tutorial.html" title="Python Tutorial"
+          <a href="nimsdata.html" title="nimsdata package"
              >previous</a> |</li>
         <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
       </ul>

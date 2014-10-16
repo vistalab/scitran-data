@@ -50,20 +50,18 @@
 <span class="c"># @author:  Kevin S. Hahn</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">nimsdata.medimg</span>
-<span class="sd">===============</span>
+<span class="sd">nimsdata.medimg.medimg</span>
+<span class="sd">======================</span>
 
-<span class="sd">Generally useful medical images functions, classes and definitions.</span>
+<span class="sd">Contains generally useful functions to parse information from a medical image, such as dicom,</span>
+<span class="sd">pfile, siemens raw, or nifti. Which allows all such medical images to use the same fxns to</span>
+<span class="sd">parse data in a consistent way.</span>
 
-<span class="sd">Contains general useful functions to parse information from a medical image,</span>
-<span class="sd">such as dicom, pfile, siemens raw, or nifti. Which allows all such medical images</span>
-<span class="sd">to use the same fxns to parse data in a consistent way.</span>
+<span class="sd">Contains base class MedImgReader, MedImgWriter, which provide schema information, properties</span>
+<span class="sd">and functions for subclasses.</span>
 
-<span class="sd">Contains base class MedImgReader, MedImgWriter, which provide schema information,</span>
-<span class="sd">propertiess and functions for subclasses.</span>
-
-<span class="sd">functions that have to do with parsing names, dob (which has nothing to do with MR data)</span>
-<span class="sd">are located here.  MR fxns are contained with dcm.mr.generic_mr</span>
+<span class="sd">functions that have to do with parsing names, dob (which has nothing to do with MR data) are</span>
+<span class="sd">located here.  MR fxns are contained with dcm.mr.generic_mr</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -521,6 +519,14 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exam_uid</span>
 </div>
     <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_session_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M&#39;</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_session_subject"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span>
+</div>
+    <span class="nd">@property</span>
 <div class="viewcode-block" id="MedImgReader.nims_epoch_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_epoch_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_id</span><span class="p">:</span>  <span class="c"># as in pfile json header</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_id</span>
@@ -531,36 +537,20 @@
         <span class="k">return</span> <span class="n">series_uid</span> <span class="o">+</span> <span class="p">(</span><span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_filename"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_filename">[docs]</a>    <span class="k">def</span> <span class="nf">nims_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nims_epoch_id</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_file_ext"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span>  <span class="c"># FIXME: use pytz</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span>  <span class="c"># FIXME</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_session_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M&#39;</span><span class="p">)</span>
-</div>
-    <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_session_subject"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span>
-</div>
-    <span class="nd">@property</span>
 <div class="viewcode-block" id="MedImgReader.nims_epoch_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_epoch_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="s">&#39;</span><span class="si">%d</span><span class="s">.</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">)</span>
 </div>
     <span class="nd">@property</span>
 <div class="viewcode-block" id="MedImgReader.nims_epoch_description"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_epoch_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_epoch_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_desc</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nims_epoch_id</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_ext"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
 </div>
     <span class="nd">@property</span>
 <div class="viewcode-block" id="MedImgReader.nims_file_domain"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_domain">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -571,12 +561,23 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
 </div>
     <span class="nd">@property</span>
-<div class="viewcode-block" id="MedImgReader.nims_file_kind"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_kind">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_kinds"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_kinds">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># this really SHOULDn&#39;t be scan_type, because not all medical images will set a scan type</span>
+        <span class="c"># pick a more general name. that is suitable for non-scan type</span>
+        <span class="c"># or define this property in EVERY class...</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span><span class="p">]</span>
 </div>
     <span class="nd">@property</span>
 <div class="viewcode-block" id="MedImgReader.nims_file_state"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_state">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span>  <span class="c"># FIXME: use pytz</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>  <span class="c"># FIXME</span>
 </div>
     <span class="k">def</span> <span class="nf">_get_mm_per_vox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span><span class="p">)</span>
@@ -608,7 +609,7 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Base MR data writer class.</span>
 
-<span class="sd">    Cannot be instantiated.  This class serves as a container for static and class methods</span>
+<span class="sd">    Cannot be instantiated.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 

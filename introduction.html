@@ -54,17 +54,21 @@
             
   <div class="section" id="introduction">
 <h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
-<p>NIMSData is open-source software for converting scientific data from a raw format to some common output.</p>
-<p>Provides support for MRI data, capable of parsing dicoms and writing niftis, image montages, or png image files.</p>
-<p>Provides abstract base classes for generic readers and writers that can be subclassed to expand the types of data supported.</p>
-<p><strong>NIMSProcessor will provide a higher level interface, build on nimsdata. Recommend using NIMSProcessor.</strong></p>
+<p>NIMSData is open-source software for converting scientific data from a raw format to some common
+output. Provides support for MRI data, capable of parsing dicoms and writing niftis, image montages,
+or png image files. Provides abstract base classes for generic readers and writers that can be
+subclassed to expand the types of data supported.</p>
+<p><strong>NIMSProcessor will provide a higher level interface, built on nimsdata</strong></p>
 <div class="section" id="how-to-use-the-documentation">
 <h2>How to use the documentation<a class="headerlink" href="#how-to-use-the-documentation" title="Permalink to this headline">¶</a></h2>
-<p>Documentation is available as docstrings provided within the code, and as a separate <a class="reference external" href="https://scitran.github.io/nimsdata">web documentation</a>.</p>
+<p>Documentation is available as docstrings provided within the code, and as a separate
+<a class="reference external" href="https://scitran.github.io/nimsdata">web documentation</a>.</p>
 </div>
 <div class="section" id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
-<p>Requires Python 2.7.  Requires the packages numpy, nibabel, pydicom, dcmstack, and PIL.</p>
+<p>Requires Python 2.7.  Requires the packages numpy, nibabel, pydicom, dcmstack, and PIL.
+Building the documentation rquires sphinx, and numpy-doc.
+Testing requires nose.</p>
 </div>
 <div class="section" id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
@@ -95,10 +99,12 @@ pip install PIL --allow-unverified PIL --allow-external PIL
 </div>
 <div class="section" id="basic-conversion">
 <h2>Basic Conversion<a class="headerlink" href="#basic-conversion" title="Permalink to this headline">¶</a></h2>
-<p>The software consists of the python package, <em>nimsdata</em>, with a single command line interface <cite>nimsdata.py</cite>.</p>
-<p>NIMSData has a semi-standard input filetype, a tgz, that contains raw data and a json that indicates the raw data filetype, as well as metadata.</p>
-<p>The <cite>nimsdata.py</cite> command line interface expects at least 3 options, <em>&lt;input.tgz&gt;</em>, <em>&#8211;parser &lt;filetype&gt;</em>, <em>&#8211;writer &lt;filetype&gt;</em>.
-The following will take the <em>dicom</em> input <em>input.tgz</em> and convert it to nifti, <em>outprefix.nii.gz</em>.</p>
+<p>The software consists of the python package, <em>nimsdata</em>, with a single command line interface
+<cite>nimsdata.py</cite>.</p>
+<p>NIMSData has a semi-standard input filetype, a tgz, that contains raw data and a json that
+indicates the raw data filetype, header data, and metadata corrections.</p>
+<p><cite>nimsdata.py</cite> expects at least 3 options, <em>&lt;input.tgz&gt;</em>, <em>&#8211;parser &lt;filetype&gt;</em>, <em>&#8211;writer &lt;filetype&gt;</em>.</p>
+<p>The following shell command will take the <em>dicom</em> input <em>input.tgz</em> and convert it to nifti, <em>outprefix.nii.gz</em>.</p>
 <div class="highlight-sh"><div class="highlight"><pre>nimsdata.py -p dicom input.tgz -w nifti outprefix.nii.gz
 </pre></div>
 </div>

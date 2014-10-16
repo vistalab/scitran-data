@@ -54,21 +54,16 @@
             
   <div class="section" id="cli-tutorial">
 <h1>CLI Tutorial<a class="headerlink" href="#cli-tutorial" title="Permalink to this headline">¶</a></h1>
-<p>nimsdata can be used as a command line utility.</p>
-<dl class="docutils">
-<dt><cite>nimsdata.py</cite> can take several other optional arguments</dt>
-<dd><ul class="first last simple">
-<li><em>outbase</em></li>
-<li><em>&#8211;parser_kwarg</em></li>
-<li><em>&#8211;writer_kwarg</em></li>
-<li><em>ignore_json</em>, <em>-i</em></li>
-<li><em>&#8211;verbose</em>, <em>-v</em></li>
-</ul>
-</dd>
-</dl>
-<p>parser_kwarg are specific to the parser being used.  For example, pfiles have an option to &#8220;full_parse&#8221; a file.</p>
-<p>writer_kwarg are specific to the writer being used.  For example, niftis have an &#8216;voxel_order&#8217; kwarg, that determines
-the voxel order of the output nifti.</p>
+<p>Nimsdata can be used as a command line utility to perform basic conversions.</p>
+<p><cite>nimsdata.py</cite> requires three arguments; what file to parse, which parser to use, what writer to use.
+<cite>nimsdata.py -p &lt;parser&gt; -w &lt;writer&gt; input_file.tgz</cite></p>
+<p><cite>nimsdata.py</cite> will also accept an outbase prefix, parser_kwarg and writer_kwarg.
+<cite>nimsdata.py -p &lt;parser&gt; -w &lt;writer&gt; input_file.tgz &lt;outprefix&gt; &#8211;writer_kwarg voxel_order=LPS</cite></p>
+<p>TODO: it would be nice to be able to see all the parser and writers that are available, along with all of the
+arguments they accept.  This would make the CLI much more useful. However, once nimsproc is ready, people should be
+using nimsproc, which relies on nimsdata, rather than using nimsdata directly.</p>
+<p>parser_kwarg and writer_kwarg can be called multiple times to set multi keyword arguments for the parser and/or writer.
+Currently, parser_kwarg and writer_kwarg are specific to each parser and writer. For example, niftis have an &#8216;voxel_order&#8217; kwarg, that determines the voxel order of the output nifti.  pfiles have a &#8216;load_all&#8217; kwarg that determines if nimsdata should attempt to parse the entire file,</p>
 <div class="section" id="basic-usage">
 <h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Permalink to this headline">¶</a></h2>
 <p>convert tgz of dicoms, input_dicoms.tgz, to a nifti file, output_nifti.nii.gz, without voxel reordering.</p>
@@ -79,6 +74,10 @@ the voxel order of the output nifti.</p>
 <div class="highlight-sh"><div class="highlight"><pre>nimsdata.py -p dicom /path/to/input_dicoms.tgz -w nifti output_nifti_LPS.nii.gz --write_kwarg <span class="nv">voxel_order</span><span class="o">=</span>LPS
 </pre></div>
 </div>
+</div>
+<div class="section" id="advanced-usage">
+<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Permalink to this headline">¶</a></h2>
+<p>Currently the CLI is limited to basic conversion.  Not much &#8220;advanced usage&#8221; to go over.</p>
 </div>
 </div>
 
@@ -92,6 +91,7 @@ the voxel order of the output nifti.</p>
   <ul>
 <li><a class="reference internal" href="#">CLI Tutorial</a><ul>
 <li><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li><a class="reference internal" href="#advanced-usage">Advanced Usage</a></li>
 </ul>
 </li>
 </ul>

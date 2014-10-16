@@ -52,8 +52,8 @@
 <span class="c">#           Kevin S Hahn</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">nimsdata.nimsmontage</span>
-<span class="sd">====================</span>
+<span class="sd">nimsdata.medimg.nimsmontage</span>
+<span class="sd">===========================</span>
 
 <span class="sd">NIMSMontage provides montage writing capabilities for MR datasets read by any subclass of NIMSMRReader.</span>
 
@@ -291,7 +291,37 @@
 </div>
     <span class="nd">@classmethod</span>
 <div class="viewcode-block" id="NIMSMontage.write"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsmontage.NIMSMontage.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="s">&#39;LPS&#39;</span><span class="p">,</span> <span class="n">mtype</span><span class="o">=</span><span class="s">&#39;sqlite&#39;</span><span class="p">,</span> <span class="n">tilesize</span><span class="o">=</span><span class="mi">512</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write the metadata and imagedata to image montage pyramid.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        metadata : object</span>
+<span class="sd">            fully loaded instance of a NIMSReader.</span>
+<span class="sd">        imagedata : dict</span>
+<span class="sd">            dictionary of np.darrays. label suffix as keys, with np.darrays as values.</span>
+<span class="sd">        outbase : str</span>
+<span class="sd">            output name prefix.</span>
+<span class="sd">        voxel_order : str [default None]</span>
+<span class="sd">            three character string indicating the voxel order, ex. &#39;LPS&#39;.</span>
+<span class="sd">        mtype : str [default &#39;sqlite&#39;]</span>
+<span class="sd">            type of montage to create. can be &#39;sqlite&#39;, &#39;dir&#39;, or &#39;png&#39;.</span>
+<span class="sd">        tilesize : int [default 512]</span>
+<span class="sd">            tilesize for generated sqlite or directory pyramid. Has no affect on mtype &#39;png&#39;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        results : list</span>
+<span class="sd">            list of files written.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NIMSDataError</span>
+<span class="sd">            metadata or data is None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">NIMSMontage</span><span class="p">,</span> <span class="n">cls</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>
+
         <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">data_label</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">imagedata</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>

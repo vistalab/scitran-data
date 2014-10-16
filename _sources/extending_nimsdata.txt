@@ -77,18 +77,19 @@ A subclass of nimsdata.NIMSReader must implement the following:
     - nims_timezone property
 
 
+
 Creating a custom NIMSWriter
 ----------------------------
-The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.
+The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.  New writer classes
+should inherit from an abstract class whose implementation of write does not write to a file.  This is to
+avoid accidentally writing a file by using `super`. Thus if you need to create multiple writers that share
+a common setup, it is recommended to create an abstract base class to inherit from.
 
 A subclass of nimsdata.NIMSWriter must implement the following:
 
     - write classmethod:
 
-      The write class method should call super to perform the parent class's write.  The use of super in this case is
-      a bit tricky.  NIMSWriter.write does not actually perform a write.  An abstract base class's write
-      method performs a "setup" on the writer. A concrete class's implementation of write should call super to
-      use the setup, and then write the file.
+      The write class method should call super to perform the parent class's write.
 
 Other considerations:
 

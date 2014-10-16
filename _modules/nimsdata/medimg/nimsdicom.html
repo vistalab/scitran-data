@@ -52,10 +52,12 @@
 <span class="c">#           Kevin S Hahn</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">nimsdata.nimsdicom</span>
-<span class="sd">==================</span>
+<span class="sd">nimsdata.medimg.nimsdicom</span>
+<span class="sd">=========================</span>
 
 <span class="sd">nimsdicom stuff, and adds dicom specific parsing routines.</span>
+<span class="sd">nimsdicom uses a composer design pattern to dynamically incoporate functions based on</span>
+<span class="sd">the input data.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">dicom</span>
@@ -170,7 +172,7 @@
 <div class="viewcode-block" id="NIMSDicom"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.nimsdicom.NIMSDicom">[docs]</a><span class="k">class</span> <span class="nc">NIMSDicom</span><span class="p">(</span><span class="n">medimg</span><span class="o">.</span><span class="n">MedImgReader</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    should be able to read either manufacturer dicoms.</span>
+<span class="sd">    Parse a series of Dicoms.</span>
 
 <span class="sd">    if load_data is set to True, the load_data method will be called at the end of init. scan identification</span>
 <span class="sd">    is done during load_data. although some types can be determined with minimal data, identification is</span>

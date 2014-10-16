@@ -56,35 +56,19 @@
 <span class="sd">nimsdata.nimsdata</span>
 <span class="sd">=================</span>
 
-<span class="sd">provides base classes for NIMS related exceptions and an abstract implementation of</span>
-<span class="sd">a NIMSData object. nimsdata.nimsdata module provides base classes for Exceptions,</span>
-<span class="sd">Readers and Writers.  Also provides the nimsdata command line interarray</span>
-<span class="sd">The NIMSData object is meant to be subclassed to create abstract classes for data domains</span>
-<span class="sd">(e.g. MRData) and concrete classes for domain specific data type (e.g. Dicom).</span>
+<span class="sd">provides base classes for NIMS related exceptions and an abstract implementation of a NIMSData</span>
+<span class="sd">object. nimsdata.nimsdata module provides base classes for Exceptions, Readers and Writers.</span>
+<span class="sd">Also provides the nimsdata command line interface. The NIMSData object is meant to be subclassed</span>
+<span class="sd">to create abstract classes for data domains (e.g. MRData) and concrete classes for domain specific</span>
+<span class="sd">data type (e.g. Dicom).</span>
 
-<span class="sd">In some cases, such as with MR data, there are functions and definitions that</span>
-<span class="sd">are used by multiple data types, such as MR Dicoms, MR Nifti, and MR PFiles,</span>
-<span class="sd">all may want to manipulate metadata in the same way.  In these cases, it may be</span>
-<span class="sd">more prudent to add an abstract base class for your data domain, and several</span>
-<span class="sd">seperate data type specific classes.</span>
+<span class="sd">In some cases, such as with MR data, there are functions and definitions that are used by multiple</span>
+<span class="sd">data types, such as MR Dicoms, MR Nifti, and MR PFiles, all may want to manipulate metadata in the</span>
+<span class="sd">same way.  In these cases, it may be more prudent to add an abstract base class for your data</span>
+<span class="sd">domain, and several seperate data type specific classes.</span>
 
-<span class="sd">Adding a new reader or writer by subclassing NIMSReader.  A reader must implement</span>
-<span class="sd">an `__init__` that parses enough information to sort a file, and a `load_data` method</span>
-<span class="sd">that converts the data to an intermediate format compatible with a writer.</span>
-<span class="sd">Adding a new domain specific type: **write this out**</span>
-
-<span class="sd">A writer must implement a `write` method that accepts an intermediate format, and saves it</span>
-<span class="sd">to a specific filetype.</span>
-
-<span class="sd">Readers and Writers of the same group/datadomain should share an intermediate format that</span>
-<span class="sd">is produced by a reader, and can be used by a Writer.</span>
-
-<span class="sd">Some general rules about Reader and writer subclasses:</span>
-<span class="sd">    - readers input should be a tgz of files of interest, and a json file</span>
-<span class="sd">    - readers should read files, collect metadata, and define nims properties</span>
-<span class="sd">    - readers should return the data as close to &#39;native&#39; as possible</span>
-<span class="sd">    - `__init__` should be able to quickly collect info for sorting</span>
-<span class="sd">    - `load_data` should handle the rest</span>
+<span class="sd">see :doc:`extending_nimsdata` for more information on creating a new reader</span>
+<span class="sd">subclass.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -218,70 +202,132 @@
 <span class="p">}</span>
 
 
-<div class="viewcode-block" id="module_by_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.module_by_type">[docs]</a><span class="k">def</span> <span class="nf">module_by_type</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">kind</span><span class="p">):</span>
+<div class="viewcode-block" id="module_by_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.module_by_type">[docs]</a><span class="k">def</span> <span class="nf">module_by_type</span><span class="p">(</span><span class="n">domain_kind</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Retrieve a module based on it&#39;s datatype.</span>
+<span class="sd">    Retrieve a module based on tuple(domain, kind).</span>
 
-<span class="sd">    Requires that modules have schema elevated to module level</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    domain_kind : 2-item tuple</span>
+<span class="sd">        Tuple of data domain and kind. kind can be None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    mod : module</span>
+<span class="sd">        module that defines the properties for (domain, kind).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        Unable to import the module specified by (domain, kind) in modules.json.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">mod_name</span> <span class="o">=</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">kind</span><span class="p">))</span>
+    <span class="n">domain</span><span class="p">,</span> <span class="n">kind</span> <span class="o">=</span> <span class="n">domain_kind</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain_kind</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">mod_name</span> <span class="o">=</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">kind</span><span class="p">))</span> <span class="k">if</span> <span class="p">(</span><span class="n">domain</span> <span class="ow">and</span> <span class="n">kind</span><span class="p">)</span> <span class="k">else</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">mod</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
     <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no module matches that domain/datatype&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no module matches that domain/datatype </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">mod_name</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">mod</span>
 
 </div>
-<span class="k">def</span> <span class="nf">_merge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Recursively merge dictionary b into dictionary a.</span>
-
-<span class="sd">    Contents of dict_b will clobber content of dict_a.</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
-        <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">a</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">_merge</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">v</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">a</span>
-
-
-<div class="viewcode-block" id="dict_merge"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.dict_merge">[docs]</a><span class="k">def</span> <span class="nf">dict_merge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+<div class="viewcode-block" id="dict_merge"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.dict_merge">[docs]</a><span class="k">def</span> <span class="nf">dict_merge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Recursively merge dictionaries.</span>
 
-<span class="sd">    if a and b are both dictionaries, merge them.</span>
-
-<span class="sd">    if a is a list of dicionaries, b is None,</span>
+<span class="sd">    If a and b are both dictionaries, merge them. If a is a list of dicionaries, b must be None,</span>
 <span class="sd">    then merge all the dictionaries.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    a : dict or list</span>
+<span class="sd">        dictionary, or list of dicionaries to merge.</span>
+<span class="sd">    b : dict or None</span>
+<span class="sd">        dictionary or None.  if a is a list, b must be None.</span>
+<span class="sd">    in_place : bool [default False]</span>
+<span class="sd">        False creates a deep copy of dict a. dict a is not modified.</span>
+<span class="sd">        True merges dict a with dict b, altering dict a. dict a is modified.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged : dict</span>
+<span class="sd">        dictionary of dict b merged into dict a.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        inputs were of unexpected types.  Inputs must be two dictionaries, or one list.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">_merge</span><span class="p">(</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">b</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">in_place</span> <span class="k">else</span> <span class="n">a</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">result</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">dict_merge</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">v</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">b</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">in_place</span> <span class="k">else</span> <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">_merge</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">dict_merge</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;inputs must be two dictionaries, or a list of dicionaries&#39;</span><span class="p">,</span>
+                            <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">result</span>
 
 </div>
 <div class="viewcode-block" id="epoch_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.epoch_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">epoch_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Assemble epoch properties from list of types.&quot;&quot;&quot;</span>
-    <span class="c"># type list is a list tuples, generally be two item tuples</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble epoch properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two-item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged epoch properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">epoch_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
 
 </div>
 <div class="viewcode-block" id="session_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.session_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">session_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Assemble session properties from list of types.&quot;&quot;&quot;</span>
-    <span class="c"># type list is a list of tuples, generally be one item tuples</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble session properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged session properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">session_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
 
 </div>
 <div class="viewcode-block" id="experiment_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.experiment_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">experiment_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Assembled experiment properties from list of types.&quot;&quot;&quot;</span>
-    <span class="c"># type list is a list of tuples</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble experiment properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two-item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged experiment properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">experiment_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
 
 
@@ -293,14 +339,19 @@
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    name : str</span>
-<span class="sd">        reader or writer name, by string</span>
+<span class="sd">        reader or writer name</span>
 <span class="sd">    handlerdict : dict</span>
-<span class="sd">        name of which handler dict to search from, READERS or WRITERS</span>
+<span class="sd">        name of which handler dict to search from, READERS or WRITERS.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    handler : NIMSReader subclass</span>
-<span class="sd">        NIMSReader subclass capable of reading</span>
+<span class="sd">    handler : NIMSReader or NIMSWriter subclass</span>
+<span class="sd">        Reader or Writer object.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        The specified handler does not exist, or cannot be imported</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">handler</span> <span class="o">=</span> <span class="bp">None</span>
@@ -313,27 +364,40 @@
     <span class="k">return</span> <span class="n">handler</span>
 
 
-<div class="viewcode-block" id="parse"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.parse">[docs]</a><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="parse"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.parse">[docs]</a><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Infer the type of file at path and parse with filetype-specific parser.</span>
+<span class="sd">    Parse the file at path with a filetype-specific parser.</span>
 
-<span class="sd">    The parse function expects a tgz of raw input files and a metadata.json file that</span>
-<span class="sd">    declares the filetype, and any metadata that should be overwritten.  The parse</span>
-<span class="sd">    function will pass the input file to the appropriate handler, if available.</span>
+<span class="sd">    The parse function expects a tgz that contains input file(s) and a metadata.json.  The json</span>
+<span class="sd">    should be the first item in the tar achive, and the json should declare the filetype, and any</span>
+<span class="sd">    metadata that should be overwritten.</span>
+
+<span class="sd">    This function will pass the input file to the appropriate handler,</span>
+<span class="sd">    if available.</span>
+
+<span class="sd">    =========== ======== ===================================================</span>
+<span class="sd">    ignore_json filetype behavior</span>
+<span class="sd">    =========== ======== ===================================================</span>
+<span class="sd">    False       None     **DEFAULT** try to read json, use parser from json.</span>
+<span class="sd">    False       &#39;dicom&#39;  try to read json, use &#39;dicom&#39; parser.</span>
+<span class="sd">    True        None     **INVALID**</span>
+<span class="sd">    True        &#39;dicom&#39;  don&#39;t try to read json, use &#39;dicom&#39; parser.</span>
+<span class="sd">    =========== ======== ===================================================</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
-<span class="sd">        input path</span>
+<span class="sd">        path to input file.</span>
+<span class="sd">    filetype : str</span>
+<span class="sd">        string name of parser to use.  no special search or inferences will be made if this option</span>
+<span class="sd">        is specified.</span>
 <span class="sd">    load_data : bool  [default False]</span>
 <span class="sd">        attempt to load all metadata and data at parse.  like running parse, then load_data</span>
 <span class="sd">    ignore_json : bool [default False]</span>
-<span class="sd">        True, don&#39;t look for json file. therefore the parser cannot be read from the json, and</span>
-<span class="sd">        a parser MUST be specfied if ignore_json is true</span>
-<span class="sd">        False, do look for json file.</span>
-<span class="sd">    filetype : str  [defulat False]</span>
-<span class="sd">        string name of parser to use.  no special search or inferences will be made if this</span>
-<span class="sd">        option is specified. if the specified parser does not exist, an error will be raised.</span>
+<span class="sd">        True, don&#39;t look for json file. therefore the parser cannot be read from the json, and a</span>
+<span class="sd">        parser MUST be specfied if ignore_json is true. False, do look for json file.</span>
+<span class="sd">    kwargs : dict</span>
+<span class="sd">        keyword arguments passed to reader.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -341,19 +405,10 @@
 <span class="sd">        NIMSReader populated with data and metadata attributes. this NIMSReader object can be</span>
 <span class="sd">        passed to any compatible writer to complete the conversion process.</span>
 
-<span class="sd">    Notes</span>
-<span class="sd">    -----</span>
-<span class="sd">    =========== ======== ==================================================</span>
-<span class="sd">    ignore_json filetype  behavior</span>
-<span class="sd">    =========== ======== ==================================================</span>
-<span class="sd">    False       None     **DEFAULT** try to read json, use parser from json</span>
-<span class="sd">    False       &#39;dicom&#39;  try to read json, use &#39;dicom&#39; parser</span>
-<span class="sd">    True        None     **INVALID**</span>
-<span class="sd">    True        &#39;dicom&#39;  don&#39;t try to read json AT ALL, use &#39;dicom&#39; parser</span>
-<span class="sd">    =========== ======== ==================================================</span>
-
-<span class="sd">    TODO: expand the notes table section to be MUCH more descriptive of the behavior</span>
-<span class="sd">    of nimsdata.parse&#39;s multiple combinations of options.</span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        input file is of unacceptable type, or problem with combination of input parameters.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -366,9 +421,7 @@
 <span class="sd">        ds.load_data()</span>
 <span class="sd">        nimsdata.write(ds, ds.data, outbase, filetype=&#39;nifti&#39;)</span>
 
-<span class="sd">    TODO: convert all in-line code EXAMPLES to using doc-string code.  and then run test with</span>
-<span class="sd">    doctests. this makes sure that the provided examples actually work. The only downside,</span>
-<span class="sd">    is that provided code examples must be very explicit.</span>
+<span class="sd">    TODO: convert all in-line code EXAMPLES to using doc-string code.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;parse start: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
@@ -409,7 +462,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;non tar-files not implemented&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
 
-    <span class="n">nimsparser</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">READERS</span><span class="p">)</span>  <span class="c"># raises exception if no handler</span>
+    <span class="n">nimsparser</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">READERS</span><span class="p">)</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">nimsparser</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;overwrite&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>  <span class="c"># FIXME: handle NESTED information</span>
@@ -422,25 +475,32 @@
 </div>
 <div class="viewcode-block" id="write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.write">[docs]</a><span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Write the metadata, imagedata, into file outbase, with the specified filetype writer.</span>
+<span class="sd">    Write the metadata, imagedata into ouput file named outbase.</span>
+
+<span class="sd">    kwargs can be passed to the writer specified by filetype.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    metadata : dataset object</span>
-<span class="sd">        dataset from parse</span>
+<span class="sd">        dataset from nimsdata.parse.</span>
 <span class="sd">    imagedata : dict</span>
-<span class="sd">        dictionary of np.arrays with string labels as keys.  The primary dataset should</span>
-<span class="sd">        be in imagedata[&#39;&#39;], while secondary data, such as fieldmap, should be stored in</span>
-<span class="sd">        imagedata[&#39;_fieldmap&#39;].</span>
+<span class="sd">        dictionary of data with string labels as keys.</span>
 <span class="sd">    outbase : string</span>
-<span class="sd">        base of name to use</span>
+<span class="sd">        base of name to use, without any file extension.</span>
 <span class="sd">    filetype : string</span>
-<span class="sd">        string name of writer to use</span>
+<span class="sd">        string name of writer to use.</span>
+<span class="sd">    kwargs : dict</span>
+<span class="sd">        keyword arguments to be passed to writer.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    output_list : list</span>
-<span class="sd">        list of created output filepaths</span>
+<span class="sd">        list of created output filepaths.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        filetype parameters was not specified.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -475,9 +535,8 @@
 <span class="sd">    ----------</span>
 <span class="sd">    message : str</span>
 <span class="sd">        Message to report along with the exception.</span>
-<span class="sd">    log_level : logging level, i.e. logging.ERROR</span>
-<span class="sd">        What logging level to report the error with,</span>
-<span class="sd">        must be a valid logging level class, such as</span>
+<span class="sd">    log_level : logging level [default None]</span>
+<span class="sd">        What logging level to report the error with, must be a valid logging level class, such as</span>
 <span class="sd">        `logging.DEBUG` or `logging.ERROR`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -494,16 +553,17 @@
 <div class="viewcode-block" id="NIMSReader"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader">[docs]</a><span class="k">class</span> <span class="nc">NIMSReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Abstract base class that provides Standard interfaces, properties and methods that are required for data readers.</span>
+<span class="sd">    Abstract base class that provides interfaces, and functions for readers.</span>
 
-<span class="sd">    Cannot be instantiated.</span>
+<span class="sd">    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing</span>
+<span class="sd">    NIMSReader to create a new data reader.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        filepath as string</span>
-<span class="sd">    load_data : boolean</span>
-<span class="sd">        Indicate if parse should return with all data loaded.  Default is False.</span>
+<span class="sd">    load_data : boolean [default False]</span>
+<span class="sd">        Indicate if parse should return with all data loaded.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -583,7 +643,7 @@
         <span class="k">pass</span>
 </div>
     <span class="nd">@abc.abstractproperty</span>
-<div class="viewcode-block" id="NIMSReader.nims_file_kind"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_kind">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_kinds"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_kinds">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 </div>
     <span class="nd">@abc.abstractproperty</span>
@@ -630,17 +690,13 @@
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Decorator for abstract classmethods.</span>
 
-<span class="sd">    Similar to abstractmethod.</span>
-
 <span class="sd">    .. code-block:: python</span>
 
-<span class="sd">        class C(metaclass=ABCMeta):</span>
+<span class="sd">        class C(object):</span>
+<span class="sd">            __metaclass__ = abc.ABCMeta</span>
 <span class="sd">            @abstractclassmethod</span>
 <span class="sd">            def my_abstract_classmethod(cls, ...):</span>
 <span class="sd">                ...</span>
-
-<span class="sd">    &#39;abstractclassmethod&#39; is deprecated. Use &#39;classmethod&#39; with</span>
-<span class="sd">    &#39;abstractmethod&#39; instead.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -654,9 +710,10 @@
 <div class="viewcode-block" id="NIMSWriter"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSWriter">[docs]</a><span class="k">class</span> <span class="nc">NIMSWriter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Abstract base class that provides standard interfaces, properties and methods for all writers.</span>
+<span class="sd">    Abstract base class that provides interfaces and functions for writers.</span>
 
-<span class="sd">    Cannot be instantiated.</span>
+<span class="sd">    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing</span>
+<span class="sd">    NIMSReader to create a new data writer.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -665,19 +722,31 @@
     <span class="nd">@abstractclassmethod</span>
 <div class="viewcode-block" id="NIMSWriter.write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Do stuff and then write the file.</span>
+<span class="sd">        Write metadata and imagedata to output file outbase.</span>
 
-<span class="sd">        abstract implementaiton doesn&#39;t REALLY need to know about filepath.  Subclasses</span>
-<span class="sd">        may way to build upon write, such as performing voxel reordering of MR data.</span>
+<span class="sd">        Abstract implementaiton doesn&#39;t REALLY need to know about filepath.  Subclasses may want to</span>
+<span class="sd">        build upon write, such as performing voxel reordering of MR data.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        metadata : object</span>
-<span class="sd">            fully loaded instance of a NIMSReader</span>
+<span class="sd">            fully loaded instance of a NIMSReader.</span>
 <span class="sd">        imagedata : dict</span>
-<span class="sd">            dictionary of np.arrays.  primary dataset exists in imagedata[&#39;&#39;]</span>
+<span class="sd">            dictionary of np.darrays. label suffix as keys, with np.darrays as values.</span>
 <span class="sd">        outbase : str</span>
-<span class="sd">            output name prefix</span>
+<span class="sd">            output name prefix.</span>
+<span class="sd">        **kwargs :</span>
+<span class="sd">            all remaining keyword arguments will be passed to the underlying file writer.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None : NoneType</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NIMSDataError</span>
+<span class="sd">            metadata or data is None.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">imagedata</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no metadata/data?&#39;</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected to get no data</span>
@@ -729,8 +798,8 @@
 
     <span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">ignore_json</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">parser</span><span class="p">,</span> <span class="o">**</span><span class="n">p_kwargs</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="p">:</span>                                                       <span class="c"># i don&#39;t think does anything</span>
-        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> could not be parsed&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>   <span class="c">#</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> could not be parsed&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> has no data&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
 
