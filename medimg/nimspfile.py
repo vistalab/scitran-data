@@ -521,6 +521,7 @@ class NIMSPFile(medimg.MedImgReader):
             self.qto_xyz = dcm.mr.generic_mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
             # self.scan_type = dcm.mr.generic_mr.infer_scan_type(self)
             dcm.mr.generic_mr.infer_scan_type(self)
+            log.debug(self.psd_name)
             self.aux_files = None
 
             self.full_parse = True
@@ -574,6 +575,7 @@ class NIMSPFile(medimg.MedImgReader):
 
     @property
     def recon_func(self):
+        log.debug(self.psd_type)
         if self.psd_type == 'spiral':
             return self.recon_spirec
         elif self.psd_type == 'muxepi':
@@ -886,7 +888,7 @@ class NIMSPFile(medimg.MedImgReader):
         # Reorder the data to be in [frame, num_frames, slices, passes (repeats), echos, coils]
         # This roughly complies with the nifti standard of x,y,z,time,[then whatever].
         # Note that the "frame" is the line of k-space and thus the FID timeseries.
-        self.data = self.get_rawdata(filepath).transpose([0,5,3,1,2,4])
+        self.data = {'': self.get_rawdata(filepath).transpose([0,5,3,1,2,4])}
 
     def get_rawdata(self, filepath, slices=None, passes=None, coils=None, echos=None, frames=None):
         """

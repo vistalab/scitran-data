@@ -4,6 +4,9 @@
 nimsdata.medimg.dcm.sc.generic_sc
 =================================
 
+Generic functions that are shared by all Secondary Capture Dicoms.  These are manufacturer
+agnostic.
+
 """
 
 import logging

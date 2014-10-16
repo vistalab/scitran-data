@@ -3,8 +3,8 @@
 #           Kevin S Hahn
 
 """
-nimsdata.nimsmontage
-====================
+nimsdata.medimg.nimsmontage
+===========================
 
 NIMSMontage provides montage writing capabilities for MR datasets read by any subclass of NIMSMRReader.
 
@@ -242,7 +242,37 @@ class NIMSMontage(medimg.MedImgReader, medimg.MedImgWriter):
 
     @classmethod
     def write(cls, metadata, imagedata, outbase, voxel_order='LPS', mtype='sqlite', tilesize=512):
+        """
+        Write the metadata and imagedata to image montage pyramid.
+
+        Parameters
+        ----------
+        metadata : object
+            fully loaded instance of a NIMSReader.
+        imagedata : dict
+            dictionary of np.darrays. label suffix as keys, with np.darrays as values.
+        outbase : str
+            output name prefix.
+        voxel_order : str [default None]
+            three character string indicating the voxel order, ex. 'LPS'.
+        mtype : str [default 'sqlite']
+            type of montage to create. can be 'sqlite', 'dir', or 'png'.
+        tilesize : int [default 512]
+            tilesize for generated sqlite or directory pyramid. Has no affect on mtype 'png'.
+
+        Returns
+        -------
+        results : list
+            list of files written.
+
+        Raises
+        ------
+        NIMSDataError
+            metadata or data is None.
+
+        """
         super(NIMSMontage, cls).write(metadata, imagedata, outbase, voxel_order)
+
         results = []
         for data_label, data in imagedata.iteritems():
             if data is None:

@@ -3,43 +3,50 @@ Python Tutorial
 
 Basic Usage
 -----------
-Performing conversions from Python requires a few extra steps compared to the command line usage.
+Performing conversions from Python requires a few extra steps compared to the command line usage, but offers
+great flexibility.
 
-**dcm to nifti, no reorientation**
+convert dcm to nifti, do not reorient voxels
 
 .. code-block:: python
-
-    import nimsdata
 
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     # ds, the dataset contains metadata, such as affine info
-    # ds.data contains np array of pixel data
+    # ds.data contains a dictionary of np arrays of pixel data
     nimsdata.write(ds, ds.data, outpath, filetype='nifti')
 
 
-**dcm to nifti, reorient to 'LAS'**
+convert dcm to nifti, reorient voxels to 'LAS'
 
 .. code-block:: python
-
-    import nimsdata
 
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LAS')
 
 
-**dcm to nifti, backward compatible with nimsdata v1 (reorient to 'LPS')**
+convert dcm to nifti, backward compatible with nimsdata v1 (reorient to 'LPS')
 
 .. code-block:: python
-
-    import nimsdata
 
     ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
 
 
+convert pfile to nifti, where there is primary data, and secondary field map data
+
+.. code-block:: python
+
+    ds = nimsdata.parse(pfile_tgz, load_data=True, ignore_json=False, filetype='pfile')
+    # ds.data is {'': primary_data_array, 'fieldmap': secondary_data_array}
+    nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+    # creates outpath.nii.gz and outpath_fieldmap.nii.gz
+
+
 Advanced Usage
 --------------
-**conditional writing**
+Reading and writing are decoupled to create a user-accesible space between reading and writing.
+This separation allows for conditional writing based upon the input file type
+conditional writing
 
 .. code-block:: python
 
@@ -54,24 +61,16 @@ Advanced Usage
         nimsdata.write(ds, ds.data, outpath, filetype='nifti')
 
 
-**directly access parser and writer**
-
 .. code-block:: python
 
-    import nimsdata.nimspng
-    import nimsdata.nimsdicom
-    import nimsdata.nimsnifti
-    import nimsdata.nimsmontage
+    import nimsdata
 
     ds = nimsdata.nimsdicom.NIMSDicom(input_tgz, load_data=True)
     if ds.is_screenshot:
         # PNG default voxel_order=LPS
-        nimsdata.nimspng.NIMSPNG.write(ds, ds.data, outpath)
+        nimsdata.write(ds, ds.data, outpath, filetype='png')
     else:
         # Montage default voxel_order=LPS
-        nimsdata.nimsmontage.NIMSMontage.write(ds, ds.data, outpath)
+        nimsdata.write(ds, ds.data, outpath, filetype='montage')
         # Nifti default voxel_order=None
-        nimsdata.nimsnifti.NIMSNifti.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
-
-
-
+        nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')

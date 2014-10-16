@@ -7,19 +7,18 @@
 nimsdata.nimsdata
 =================
 
-provides base classes for NIMS related exceptions and an abstract implementation of
-a NIMSData object. nimsdata.nimsdata module provides base classes for Exceptions,
-Readers and Writers.  Also provides the nimsdata command line interface.
-The NIMSData object is meant to be subclassed to create abstract classes for data domains
-(e.g. MRData) and concrete classes for domain specific data type (e.g. Dicom).
+provides base classes for NIMS related exceptions and an abstract implementation of a NIMSData
+object. nimsdata.nimsdata module provides base classes for Exceptions, Readers and Writers.
+Also provides the nimsdata command line interface. The NIMSData object is meant to be subclassed
+to create abstract classes for data domains (e.g. MRData) and concrete classes for domain specific
+data type (e.g. Dicom).
 
-In some cases, such as with MR data, there are functions and definitions that
-are used by multiple data types, such as MR Dicoms, MR Nifti, and MR PFiles,
-all may want to manipulate metadata in the same way.  In these cases, it may be
-more prudent to add an abstract base class for your data domain, and several
-seperate data type specific classes.
+In some cases, such as with MR data, there are functions and definitions that are used by multiple
+data types, such as MR Dicoms, MR Nifti, and MR PFiles, all may want to manipulate metadata in the
+same way.  In these cases, it may be more prudent to add an abstract base class for your data
+domain, and several seperate data type specific classes.
 
-see extending_nimsdata documentation for more information on creating a new reader
+see :doc:`extending_nimsdata` for more information on creating a new reader
 subclass.
 
 """
@@ -156,17 +155,22 @@ epoch_properties = {
 
 def module_by_type(domain_kind):
     """
-    Retrieve a module based on (domain, kind).
+    Retrieve a module based on tuple(domain, kind).
 
     Parameters
     ----------
     domain_kind : 2-item tuple
-        (domain, kind)
+        Tuple of data domain and kind. kind can be None.
 
     Returns
     -------
     mod : module
-        module that defines the properties for (domain, kind)
+        module that defines the properties for (domain, kind).
+
+    Raises
+    ------
+    NIMSDataError
+        Unable to import the module specified by (domain, kind) in modules.json.
 
     """
     domain, kind = domain_kind[0], domain_kind[1]
@@ -182,31 +186,28 @@ def dict_merge(a, b=None, in_place=False):
     """
     Recursively merge dictionaries.
 
-    if a and b are both dictionaries, merge them.
-
-    if a is a list of dicionaries, b is None,
+    If a and b are both dictionaries, merge them. If a is a list of dicionaries, b must be None,
     then merge all the dictionaries.
 
     Parameters
     ----------
-    a : dict
-        dictionary
-    b : dict
-        dictionary
-
-    OR
-
-    Parameters
-    ----------
-    a : list
-        list of dictionaries
-    b : NoneType
-        None
+    a : dict or list
+        dictionary, or list of dicionaries to merge.
+    b : dict or None
+        dictionary or None.  if a is a list, b must be None.
+    in_place : bool [default False]
+        False creates a deep copy of dict a. dict a is not modified.
+        True merges dict a with dict b, altering dict a. dict a is modified.
 
     Returns
     -------
     merged : dict
-        dictionary
+        dictionary of dict b merged into dict a.
+
+    Raises
+    ------
+    NIMSDataError
+        inputs were of unexpected types.  Inputs must be two dictionaries, or one list.
 
     """
     if isinstance(a, dict) and isinstance(b, dict):
@@ -222,7 +223,7 @@ def dict_merge(a, b=None, in_place=False):
         for b in a[1:]:
             result = dict_merge(result, b, in_place=True)
     else:
-        raise NIMSDataError('inputs for dict_merge must be two dictionaries, or one list of dicionaries',
+        raise NIMSDataError('inputs must be two dictionaries, or a list of dicionaries',
                             log_level=logging.ERROR)
     return result
 
@@ -234,12 +235,12 @@ def epoch_properties_by_type_list(type_list):
     Parameters
     ----------
     type_list : list
-        list of two-item tuples
+        list of two-item (domain, kind) tuples.
 
     Returns
     -------
     merged_dict : dict
-        merged epoch properties for items in type_list
+        merged epoch properties for items in type_list.
 
     """
     return dict_merge([module_by_type(t).epoch_properties for t in type_list])
@@ -252,12 +253,12 @@ def session_properties_by_type_list(type_list):
     Parameters
     ----------
     type_list : list
-        list of two-item tuples
+        list of two item (domain, kind) tuples.
 
     Returns
     -------
     merged_dict : dict
-        merged session properties for items in type_list
+        merged session properties for items in type_list.
 
     """
     return dict_merge([module_by_type(t).session_properties for t in type_list])
@@ -270,12 +271,12 @@ def experiment_properties_by_type_list(type_list):
     Parameters
     ----------
     type_list : list
-        list of two-item tuples
+        list of two-item (domain, kind) tuples.
 
     Returns
     -------
     merged_dict : dict
-        merged experiment properties for items in type_list
+        merged experiment properties for items in type_list.
 
     """
     return dict_merge([module_by_type(t).experiment_properties for t in type_list])
@@ -291,12 +292,17 @@ def _get_handler(name, handlerdict):
     name : str
         reader or writer name
     handlerdict : dict
-        name of which handler dict to search from, READERS or WRITERS
+        name of which handler dict to search from, READERS or WRITERS.
 
     Returns
     -------
     handler : NIMSReader or NIMSWriter subclass
-        reader or writer object
+        Reader or Writer object.
+
+    Raises
+    ------
+    NIMSDataError
+        The specified handler does not exist, or cannot be imported
 
     """
     handler = None
@@ -313,42 +319,47 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
     """
     Parse the file at path with a filetype-specific parser.
 
-    The parse function expects a tgz of input files and a metadata.json.  The json
-    should be the first item in the tar achive, and the json should declare the filetype,
-    and any metadata that should be overwritten.
+    The parse function expects a tgz that contains input file(s) and a metadata.json.  The json
+    should be the first item in the tar achive, and the json should declare the filetype, and any
+    metadata that should be overwritten.
 
-    This function will pass the input file to the appropriate handler, if available.
+    This function will pass the input file to the appropriate handler,
+    if available.
+
+    =========== ======== ===================================================
+    ignore_json filetype behavior
+    =========== ======== ===================================================
+    False       None     **DEFAULT** try to read json, use parser from json.
+    False       'dicom'  try to read json, use 'dicom' parser.
+    True        None     **INVALID**
+    True        'dicom'  don't try to read json, use 'dicom' parser.
+    =========== ======== ===================================================
 
     Parameters
     ----------
     path : str
-        input path
+        path to input file.
     filetype : str
-        string name of parser to use.  no special search or inferences will be made if this
-        option is specified. if the specified parser does not exist, an error will be raised.
+        string name of parser to use.  no special search or inferences will be made if this option
+        is specified.
     load_data : bool  [default False]
         attempt to load all metadata and data at parse.  like running parse, then load_data
     ignore_json : bool [default False]
-        True, don't look for json file. therefore the parser cannot be read from the json, and
-        a parser MUST be specfied if ignore_json is true
-        False, do look for json file.
-    kwargs** : key word args dict
-        any remaining keyword arguments are passed along to the data reader.
-
-    =========== ======== ==================================================
-    ignore_json filetype  behavior
-    =========== ======== ==================================================
-    False       None     **DEFAULT** try to read json, use parser from json
-    False       'dicom'  try to read json, use 'dicom' parser
-    True        None     **INVALID**
-    True        'dicom'  don't try to read json AT ALL, use 'dicom' parser
-    =========== ======== ==================================================
+        True, don't look for json file. therefore the parser cannot be read from the json, and a
+        parser MUST be specfied if ignore_json is true. False, do look for json file.
+    kwargs : dict
+        keyword arguments passed to reader.
 
     Returns
     -------
     parser_class : obj
         NIMSReader populated with data and metadata attributes. this NIMSReader object can be
         passed to any compatible writer to complete the conversion process.
+
+    Raises
+    ------
+    NIMSDataError
+        input file is of unacceptable type, or problem with combination of input parameters.
 
     Examples
     --------
@@ -361,9 +372,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
         ds.load_data()
         nimsdata.write(ds, ds.data, outbase, filetype='nifti')
 
-    TODO: convert all in-line code EXAMPLES to using doc-string code.  and then run test with
-    doctests. this makes sure that the provided examples actually work. The only downside,
-    is that provided code examples must be very explicit.
+    TODO: convert all in-line code EXAMPLES to using doc-string code.
 
     """
     log.debug('parse start: %s' % str(datetime.datetime.now()))
@@ -417,25 +426,32 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
 
 def write(metadata, imagedata, outbase, filetype, **kwargs):
     """
-    Write the metadata, imagedata, into file outbase, with the specified filetype writer.
+    Write the metadata, imagedata into ouput file named outbase.
+
+    kwargs can be passed to the writer specified by filetype.
 
     Parameters
     ----------
     metadata : dataset object
-        dataset from parse
+        dataset from nimsdata.parse.
     imagedata : dict
-        dictionary of np.arrays with string labels as keys.  The primary dataset should
-        be in imagedata[''], while secondary data, such as fieldmap, should be stored in
-        imagedata['_fieldmap'].
+        dictionary of data with string labels as keys.
     outbase : string
         base of name to use, without any file extension.
     filetype : string
-        string name of writer to use
+        string name of writer to use.
+    kwargs : dict
+        keyword arguments to be passed to writer.
 
     Returns
     -------
     output_list : list
-        list of created output filepaths
+        list of created output filepaths.
+
+    Raises
+    ------
+    NIMSDataError
+        filetype parameters was not specified.
 
     Examples
     --------
@@ -470,7 +486,7 @@ class NIMSDataError(Exception):
     ----------
     message : str
         Message to report along with the exception.
-    log_level : logging level, i.e. logging.ERROR
+    log_level : logging level [default None]
         What logging level to report the error with, must be a valid logging level class, such as
         `logging.DEBUG` or `logging.ERROR`.
 
@@ -488,16 +504,17 @@ class NIMSDataError(Exception):
 class NIMSReader(object):
 
     """
-    Abstract base class that provides standard interfaces, properties and methods that are required for data readers.
+    Abstract base class that provides interfaces, and functions for readers.
 
-    Cannot be instantiated.
+    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing
+    NIMSReader to create a new data reader.
 
     Parameters
     ----------
     path : str
         filepath as string
-    load_data : boolean
-        Indicate if parse should return with all data loaded.  Default is False.
+    load_data : boolean [default False]
+        Indicate if parse should return with all data loaded.
 
     """
 
@@ -626,7 +643,8 @@ class abstractclassmethod(classmethod):
 
     .. code-block:: python
 
-        class C(metaclass=ABCMeta):
+        class C(object):
+            __metaclass__ = abc.ABCMeta
             @abstractclassmethod
             def my_abstract_classmethod(cls, ...):
                 ...
@@ -643,9 +661,10 @@ class abstractclassmethod(classmethod):
 class NIMSWriter(object):
 
     """
-    Abstract base class that provides standard interfaces, properties and methods for all writers.
+    Abstract base class that provides interfaces and functions for writers.
 
-    Cannot be instantiated.
+    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing
+    NIMSReader to create a new data writer.
 
     """
 
@@ -656,8 +675,8 @@ class NIMSWriter(object):
         """
         Write metadata and imagedata to output file outbase.
 
-        abstract implementaiton doesn't REALLY need to know about filepath.  Subclasses
-        may way to build upon write, such as performing voxel reordering of MR data.
+        Abstract implementaiton doesn't REALLY need to know about filepath.  Subclasses may want to
+        build upon write, such as performing voxel reordering of MR data.
 
         Parameters
         ----------
@@ -669,6 +688,15 @@ class NIMSWriter(object):
             output name prefix.
         **kwargs :
             all remaining keyword arguments will be passed to the underlying file writer.
+
+        Returns
+        -------
+        None : NoneType
+
+        Raises
+        ------
+        NIMSDataError
+            metadata or data is None.
 
         """
         if metadata is None or imagedata is None:
@@ -721,8 +749,8 @@ if __name__ == '__main__':
 
     ds = nimsdata.parse(args.input, load_data=True, ignore_json=args.ignore_json, filetype=args.parser, **p_kwargs)
 
-    if not ds:                                                       # i don't think does anything
-        raise NIMSDataError('%s could not be parsed' % args.input)   #
+    if not ds:
+        raise NIMSDataError('%s could not be parsed' % args.input)
     if ds.data is None:
         raise NIMSDataError('%s has no data' % args.input)
 

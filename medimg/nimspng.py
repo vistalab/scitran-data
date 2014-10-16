@@ -2,9 +2,10 @@
 #           Kevin S Hahn
 
 """
-NIMSMRPNG provides PNG image writing capabilities for MR datasets read by any subclass of NIMSMRReader.
+nimsdata.medimg.nimspng
+=======================
 
-NIMSPNG is a subclass of NIMSMRWriter, accepts data as a list of data components.
+NIMSMRPNG provides PNG image writing capabilities for medimg datasets.
 
 """
 
@@ -31,7 +32,31 @@ class NIMSPNG(medimg.MedImgWriter):
 
     @classmethod
     def write(cls, metadata, imagedata, outbase, voxel_order='LPS'):
-        """Create png files for each image in a list of pixel data."""
+        """
+        Create png files for each image in a list of pixel data.
+
+        Parameters
+        ----------
+        metadata : object
+            fully loaded instance of a NIMSReader.
+        imagedata : dict
+            dictionary of np.darrays. label suffix as keys, with np.darrays as values.
+        outbase : str
+            output name prefix.
+        voxel_order : str [default None]
+            three character string indicating the voxel order, ex. 'LPS'.
+
+        Returns
+        -------
+        results : list
+            list of files written.
+
+        Raises
+        ------
+        NIMSDataError
+            metadata or data is None.
+
+        """
         super(NIMSPNG, cls).write(metadata, imagedata, outbase, voxel_order)  # XXX FAIL! unexpected imagedata = None
         results = []
         for data_label, data in imagedata.iteritems():

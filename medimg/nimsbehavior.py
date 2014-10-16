@@ -2,10 +2,17 @@
 #           Bob Dougherty
 
 """
-nimsdata.nimsbehavior
-=====================
+nimsdata.medimg.nimsbehavior
+============================
 
-not implemented!
+Not implemented.
+
+This will parse behavioral data that is related to medical imaging data.  This will potentially
+parse outputs from stimulus presentation software that are commonly used in medical imaging. Such
+as outputs from Matlab, Eprime2 and PsychoPy.
+
+nimsdata.medimg.nimsbehavior will need to be paired with a writer that is capable of outputting to
+text or csv.  Currently, there is no such writer.
 
 """
 
@@ -17,6 +24,8 @@ class NIMSBehaviorError(nimsdata.NIMSDataError):
 
 
 class NIMSBehavior(nimsdata.NIMSReader):
+
+    """Munges response data into an intermediate format."""
 
     domain = u'mr'
     filetype = u'behavior'

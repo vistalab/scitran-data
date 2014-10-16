@@ -4,6 +4,8 @@
 nimsdata.medimg.dcm.sc.ge
 =========================
 
+Composer functions for use with GE Secondary Capture Dicoms.
+
 """
 
 import logging

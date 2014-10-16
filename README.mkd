@@ -1,81 +1,88 @@
-#nimsdata
+# NIMSData
+Data Handling Utilities
+
+[![Build Status](https://travis-ci.org/scitran/nimsdata.svg?branch=ksh-nimsdata2)](https://travis-ci.org/scitran/nimsdata)
 
 ----
 
-This package provides DICOM reading, DICOM to png and DICOM to nifti.
+Provides class and functions for parsing, identifying and writing scientific datasets. Currently,
+medical images (such as various flavors of MRI, dicoms, niftis, and some raw-files) are supported.
+
+Also provides base classes that can be used to extend this package to cover additional data-domains.
+
+Note that these utilites also have command-line interfaces, so you don't need a full NIMS
+instance to use them. E.g., you can run our image reconstruction pipeline.
+
+----
+
+### installation on fresh ubuntu 14.04
+
+- install dependencies, **had to chmod o+w /var/local to allow regular user to write; not ideal**
+
+        sudo apt-get update
+        sudo apt-get upgrade
+        sudo apt-get install python-dev python-virtualenv git mercurial
 
 
+- create and activate virtualenv
 
---------------------
+        virtualenv /var/local/nimsdata_env
+        source /var/local/nimsdata_env/bin/bin/activate
 
-# installation on fresh ubuntu 14.04
 
-    sudo apt-get update
-    sudo apt-get upgrade
-    sudo apt-get install python-dev python-virtualenv git mercurial
+- install dependencies, these are VERY specific version. once these versions are available
+through pypi, these installation commands will change.  (subject to change)
 
-**had to chmod o+w /var/local to allow regular user to write; BAD!**
+        pip install git+https://github.com/numpy/numpy.git
+        pip install git+https://github/com/scitran/pydicom.gitmirror.git@value_mismatch
+        pip install git+https://github.com/nipy/nibabel.git
+        pip install git+https://github.com/moloney/dcmstack
+        pip install pymongo                                     # just want bson
+        pip install PIL --allow-unverfied PIL --allow-external PIL
 
-create virtualenv
 
-    virtualenv /var/local/nimsdata_env
+- clone nimsdata from github
 
-activate virtualenv
-    
-    source /var/local/nimsdata_env/bin/activate
+        git clone https://github.com/scitran/nimsdata.git /var/local/nimsdata
+        cd /var/local/nimsdata
+        git submodule init  # optional
+        git submodule update  # optional
 
-install dependencies, these are VERY specific version. once these versions are available
-through pypi, these installation commands will change (to simpler).
-    
-    pip install git+https://github.com/nipy/nibabel.git     # also install numpy
-    hg clone https://kevinshahn@code.google.com/r/kevinshahn-pydicom-val-vr-mismatch ./pydicom
-    pip install ./pydicom/source                            # pip install pydicom
-    pip install git+http://github.com/moloney/dcmstack
-    pip install pymongo                                     # just want bson
-    pip install PIL --allow-unverfied PIL --allow-external PIL
-    
-    
-finally install nimsdata from github
-    
-    git clone https://github.com/scitran/nimsdata.git /var/local/nimsdata
-    cd /var/local/nimsdata
-    git submodule init
-    git submodule update
 
-# pfile, spirec and mux_recon_epi
-	sudo apt-get install libatlas-base-dev gfortran
-    sudo apt-get install octave
-    pip install scipy
-    
-    sudo apt-get install octave
-    
-	libfftw3-3
-	libfftw3-dev
-	gfortran
-	libatlas-base-dev
-	octave
-	
-	cd /var/local/
-	virtualenv nims
-	source /var/local/nimsenv/bin/activate
-	pip install scipy
+- install dependencies for submodules pfile, spirec and mux_recon_epi
+
+        sudo apt-get install libatlas-base-dev gfortran octave libfftw3 libfftw3-dev
+        source /var/local/nimsdata_env/bin/activate
+        pip install scipy
+
+
+## Misc Troubleshooting
+
+- problem: octave throws the following error when processing a ge pfile?
+
+        error: java.awt.HeadlessException
+
+    solution: export DISPLAY env variable to trick Xorg server into behaving as "headless"
+
+        export DISPLAY="0:0"
 
 
 ## Developer Notes:
 development version is currently using the following:
 
-|package		|version			|
-|:-------------	|:-----------------	|
-|PIL	    	|1.1.7  (latest)	|
-|dcmstack		|0.7.dev  (latest)	|
-|nibabel	    |1.3.0 	(latest)	|
-|numpy  		|1.8.1  (latest)	|
-|pydicom	    |0.9.8  (latest)	|
+|package        |version                |
+|:------------- |:--------------------- |
+|PIL            |1.1.7      (latest)    |
+|dcmstack       |0.9.9      (latest)    |
+|nibabel        |1.4.0dev   (latest)    |
+|numpy          |1.9.0      (latest)    |
+|pydicom        |0.9.9      (latest)    |
 
 
-## Documentation
-docs are generated with sphinx-apidoc, using the following extensions
+run the following git config commands to enable a git filter for the branch name.
 
-- numpydoc  (sphinx.ext.napoleon? google style docstrings?)
-- autodoc
+    git config filter.brancher.smudge "./git_branch_filter.py smudge"
+    git config filter.brancher.clean "./git_branch_filter.py clean"
 
+Combined with .gitattributes, the smudge and clean filters will
+replace 'branch=\_\_BRANCH\_\_' to indicate the current branch.

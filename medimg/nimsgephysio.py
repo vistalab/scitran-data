@@ -1,8 +1,8 @@
 # @author:  Gunnar Schaefer
 
 """
-nimsdata.nimsgephysio
-=====================
+nimsdata.medimg.nimsgephysio
+============================
 
 Parse and identify GE MR Physio files.
 
@@ -26,6 +26,9 @@ class NIMSGEPhysioError(nimsdata.NIMSDataError):
 
 
 class NIMSGEPhysio(nimsdata.NIMSReader):
+
+    """Parse and identify GE Physio data."""
+
 
     domain = u'mr'
     filetype = u'gephysio'

@@ -41,14 +41,13 @@ def infer_psd_type(self):
 
     Parameters
     ----------
-    manufacturer : str
-        manufacturer, the same as it is contained within dicom
-    psd_name : str
-        psd_name, the sme as it is contained within the dicom
+    self : NIMSDicom instance
+        uses self.psd_type
 
     Returns
     -------
     None : NoneType
+        sets self.psd_type
 
     """
     if not self.psd_name:
@@ -66,7 +65,7 @@ def infer_psd_type(self):
             self.psd_type = 'muxepi'
         elif 'epi' in self.psd_name:
             self.psd_type = 'epi'
-        elif self.psd_name in ['probe-mega', 'gaba_ss_cni']:
+        elif self.psd_name in ['probe-mega', 'gaba_ss_cni', 'special_siam2']:
             self.psd_type = 'mrs'
         elif self.psd_name == 'asl':
             self.psd_type = 'asl'
@@ -87,7 +86,7 @@ def infer_psd_type(self):
 
 def parse_one(self):
     """
-    Parse all metadata that can be parsed from a single dicom.
+    Composer function, parses all metadata that can be parsed from a single dicom.
 
     Called by NIMSData init, if dicom manufacturer is GE Medical Sytems.
 
@@ -234,7 +233,12 @@ def multicoil_convert(self):
     generic_mr.post_convert(self)
 
 def convert(self):
-    """ge specific conversion process"""
+    """
+    Composer function, determines which convert function to use.
+
+    Called by NIMSDicom load_data if dicom manufacturer is GE Medical Systems.
+
+    """
     if self.is_non_image:
         generic_mr.non_image_handler(self)
     elif self.is_localizer:

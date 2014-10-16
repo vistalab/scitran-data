@@ -1,8 +1,8 @@
 # @author:  Kevin S. Hahn
 
 """
-nimsdata.medimg..dcm.mr.generic_mr
-==================================
+nimsdata.medimg.dcm.mr.generic_mr
+=================================
 
 Generic MR Dicom functions to use for composing the NIMSDicom class.
 

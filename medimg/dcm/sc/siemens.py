@@ -4,7 +4,7 @@
 nimsdata.medimg.dcm.sc.siemens
 ==============================
 
-SC dicoms are a second class citizen.
+Not implemented.
 
 """
 

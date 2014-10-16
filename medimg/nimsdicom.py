@@ -3,10 +3,12 @@
 #           Kevin S Hahn
 
 """
-nimsdata.nimsdicom
-==================
+nimsdata.medimg.nimsdicom
+=========================
 
 nimsdicom stuff, and adds dicom specific parsing routines.
+nimsdicom uses a composer design pattern to dynamically incoporate functions based on
+the input data.
 
 """
 import dicom
@@ -121,7 +123,7 @@ class NIMSDicomError(medimg.MedImgError):
 class NIMSDicom(medimg.MedImgReader):
 
     """
-    should be able to read either manufacturer dicoms.
+    Parse a series of Dicoms.
 
     if load_data is set to True, the load_data method will be called at the end of init. scan identification
     is done during load_data. although some types can be determined with minimal data, identification is

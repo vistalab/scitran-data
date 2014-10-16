@@ -14,8 +14,8 @@ Contents:
    introduction
    cli_tutorial
    python_tutorial
-   extending_nimsdata
    api_documentation
+   extending_nimsdata
 
 
 Indices and tables
@@ -24,4 +24,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

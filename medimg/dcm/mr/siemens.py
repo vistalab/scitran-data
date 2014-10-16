@@ -87,7 +87,7 @@ def infer_psd_type(self):
 
 def parse_one(self):
     """
-    Parse all metadata that can be parsed from a single dicom.
+    Composer function, parses all metadata that can be parsed from a single dicom.
 
     Called by NIMSDicom init, if dicom manufacturer is Siemens.
 
@@ -128,7 +128,7 @@ def parse_one(self):
 
 def parse_all(self):
     """
-    Parse all metadata that requires all dicoms.
+    Composer function, parses all metadata that requires all dicoms.
 
     Called by NIMSDicom load_data, if dicom manufacturer is Siemens.
 
@@ -187,6 +187,12 @@ def parse_all(self):
 
 
 def convert(self):
+    """
+    Composer function, determines which convert function to use.
+
+    Called by NIMSDicom load_data if dicom manufacturer is Siemens.
+
+    """
     if self.is_non_image:
         generic_mr.non_image_handler(self)
     elif self.is_localizer:

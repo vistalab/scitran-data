@@ -1,5 +1,12 @@
 # dcm.syngo_csa.siemens
 
+"""
+nimsdata.medimg.dcm.syngo_csa.siemens
+=====================================
+
+Not implemented.
+
+"""
 
 import logging
 

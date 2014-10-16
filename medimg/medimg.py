@@ -1,20 +1,18 @@
 # @author:  Kevin S. Hahn
 
 """
-nimsdata.medimg
-===============
+nimsdata.medimg.medimg
+======================
 
-Generally useful medical images functions, classes and definitions.
+Contains generally useful functions to parse information from a medical image, such as dicom,
+pfile, siemens raw, or nifti. Which allows all such medical images to use the same fxns to
+parse data in a consistent way.
 
-Contains general useful functions to parse information from a medical image,
-such as dicom, pfile, siemens raw, or nifti. Which allows all such medical images
-to use the same fxns to parse data in a consistent way.
+Contains base class MedImgReader, MedImgWriter, which provide schema information, properties
+and functions for subclasses.
 
-Contains base class MedImgReader, MedImgWriter, which provide schema information,
-propertiess and functions for subclasses.
-
-functions that have to do with parsing names, dob (which has nothing to do with MR data)
-are located here.  MR fxns are contained with dcm.mr.generic_mr
+functions that have to do with parsing names, dob (which has nothing to do with MR data) are
+located here.  MR fxns are contained with dcm.mr.generic_mr
 
 """
 
@@ -472,6 +470,14 @@ class MedImgReader(nimsdata.NIMSReader):
         return self.exam_uid
 
     @property
+    def nims_session_label(self):
+        return self.study_datetime and self.study_datetime.strftime('%Y-%m-%d %H:%M')
+
+    @property
+    def nims_session_subject(self):
+        return self.subj_code
+
+    @property
     def nims_epoch_id(self):
         if self.epoch_id:  # as in pfile json header
             return self.epoch_id
@@ -480,14 +486,6 @@ class MedImgReader(nimsdata.NIMSReader):
             front, back = self.series_uid.rsplit('.', 1)
             series_uid = front + '.' + str(int(back) - 1)  # don't change real series_uid
         return series_uid + ('_' + str(self.acq_no) if self.acq_no is not None else '')
-
-    @property
-    def nims_session_label(self):
-        return self.study_datetime and self.study_datetime.strftime('%Y-%m-%d %H:%M')
-
-    @property
-    def nims_session_subject(self):
-        return self.subj_code
 
     @property
     def nims_epoch_label(self):
@@ -517,6 +515,9 @@ class MedImgReader(nimsdata.NIMSReader):
 
     @property
     def nims_file_kinds(self):
+        # this really SHOULDn't be scan_type, because not all medical images will set a scan type
+        # pick a more general name. that is suitable for non-scan type
+        # or define this property in EVERY class...
         return [self.scan_type]
 
     @property
@@ -561,7 +562,7 @@ class MedImgWriter(nimsdata.NIMSWriter):
     """
     Base MR data writer class.
 
-    Cannot be instantiated.  This class serves as a container for static and class methods
+    Cannot be instantiated.
 
     """
 

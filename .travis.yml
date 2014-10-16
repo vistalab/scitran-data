@@ -1,0 +1,21 @@
+language: python
+
+git:
+    submodules: false
+
+python:
+    - "2.7"
+
+# command to install
+install:
+    - "pip install webapp2 requests webob db-sqlite3 nose"
+    - "pip install numpy"
+    - "pip install git+https://github.com/nipy/nibabel.git"
+    - "pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch"
+    - "pip install git+https://github.com/moloney/dcmstack.git"
+    - "pip install pymongo"
+    - "pip install PIL --allow-unverified PIL --allow-external PIL"
+
+# tests
+script:
+    - nosetests
