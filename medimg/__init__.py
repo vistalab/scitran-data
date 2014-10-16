@@ -30,6 +30,6 @@ from . import medimg
 
 MedImageReader = medimg.MedImgReader
 MedImageWriter = medimg.MedImgWriter
-epoch_properties = medimg.epoch_properties
+acquisition_properties = medimg.acquisition_properties
 session_properties = medimg.session_properties
-experiment_properties = medimg.experiment_properties
+project_properties = medimg.project_properties

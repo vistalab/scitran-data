@@ -200,10 +200,10 @@ class NIMSPFile(medimg.MedImgReader):
                     else:
                         log.debug('_min_parse_tgz')
                         self.exam_uid = _hdr.get('session')
-                        self.epoch_id = _hdr.get('epoch')
+                        self.acquisition_id = _hdr.get('acquisition')
                         self.timestamp = _hdr.get('timestamp')
                         self.group_name = _hdr.get('group')
-                        self.experiment_name = _hdr.get('experiment')
+                        self.project_name = _hdr.get('project')
                         break
                 else:
                     raise NIMSPFileError('no json file with header section found. bailing', log_level=logging.WARNING)
@@ -274,7 +274,7 @@ class NIMSPFile(medimg.MedImgReader):
         else:
             month, day, year = map(int, self.scan_date.split('\0', 1)[0].split('/'))
             hour, minute = map(int, self.scan_time.split('\0', 1)[0].split(':'))
-            self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute)  # GE's epoch begins in 1900
+            self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute)  # GE's acquisition begins in 1900
 
         dcm.mr.ge.infer_psd_type(self)  # kinda awkward
         if self.psd_type == 'spiral':
@@ -284,7 +284,7 @@ class NIMSPFile(medimg.MedImgReader):
         elif self.psd_type == 'muxepi':
             self.num_timepoints = self.num_timepoints + int(self.rec_user6) * self.ileaves * (int(self.rec_user7) - 1)
         self.prescribed_duration = self.num_timepoints * self.tr
-        self.subj_code, self.group_name, self.experiment_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
+        self.subj_code, self.group_name, self.project_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
 
     def _full_parse(self, filepath):
         """
@@ -316,7 +316,7 @@ class NIMSPFile(medimg.MedImgReader):
             self.series_desc = self._hdr.series.se_desc.split('\0', 1)[0]
             self.series_uid = unpack_uid(self._hdr.series.series_uid)
             self.acq_no = self._hdr.image.scanactno
-            self.subj_code, self.group_name, self.experiment_name = medimg.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
+            self.subj_code, self.group_name, self.project_name = medimg.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
 
             self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0])
             self.scan_type = self._hdr.image.psd_iname.split('\0', 1)[0]

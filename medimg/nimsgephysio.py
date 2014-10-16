@@ -49,9 +49,9 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
             else:
                 raise NIMSGEPhysioError('no header found')
         self.group = self._hdr['group']
-        self.experiment = self._hdr['experiment']
+        self.project = self._hdr['project']
         self.session = self._hdr['session']
-        self.epoch = self._hdr['epoch']
+        self.acquisition = self._hdr['acquisition']
         self.timestamp = self._hdr['timestamp']
         self.nims_metadata_status = None
 
@@ -63,8 +63,8 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         return self.group
 
     @property
-    def nims_experiment(self):
-        return self.experiment
+    def nims_project(self):
+        return self.project
 
     @property
     def nims_session_id(self):
@@ -79,20 +79,20 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         return None
 
     @property
-    def nims_epoch_id(self):
-        return self.epoch
+    def nims_acquisition_id(self):
+        return self.acquisition
 
     @property
-    def nims_epoch_label(self):
+    def nims_acquisition_label(self):
         return None
 
     @property
-    def nims_epoch_description(self):
+    def nims_acquisition_description(self):
         return None
 
     @property
     def nims_file_name(self):
-        return self.epoch + '_' + self.filetype
+        return self.acquisition + '_' + self.filetype
 
     @property
     def nims_file_ext(self):

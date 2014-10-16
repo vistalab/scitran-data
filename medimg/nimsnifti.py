@@ -88,7 +88,7 @@ class NIMSNifti(medimg.MedImgReader, medimg.MedImgWriter):
 
         # TODO: nibabel nifti header reader
         # self.metadata.group
-        # self.metadata.experiment
+        # self.metadata.project
         # self.metadata.exam_uid
         self.data = nifti.imagedata.squeeze()
         self.qto_xyz = nifti.get_affine()
@@ -102,8 +102,8 @@ class NIMSNifti(medimg.MedImgReader, medimg.MedImgWriter):
         return self.metadata.group
 
     @property
-    def nims_experiment(self):
-        return self.metadata.experiment
+    def nims_project(self):
+        return self.metadata.project
 
     @property
     def nims_session(self):
@@ -118,20 +118,20 @@ class NIMSNifti(medimg.MedImgReader, medimg.MedImgWriter):
         return self.metadata.subj_code
 
     @property
-    def nims_epoch(self):
-        return self.metadata.epoch
+    def nims_acquisition(self):
+        return self.metadata.acquisition
 
     @property
-    def nims_epoch_name(self):
+    def nims_acquisition_name(self):
         pass
 
     @property
-    def nims_epoch_description(self):
+    def nims_acquisition_description(self):
         pass
 
     @property
     def nims_file_name(self):
-        return self.nims_epoch + '_' + self.filetype
+        return self.nims_acquisition + '_' + self.filetype
 
     @property
     def nims_file_ext(self):

@@ -43,7 +43,7 @@ WRITERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__))
 MODULES = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'modules.json')))
 
 
-experiment_properties = {
+project_properties = {
         'gid': {
             'field': 'nims_group_id',
             'type': 'string',
@@ -54,7 +54,7 @@ experiment_properties = {
             # FIXME: dynamically add enum of all possible groups
         },
         'name': {
-            'field': 'nims_experiment',
+            'field': 'nims_project',
             'title': 'Name',
             'type': 'string',
             'maxLength': 32,
@@ -108,19 +108,19 @@ session_properties = {
         },
 }
 
-epoch_properties = {
+acquisition_properties = {
         'uid': {
-            'field': 'nims_epoch_id',
+            'field': 'nims_acquisition_id',
             'type': 'string',
         },
         'label': {
-            'field': 'nims_epoch_label',
+            'field': 'nims_acquisition_label',
             'title': 'Label',
             'type': 'string',
             'maxLength': 32,
         },
         'description': {
-            'field': 'nims_epoch_description',
+            'field': 'nims_acquisition_description',
             'title': 'Description',
             'type': 'string',
             'maxLength': 64,
@@ -228,9 +228,9 @@ def dict_merge(a, b=None, in_place=False):
     return result
 
 
-def epoch_properties_by_type_list(type_list):
+def acquisition_properties_by_type_list(type_list):
     """
-    Assemble epoch properties from list of types.
+    Assemble acquisition properties from list of types.
 
     Parameters
     ----------
@@ -240,10 +240,10 @@ def epoch_properties_by_type_list(type_list):
     Returns
     -------
     merged_dict : dict
-        merged epoch properties for items in type_list.
+        merged acquisition properties for items in type_list.
 
     """
-    return dict_merge([module_by_type(t).epoch_properties for t in type_list])
+    return dict_merge([module_by_type(t).acquisition_properties for t in type_list])
 
 
 def session_properties_by_type_list(type_list):
@@ -264,9 +264,9 @@ def session_properties_by_type_list(type_list):
     return dict_merge([module_by_type(t).session_properties for t in type_list])
 
 
-def experiment_properties_by_type_list(type_list):
+def project_properties_by_type_list(type_list):
     """
-    Assemble experiment properties from list of types.
+    Assemble project properties from list of types.
 
     Parameters
     ----------
@@ -276,10 +276,10 @@ def experiment_properties_by_type_list(type_list):
     Returns
     -------
     merged_dict : dict
-        merged experiment properties for items in type_list.
+        merged project properties for items in type_list.
 
     """
-    return dict_merge([module_by_type(t).experiment_properties for t in type_list])
+    return dict_merge([module_by_type(t).project_properties for t in type_list])
 
 
 # FIXME; make this more flexible to deal with various levels of nesting
@@ -520,9 +520,9 @@ class NIMSReader(object):
 
     __metaclass__ = abc.ABCMeta
 
-    experiment_properties = experiment_properties
+    project_properties = project_properties
     session_properties = session_properties
-    epoch_properties = epoch_properties
+    acquisition_properties = acquisition_properties
 
 
     def _schema_init(self, schema):
@@ -534,9 +534,9 @@ class NIMSReader(object):
 
     @abc.abstractmethod
     def __init__(self, path, load_data=False):
-        self._schema_init(self.experiment_properties)
+        self._schema_init(self.project_properties)
         self._schema_init(self.session_properties)
-        self._schema_init(self.epoch_properties)
+        self._schema_init(self.acquisition_properties)
         self.filepath = os.path.abspath(path)
         self.data = None
         self.metadata_status = 'empty'
@@ -550,7 +550,7 @@ class NIMSReader(object):
         pass
 
     @abc.abstractproperty
-    def nims_experiment(self):
+    def nims_project(self):
         pass
 
     @abc.abstractproperty
@@ -566,15 +566,15 @@ class NIMSReader(object):
         pass
 
     @abc.abstractproperty
-    def nims_epoch_id(self):
+    def nims_acquisition_id(self):
         pass
 
     @abc.abstractproperty
-    def nims_epoch_label(self):
+    def nims_acquisition_label(self):
         pass
 
     @abc.abstractproperty
-    def nims_epoch_description(self):
+    def nims_acquisition_description(self):
         pass
 
     @abc.abstractproperty

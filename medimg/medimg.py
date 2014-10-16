@@ -39,7 +39,7 @@ SLICE_ORDER_ALT_DEC = 4
 SLICE_ORDER_ALT_INC2 = 5  # interleaved, increased, starting at 2nd MRI slice
 SLICE_ORDER_ALT_DEC2 = 6  # interleave, decreasing, starting at one before last MRI slice
 
-experiment_properties = nimsdata.experiment_properties
+project_properties = nimsdata.project_properties
 
 _session_properties = {
     'exam_uid': {
@@ -108,7 +108,7 @@ _session_properties = {
 }
 session_properties = nimsdata.dict_merge(nimsdata.session_properties, _session_properties)
 
-_epoch_properties = {
+_acquisition_properties = {
     'series_uid': {
         'field': 'series_uid',
         'title': 'DICOM UID',
@@ -303,17 +303,17 @@ _epoch_properties = {
         },
     },
 }
-epoch_properties = nimsdata.dict_merge(nimsdata.epoch_properties, _epoch_properties)
+acquisition_properties = nimsdata.dict_merge(nimsdata.acquisition_properties, _acquisition_properties)
 
 
 def parse_patient_id(patient_id, default_subj_code):
     """
-    Parse a subject code, group name and experiment name from patient_id.
+    Parse a subject code, group name and project name from patient_id.
 
     If the patient id does not contain a subject code, rely on default (exam no).
 
     Expects formatting
-    subjcode@group_name/experiment_name
+    subjcode@group_name/project_name
 
     Parameters
     ----------
@@ -326,8 +326,8 @@ def parse_patient_id(patient_id, default_subj_code):
         string of subject identifer
     group_name : str
         string of group name
-    experiment_name : str
-        string of experiment name
+    project_name : str
+        string of project name
 
     """
     subj_code = group_name = exp_name = None
@@ -437,15 +437,15 @@ class MedImgReader(nimsdata.NIMSReader):
     """
 
     __metaclass__ = abc.ABCMeta
-    experiment_properties = experiment_properties
+    project_properties = project_properties
     session_properties = session_properties
-    epoch_properties = epoch_properties
+    acquisition_properties = acquisition_properties
 
     @abc.abstractmethod
     def __init__(self, path, load_data=False):
         super(MedImgReader, self).__init__(path, load_data)
         self.is_screenshot = False
-        self.epoch_id = None
+        self.acquisition_id = None
         self.study_datetime = None
         self.subj_code = None
         self.series_desc = None
@@ -462,8 +462,8 @@ class MedImgReader(nimsdata.NIMSReader):
         return self.group_name
 
     @property
-    def nims_experiment(self):
-        return self.experiment_name
+    def nims_project(self):
+        return self.project_name
 
     @property
     def nims_session_id(self):
@@ -478,9 +478,9 @@ class MedImgReader(nimsdata.NIMSReader):
         return self.subj_code
 
     @property
-    def nims_epoch_id(self):
-        if self.epoch_id:  # as in pfile json header
-            return self.epoch_id
+    def nims_acquisition_id(self):
+        if self.acquisition_id:  # as in pfile json header
+            return self.acquisition_id
         series_uid = self.series_uid
         if self.is_screenshot:
             front, back = self.series_uid.rsplit('.', 1)
@@ -488,11 +488,11 @@ class MedImgReader(nimsdata.NIMSReader):
         return series_uid + ('_' + str(self.acq_no) if self.acq_no is not None else '')
 
     @property
-    def nims_epoch_label(self):
+    def nims_acquisition_label(self):
         return '%d.%d' % (self.series_no, self.acq_no) if self.acq_no is not None else str(self.series_no)
 
     @property
-    def nims_epoch_description(self):
+    def nims_acquisition_description(self):
         return self.series_desc
 
     @property

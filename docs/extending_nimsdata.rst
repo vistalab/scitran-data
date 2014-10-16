@@ -60,13 +60,13 @@ A subclass of nimsdata.NIMSReader must implement the following:
       data into an intermediate format.
 
     - nims_group_id property
-    - nims_experiment property
+    - nims_project_property
     - nims_session_id property
     - nims_session_label property
     - nims_session_subject property
-    - nims_epoch_id property
-    - nims_epoch_label property
-    - nims_epoch_description property
+    - nims_acquisition_id property
+    - nims_acquisition_label property
+    - nims_acquisition_description property
     - nims_file_name property
     - nims_file_ext property
     - nims_file_domain property
