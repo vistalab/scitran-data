@@ -172,7 +172,7 @@ def parse_all(self):
     self.num_receivers = len([self._hdr[key] for key in self._hdr if key.endswith('sCoilElementID.tCoilID')])
 
     if self.total_num_slices < MAX_LOC_DCMS:
-        ornts = np.unique([tuple(d.get('ImageOrientationPatient', [0.]*6)) for d in self._dcm_list])
+        ornts = list(set([tuple(d.get('ImageOrientationPatient', [0.]*6)) for d in self._dcm_list]))
         final_ornts = [ornts[0],]
         for x in range(1,len(ornts)):  # skip reference ornt
             if not np.allclose(ornts[0], ornts[x]):

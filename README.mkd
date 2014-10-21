@@ -33,12 +33,12 @@ instance to use them. E.g., you can run our image reconstruction pipeline.
 - install dependencies, these are VERY specific version. once these versions are available
 through pypi, these installation commands will change.  (subject to change)
 
-        pip install git+https://github.com/numpy/numpy.git
-        pip install git+https://github/com/scitran/pydicom.gitmirror.git@value_mismatch
+        pip install numpy==1.9.0
+        pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
         pip install git+https://github.com/nipy/nibabel.git
         pip install git+https://github.com/moloney/dcmstack
         pip install pymongo                                     # just want bson
-        pip install PIL --allow-unverfied PIL --allow-external PIL
+        pip install PIL --allow-unverified PIL --allow-external PIL
 
 
 - clone nimsdata from github
@@ -73,11 +73,15 @@ development version is currently using the following:
 |package        |version                |
 |:------------- |:--------------------- |
 |PIL            |1.1.7      (latest)    |
-|dcmstack       |0.9.9      (latest)    |
+|dcmstack       |0.7.0dev   (latest)    |
 |nibabel        |1.4.0dev   (latest)    |
 |numpy          |1.9.0      (latest)    |
 |pydicom        |0.9.9      (latest)    |
 
+numpy 1.9 changes how numpy.unique() behaves when given an array of arrays.  Pre 1.9, np.unique
+would return each unique array. Post 1.9, np.unique returns unique items from the arrays. dcmstack
+is compatible with numpy 1.9, but numpy throws some FutureWarnings.  The current version of
+dcmstack (0.7.0dev) may not be compatible with future version of numpy.
 
 run the following git config commands to enable a git filter for the branch name.
 

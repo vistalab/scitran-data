@@ -29,13 +29,14 @@ import copy
 import json
 import logging
 import tarfile
+import warnings
 import datetime
 import traceback
 import bson.json_util
 
 
 log = logging.getLogger(__name__)
-
+warnings.simplefilter('ignore', FutureWarning)
 
 # note: readers/writers.json will never contain datetime, or objects that require bson.json_util
 READERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readers.json')))
