@@ -21,8 +21,8 @@ instance to use them. E.g., you can run our image reconstruction pipeline.
 
         sudo apt-get update
         sudo apt-get upgrade
-        sudo apt-get install python-dev python-virtualenv git mercurial
-
+        sudo apt-get install python-dev python-virtualenv libjpeg-dev git
+        sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 
 - create and activate virtualenv
 
@@ -37,9 +37,8 @@ through pypi, these installation commands will change.  (subject to change)
         pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
         pip install git+https://github.com/nipy/nibabel.git
         pip install git+https://github.com/moloney/dcmstack
-        pip install pymongo                                     # just want bson
-        pip install PIL --allow-unverified PIL --allow-external PIL
-
+        pip install pillow
+        pip install pymongo
 
 - clone nimsdata from github
 
@@ -47,13 +46,6 @@ through pypi, these installation commands will change.  (subject to change)
         cd /var/local/nimsdata
         git submodule init  # optional
         git submodule update  # optional
-
-
-- install dependencies for submodules pfile, spirec and mux_recon_epi
-
-        sudo apt-get install libatlas-base-dev gfortran octave libfftw3 libfftw3-dev
-        source /var/local/nimsdata_env/bin/activate
-        pip install scipy
 
 
 ## Misc Troubleshooting
@@ -73,10 +65,10 @@ development version is currently using the following:
 |package        |version                |
 |:------------- |:--------------------- |
 |PIL            |1.1.7      (latest)    |
-|dcmstack       |0.7.0dev   (latest)    |
-|nibabel        |1.4.0dev   (latest)    |
 |numpy          |1.9.0      (latest)    |
+|nibabel        |1.4.0dev   (latest)    |
 |pydicom        |0.9.9      (latest)    |
+|dcmstack       |0.7.0dev   (latest)    |
 
 numpy 1.9 changes how numpy.unique() behaves when given an array of arrays.  Pre 1.9, np.unique
 would return each unique array. Post 1.9, np.unique returns unique items from the arrays. dcmstack

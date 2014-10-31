@@ -10,8 +10,8 @@ NIMSMRPNG provides PNG image writing capabilities for medimg datasets.
 """
 
 import os
-import Image
 import logging
+from PIL import Image
 
 import numpy as np
 
@@ -67,7 +67,6 @@ class NIMSPNG(medimg.MedImgWriter):
             else:
                 qto_xyz = metadata.qto_xyz
             outname = outbase + data_label
-
             data = np.dsplit(data, len(metadata._dcm_list))  # cut the darray
             data = [image.squeeze() for image in data]  # squeeze; remove axis with 1 val
             for i, data in enumerate(data):
@@ -81,10 +80,8 @@ class NIMSPNG(medimg.MedImgWriter):
                     data = data.reshape((data.shape[1], data.shape[2], data.shape[0]))
                     Image.fromarray(data, 'RGB').save(filepath, optimize=True)
                 log.debug('generated %s' % os.path.basename(filepath))
-
+                results.append(filepath)
             log.debug('returning:  %s' % filepath)
-
-            results.append(filepath)
         return results
 
 write = NIMSPNG.write

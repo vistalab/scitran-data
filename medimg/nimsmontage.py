@@ -14,11 +14,11 @@ Provides a NIMSMRWriter subclass for creating image pyramids.
 
 import os
 import math
-import Image
 import logging
 import sqlite3
 import cStringIO
 import numpy as np
+from PIL import Image
 
 import medimg
 

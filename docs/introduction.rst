@@ -43,13 +43,12 @@ Installation
 .. code-block:: sh
 
     source /var/local/nims_env/bin/active
-    pip install numpy
-    pip install pymongo
+    pip install numpy==1.9.0
     pip install git+https://github.com/scitran/pydicom.gitmirror@value_mismatch
     pip install git+https://github.com/nipy/nibabel.git
     pip install git+https://github.com/moloney/dcmstack.git
-    pip install PIL --allow-unverified PIL --allow-external PIL
-
+    pip install pillow
+    pip install pymongo
 
 
 Basic Conversion
