@@ -61,6 +61,11 @@ nimsdata package
     :show-inheritance:
 
 
+.. automodule:: nimsdata.medimg.nimspfile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. automodule:: nimsdata.medimg.nimsnifti
     :members:
     :undoc-members:

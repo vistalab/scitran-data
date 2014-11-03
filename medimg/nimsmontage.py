@@ -162,8 +162,10 @@ def generate_sqlite_pyr(imagedata, outbase, tile_size=512):
         log.debug('generated %s' % os.path.basename(outbase))
         return outbase
 
+
 # FIXME panojs_url should be a configurable
 def generate_dir_pyr(imagedata, outbase, tile_size=256, panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'):
+    """Generate a panojs image pyramid directory."""
     montage = generate_montage(imagedata)
     pyramid, pyramid_size = generate_pyramid(montage, tile_size)
 
@@ -201,6 +203,7 @@ def generate_dir_pyr(imagedata, outbase, tile_size=256, panojs_url='https://cni.
 
 
 def generate_flat(imagedata, filepath):
+    """Generate a flat png montage."""
     montage = generate_montage(imagedata)
     Image.fromarray(montage).convert('L').save(filepath, optimize=True)
 
@@ -241,7 +244,7 @@ class NIMSMontage(medimg.MedImgReader, medimg.MedImgWriter):
         get_info(self.filepath)
 
     @classmethod
-    def write(cls, metadata, imagedata, outbase, voxel_order='LPS', mtype='sqlite', tilesize=512):
+    def write(cls, metadata, imagedata, outbase, voxel_order='LPS', mtype='sqlite', tilesize=512, multi=False):
         """
         Write the metadata and imagedata to image montage pyramid.
 
@@ -259,6 +262,8 @@ class NIMSMontage(medimg.MedImgReader, medimg.MedImgWriter):
             type of montage to create. can be 'sqlite', 'dir', or 'png'.
         tilesize : int [default 512]
             tilesize for generated sqlite or directory pyramid. Has no affect on mtype 'png'.
+        multi : bool [default False]
+            True indicates to write multiple files. False only writes primary data in imagedata['']
 
         Returns
         -------
@@ -275,22 +280,27 @@ class NIMSMontage(medimg.MedImgReader, medimg.MedImgWriter):
 
         results = []
         for data_label, data in imagedata.iteritems():
+            if not multi and data_label is not '':
+                continue
+
             if data is None:
                 continue
-            if voxel_order:
-                data, qto_xyz = cls.reorder_voxels(data, metadata.qto_xyz, voxel_order)
-            else:
-                qto_xyz = metadata.qto_xyz
+            data = imagedata.get(data_label)
             outname = outbase + data_label
+
+            if voxel_order:
+                data, _ = cls.reorder_voxels(data, metadata.qto_xyz, voxel_order)
             if mtype == 'sqlite':
                 log.debug('type: sqlite')
                 result = generate_sqlite_pyr(data, outname + '.pyrdb', tilesize)
-            if mtype == 'dir':
+            elif mtype == 'dir':
                 log.debug('type: directory')
                 result = generate_dir_pyr(data, outname, tilesize)
-            if mtype == 'png':
+            elif mtype == 'png':
                 log.debug('type: flat png')
                 result = generate_flat(data, outname + '.png')
+            else:
+                raise NIMSMontageError('montage mtype must be sqlite, dir or png. not %s' % mtype)
 
             results.append(result)
         return results

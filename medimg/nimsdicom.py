@@ -168,7 +168,10 @@ class NIMSDicom(medimg.MedImgReader):
             for ti in archive:
                 try:
                     self._hdr = MetaExtractor(dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read()), stop_before_pixels=True))
-                except (dicom.filereader.InvalidDicomError, AttributeError):
+                except (dicom.filereader.InvalidDicomError, AttributeError, ValueError):
+                    # dicom.filereader.InvalidDicomError, not a dicom
+                    # AttributeError,
+                    # ValueError, dcmstack.extract, tag value not parseable with declared VR
                     pass
                 else:
                     break
@@ -294,7 +297,14 @@ class NIMSDicom(medimg.MedImgReader):
 
         self.parse_all()  # COMPOSED; parses mfr sop specifics
         self.nims_metadata_status = 'complete'  # if parse_all completes, metadata is assumed to be completed
-        self.convert()  # COMPOSED; converts mfr sop specific, may also do last round of metadata touch ups
+
+        try:
+            self.convert()  # COMPOSED; converts mfr sop specific, may also do last round of metadata touch ups
+        except Exception as e:
+            log.debug('%s pixel data could not be loaded: %s' % (self.filepath, str(e)))
+            self.data = None
+            self.failure_reason = e
+
 
     @staticmethod
     def getelem(hdr, tag, type_=None, default=None):

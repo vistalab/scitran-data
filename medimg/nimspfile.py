@@ -4,21 +4,18 @@
 #           Kevin S Hahn
 
 """
-nimsdata.nimspfile
-==================
+nimsdata.medimg.nimspfile
+=========================
 
-This module provides functions, classes and errors for reading for
-minimally parsing a pfile.  Additional modules can be used to
-full parse the pfiles.
-
-NIMSPfile provides parsing and identification of GE pfiles.
-
-NIMSPfile requires the pfile module to completely read and perform conversions.
+This module provides functions, classes and errors for fully minimally parsing
+and reconstructing pfiles. Additional modules are required to enable
+full parsing of pfiles, spiral reconstruction, and mux_epi reconstruction.
 
 """
 
 import os
 import bson
+import glob
 import gzip
 import json
 import time
@@ -77,26 +74,6 @@ def is_gzip(filepath):
     return compressed
 
 
-def uncompress(filepath, tempdir):
-    """
-    Uncompress the contents of a tgz, or gz, into a specified tempdir.
-
-    This function might be totally useless.
-
-    """
-    newpath = os.path.join(tempdir, os.path.basename(filepath)[:-3])
-    # The following with pigz is ~4x faster than the python code above (with gzip, it's about 2.5x faster)
-    if os.path.isfile('/usr/bin/pigz'):
-        subprocess.call('pigz -d -c %s > %s' % (filepath, newpath), shell=True)
-    elif os.path.isfile('/usr/bin/gzip') or os.path.isfile('/bin/gzip'):
-        subprocess.call('gzip -d -c %s > %s' % (filepath, newpath), shell=True)
-    else:
-        with open(newpath, 'wb') as fd:
-            with gzip.open(filepath, 'rb') as gzfile:
-                fd.writelines(gzfile)
-    return newpath
-
-
 def get_version(filepath):
     """
     Determine the pfile version of the file at filepath.
@@ -146,45 +123,97 @@ class NIMSPFileError(medimg.MedImgError):
 class NIMSPFile(medimg.MedImgReader):
 
     """
-    Read pfile data and/or header.
+    Parse and load data from a pfile.
 
-    This class reads the data and/or header from a pfile, runs k-space reconstruction,
-    and generates a NIfTI object, including header information.
+    This class reads the data and/or header from a pfile, runs k-space reconstruction.
 
     NIMSPFile object can handle several different input types
-    .tgz of directory containing Pfile, auxillary files such as ref.dat, vrgf.dat and tensor.dat
-    .gz of single pfile
+        - .tgz of directory containing Pfile, and supporting files such as ref.dat, vrgf.dat and tensor.dat.
+        - a single pfile, either gz or uncompressed.
 
     tgz cannot be "full parsed".  setting full_parse=True, with an input tgz, will raise an exception.
+    nims2 input tgz format
+    Pfile.7, Pfile.7ref.dat, Pfile.7vrgf.dat Pfile.7ref
 
-    the old way is no longer supported.
-    Pfile.gz + _Pfile.7_ref.dat + _PFile.7._vrgf.dat _PFile.7_refscan.7, _P02048.7_param.dat
+    .. code:: python
 
-    NOTE: does nimspfile.NIMSPFile need to be backward compatible with nimsraw.NIMSPFile?
+        import nimsdata
+        ds = nimsdata.parse('pfile.tgz', filetype='pfile', load_data=True)
+        if not ds.failure_reason:
+            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
-    Example:
-        import pfile
-        pf = pfile.PFile(filename='P56832.7')
-        pf.to_nii(outbase='P56832.7')
+    Some pfiles require calibration files from another scan.  This 'aux_file' can be provided
+    during `__init__()`, or `load_data()`.
+
+    .. code:: python
+
+        import nimsdata
+        ds = nimsdata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=True, aux_file='muxarcepi_cal.tgz')
+        if not ds.failure_reason:
+            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
+
+    .. code:: python
+
+        import nimsdata
+        ds = nimsdata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=False)
+        ds.load_data(aux_file='muxarcepi_cal.tgz')
+        if no ds.failure_reason:
+            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
     """
+
     domain = u'mr'
     filetype = u'pfile'
     parse_priority = 5
     state = ['orig']
 
-    def __init__(self, filepath, load_data=False, full_parse=False, num_jobs=8, num_virtual_coils=16, notch_thresh=0, recon_type=None):
-        super(NIMSPFile, self).__init__(filepath, load_data)
-        self.full_parse = False  # self.full_parse = False indicates file is not fully parsed
-        log.debug('parsing pfile %s, full_parse = %s, load_data = %s' % (self.filepath, full_parse, load_data))
-        self.dirpath = os.path.dirname(self.filepath)
-        self.filename = os.path.basename(self.filepath)
-        self.basename, _ = os.path.splitext(self.filename)  # discard the file extension
-        self.is_localizer = None
+    def __init__(self, filepath, load_data=False, full_parse=False, tempdir=None, aux_file=None, num_jobs=4, num_virtual_coils=16, notch_thresh=0, recon_type=None):
+        """
+        Read basic sorting information.
+
+        There are a lot of parameters; most of the parameters only apply to mux_epi scans. The muxepi only
+        parameters are num_jobs, num_virtual_coils, notch_thresh, recon_type and aux_file.
+
+        Parameters
+        ----------
+        filepath : str
+            path to pfile.7 or pfile.tgz
+        load_data : bool [default False]
+            load all data and run reconstruction
+        full_parse : bool [default False]
+            full parse the input file, only applies to pfile.7 inputs
+        tempdir : str
+            path prefix to use for temp directory
+        num_jobs : int
+            muxepi only, number of simultaneous jobs
+        num_virtual_coils : int
+            muxepi only, number of virtual coils
+        notch_thresh : int
+            muxepi only, number of virtual coils
+        recon_type : NoneType or str
+            muxepi only, if recon_type is 'sense', then run sense recon
+        aux_file : None or str
+            path to pfile.tgz that contains valid vrgf.dat and ref.dat files
+
+        """
+        super(NIMSPFile, self).__init__(filepath)       # sets self.filepath
+        self.full_parsed = False                        # indicates if fully parsed
+        self.dirpath = os.path.dirname(self.filepath)   # what contains the input file
+        self.basename = os.path.basename(self.filepath)
+        # TODO setting the file name and extension should be different for .7 and .7.tgz
+        # if pfile_arc.tgz, file_name = pfile_arc, file_ext = .tgz
+        # if P?????.7,   file_name = P?????, file_ext = .7
+        self.file_name, self.file_ext = os.path.splitext(self.filepath)
+        self.num_jobs = num_jobs
         self.num_vcoils = num_virtual_coils
         self.notch_thresh = notch_thresh
         self.recon_type = recon_type
+        self.aux_file = aux_file
+        self.tempdir = tempdir
+        self.data = None
 
+
+        log.debug('parsing %s' % filepath)
         if tarfile.is_tarfile(self.filepath):  # tgz; find json with a ['header'] section
             log.debug('tgz')
             with tarfile.open(self.filepath) as archive:
@@ -204,35 +233,69 @@ class NIMSPFile(medimg.MedImgReader):
                         self.timestamp = _hdr.get('timestamp')
                         self.group_name = _hdr.get('group')
                         self.project_name = _hdr.get('project')
+                        self.metadata_status = 'pending'
                         break
                 else:
                     raise NIMSPFileError('no json file with header section found. bailing', log_level=logging.WARNING)
         else:  # .7 or .7.gz, doing it old world style
             try:
-                self.version = get_version(filepath)
-                self._full_parse(filepath) if full_parse else self._min_parse(filepath)  # full_parse arg indicates run full_parse
-            except:
-                raise NIMSPFileError('not a PFile')
+                self.version = get_version(self.filepath)
+                self._full_parse(self.filepath) if full_parse else self._min_parse(self.filepath)  # full_parse arg indicates run full_parse
+            except Exception as e:
+                raise NIMSPFileError('not a PFile? %s' % str(e))
 
-        self.metadata_status = 'pending'
+        if load_data:
+            self.load_data()
 
-        if load_data:  # load_data arg indicates run load_data
-            self.load_data(num_jobs)  # load_data checks self.full_parse to see if full_parse is needed
-
-    def _min_parse(self, filepath):
+    def infer_psd_type(self):
         """
-        Parse a minimum required set of metadata from a Pfile fileobj.
+        Infer the psd type based on self.psd_type.
 
-        Can only parse Pxxxxx.7 and Pxxxxx.7.gz files, not tgz.  Does not load a self._hdr object.
+        Also makes any corrections to the psd_type to account for mis-named psds.
+
+        Returns
+        -------
+        None : NoneType
+            sets self.psd_type
+
+        """
+        dcm.mr.ge.infer_psd_type(self)
+        if self.psd_type == 'epi' and int(self._hdr.rec.user6) > 0:  # XXX HACK check for misnamed mux scans
+            self.psd_type = 'muxepi'
+        log.debug('psd_name: %s, psd_type: %s' % (self.psd_name, self.psd_type))
+
+    def infer_scan_type(self):
+        """
+        Infer the scan type based on the dataset attributes.
+
+        Returns
+        -------
+        None : NoneType
+            sets self.scan_type
+
+        """
+        dcm.mr.generic_mr.infer_scan_type(self)
+        log.debug('scan_type: %s' % self.scan_type)
+
+    def _min_parse(self, filepath=None):
+        """
+        Parse the minimum sorting information from a pfile.7.
+
+        Does not work if input file is a tgz.  If NIMSPfile was init'd with a tgz input, the tgz can be
+        unpacked into a temporary directory, and then this function can parse the unpacked pfile.
 
         Parameters
         ----------
         filepath : str
-            path of file to be parsed
+            path to a pfile.7.  Does not accept pfile.tgz.
 
         """
+        filepath = filepath or self.filepath  # use filepath if provided, else fall back to self.filepath
+        if tarfile.is_tarfile(filepath):
+            raise NIMSPFileError('_min_parse() expects a .7 or .7.gz')
+        log.debug('_min_parse of %s' % filepath)
+
         fileobj = gzip.open(filepath, 'rb') if is_gzip(self.filepath) else open(filepath, 'rb')
-        log.debug('min_parse')
 
         fileobj.seek(16); self.scan_date = str(struct.unpack("10s", fileobj.read(struct.calcsize("10s")))[0])
         fileobj.seek(26); self.scan_time = str(struct.unpack("8s", fileobj.read(struct.calcsize("8s")))[0])
@@ -250,7 +313,7 @@ class NIMSPFile(medimg.MedImgReader):
             fileobj.seek(148388); self.im_datetime = struct.unpack("i", fileobj.read(struct.calcsize("i")))[0]
             fileobj.seek(148396); self.tr = struct.unpack("i", fileobj.read(struct.calcsize("i")))[0] / 1e6
             fileobj.seek(148834); self.acq_no = struct.unpack("h", fileobj.read(struct.calcsize("h")))[0]
-            fileobj.seek(148972); self.psd_name = os.path.basename(struct.unpack("33s", fileobj.read(struct.calcsize("33s")))[0]).split('\0', 1)[0]
+            fileobj.seek(148972); self.psd_name = os.path.basename(struct.unpack("33s", fileobj.read(struct.calcsize("33s")))[0]).split('\0', 1)[0].lower()
         if self.version in [24, 23]:
             fileobj.seek(144248); self.exam_uid = unpack_uid(struct.unpack("32s", fileobj.read(struct.calcsize("32s")))[0])
             fileobj.seek(144409); self.patient_id = (struct.unpack("65s", fileobj.read(struct.calcsize("65s")))[0]).split('\0', 1)[0]
@@ -267,16 +330,16 @@ class NIMSPFile(medimg.MedImgReader):
             fileobj.seek(65016); self.im_datetime = struct.unpack("i", fileobj.read(struct.calcsize("i")))[0]
             fileobj.seek(65024); self.tr = struct.unpack("i", fileobj.read(struct.calcsize("i")))[0] / 1e6
             fileobj.seek(65328); self.acq_no = struct.unpack("h", fileobj.read(struct.calcsize("h")))[0]
-            fileobj.seek(65374); self.psd_name = os.path.basename(struct.unpack("33s", flleobj.read(struct.calcsize("33s")))[0]).split('\0', 1)[0]
+            fileobj.seek(65374); self.psd_name = os.path.basename(struct.unpack("33s", flleobj.read(struct.calcsize("33s")))[0]).split('\0', 1)[0].lower()
 
         if self.im_datetime > 0:
             self.timestamp = datetime.datetime.utcfromtimestamp(self.im_datetime)
         else:
             month, day, year = map(int, self.scan_date.split('\0', 1)[0].split('/'))
             hour, minute = map(int, self.scan_time.split('\0', 1)[0].split(':'))
-            self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute)  # GE's acquisition begins in 1900
+            self.timestamp = datetime.datetime(year + 1900, month, day, hour, minute)  # GE's epoch begins in 1900
 
-        dcm.mr.ge.infer_psd_type(self)  # kinda awkward
+        self.infer_psd_type()
         if self.psd_type == 'spiral':
             self.num_timepoints = int(self.rec_user0)
         elif self.psd_type == 'basic':
@@ -285,45 +348,56 @@ class NIMSPFile(medimg.MedImgReader):
             self.num_timepoints = self.num_timepoints + int(self.rec_user6) * self.ileaves * (int(self.rec_user7) - 1)
         self.prescribed_duration = self.num_timepoints * self.tr
         self.subj_code, self.group_name, self.project_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
+        self.metadata_status = 'pending'
 
-    def _full_parse(self, filepath):
+    def _full_parse(self, filepath=None):
         """
-        Work on .7.gz and .7.
+        Fully parse the input pfile.
 
-        Requires the pfile submodule.
+        Attempts to import pfile version specific parser from pfile submodule.  Full parse is
+        not possible without access to the pfile submodule.
+
+        Does not work if input file is a tgz.  If NIMSPfile was init'd with a tgz input, the tgz can be
+        unpacked into a temporary directory, and then this function can parse the unpacked pfile.
+
+        Parameters
+        ----------
+        filepath : str
+            path to a pfile.7.  Does not accept pfile.tgz.
+
         """
-        log.debug('full_parse')
+        filepath = filepath or self.filepath
         if tarfile.is_tarfile(filepath):
-            raise NIMSPFileError('Cannot Full Parse a tgz, need to load all data first. bailing.', log_level=logging.WARNING)
+            raise NIMSPFileError('_full_parse() expects a .7 or .7.gz')
+        log.debug('_full_parse of %s' % filepath)
+
         try:
             pfile = getattr(__import__('pfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
-        except ImportError as e:
-            raise ImportError('%s\nNo Valid PFile parser for v%d\n' % (str(e), self.version))
+        except ImportError:
+            raise ImportError('no pfile parser for v%d' % self.version)
 
         with gzip.open(filepath, 'rb') if is_gzip(filepath) else open(filepath, 'rb') as fileobj:
             self._hdr = pfile.POOL_HEADER(fileobj)
             if not self._hdr:
-                raise NIMSPFileError('no pfile read', log_level=logging.WARNING)
+                raise NIMSPFileError('no pfile was read', log_level=logging.WARNING)
+            self.data = None    # data always starts as None
 
-            self.data = {}      # empty dict to start
-            # self.data = None
-            # self.fm_data = None
+            self.pfilename = 'P%05d' % self._hdr.rec.run_int
 
             self.exam_no = self._hdr.exam.ex_no
             self.exam_uid = unpack_uid(self._hdr.exam.study_uid)
-            self.patient_id = self._hdr.exam.patidff.split('\0', 1)[0]
             self.series_no = self._hdr.series.se_no
             self.series_desc = self._hdr.series.se_desc.split('\0', 1)[0]
             self.series_uid = unpack_uid(self._hdr.series.series_uid)
             self.acq_no = self._hdr.image.scanactno
+            self.patient_id = self._hdr.exam.patidff.split('\0', 1)[0]
             self.subj_code, self.group_name, self.project_name = medimg.parse_patient_id(self.patient_id, 'ex' + str(self.exam_no))
-
-            self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0])
-            self.scan_type = self._hdr.image.psd_iname.split('\0', 1)[0]
-            self.pfilename = 'P%05d' % self._hdr.rec.run_int
             self.subj_firstname, self.subj_lastname = medimg.parse_patient_name(self._hdr.exam.patnameff.split('\0', 1)[0])
             self.subj_dob = medimg.parse_patient_dob(self._hdr.exam.dateofbirth.split('\0', 1)[0])
             self.subj_sex = ('male', 'female')[self._hdr.exam.patsex-1] if self._hdr.exam.patsex in [1, 2] else None
+
+            self.psd_name = os.path.basename(self._hdr.image.psdname.partition('\x00')[0]).lower()
+            # self.scan_type = self._hdr.image.psd_iname.split('\0', 1)[0]  # XXX is this needed, it gets overwritten by end of fullparse
             if self._hdr.image.im_datetime > 0:
                 self.timestamp = datetime.datetime.utcfromtimestamp(self._hdr.image.im_datetime)
             else:   # HOShims don't have self._hdr.image.im_datetime
@@ -368,7 +442,6 @@ class NIMSPFile(medimg.MedImgReader):
             self.acquisition_type = None                                # hope this doesn't break anything...
             self.size = [self._hdr.image.dim_X, self._hdr.image.dim_Y]  # imatrix_Y
             self.fov = [self._hdr.image.dfov, self._hdr.image.dfov_rect]
-            self.scan_type = self._hdr.image.psd_iname.split('\0', 1)[0]
             self.num_bands = 1
             self.num_mux_cal_cycle = 0
             self.num_timepoints = self._hdr.rec.npasses
@@ -384,8 +457,7 @@ class NIMSPFile(medimg.MedImgReader):
             image_brhc = np.array([self._hdr.image.brhc_R, self._hdr.image.brhc_A, self._hdr.image.brhc_S])
 
             # psd-specific params get set here
-            dcm.mr.ge.infer_psd_type(self)
-            # self.psd_type = dcm.mr.ge.infer_psd_type(self.psd_name)
+            self.infer_psd_type()
             if self.psd_type == 'spiral':
                 self.num_timepoints = int(self._hdr.rec.user0)    # not in self._hdr.rec.nframes for sprt
                 self.deltaTE = self._hdr.rec.user15
@@ -399,7 +471,6 @@ class NIMSPFile(medimg.MedImgReader):
                 # damn well pleases. Maybe we could add a check to ninfer the image size,
                 # assuming it's square?
                 self.size_x = self.size_y = self._hdr.rec.im_size
-                # self.mm_per_vox[0:2] = [self.fov[0] / self.size[0]] * 2
                 self.mm_per_vox_x = self.mm_per_vox_y = self.fov_x / self.size_x
             elif self.psd_type == 'basic':
                 # first 6 are ref scans, so ignore those. Also, two acquired timepoints are used
@@ -446,12 +517,13 @@ class NIMSPFile(medimg.MedImgReader):
             # You might think that the b-value for diffusion scans would be stored in self._hdr.image.b_value.
             # But alas, this is GE. Apparently, that var stores the b-value of the just the first image, which is
             # usually a non-dwi. So, we had to modify the PSD and stick the b-value into an rhuser CV. Sigh.
-            self.dwi_bvalue = self._hdr.rec.user22 if self.version == 24 else self._hdr.rec.user1
+            # NOTE: pre-dv24, the bvalue was stored in rec.user22.
+            self.dwi_bvalue = self._hdr.rec.user1 if self.version == 24 else self._hdr.rec.user22
             self.is_dwi = True if self.dwi_numdirs >= 6 else False
             # if bit 4 of rhtype(int16) is set, then fractional NEX (i.e., partial ky acquisition) was used.
             self.partial_ky = self._hdr.rec.scan_type & np.uint16(16) > 0
             # was pepolar used to flip the phase encode direction?
-            self.phase_encode_direction = -1 if np.bitwise_and(self._hdr.rec.dacq_ctrl,4)==4 else 1
+            self.phase_encode_direction = 1 if np.bitwise_and(self._hdr.rec.dacq_ctrl,4)==4 else 0
             self.caipi = self._hdr.rec.user13   # true: CAIPIRINHA-type acquisition; false: Direct aliasing of simultaneous slices.
             self.cap_blip_start = self._hdr.rec.user14   # Starting index of the kz blips. 0~(mux-1) correspond to -kmax~kmax.
             self.cap_blip_inc = self._hdr.rec.user15   # Increment of the kz blip index for adjacent acquired ky lines.
@@ -519,49 +591,61 @@ class NIMSPFile(medimg.MedImgReader):
             self.bvecs, self.bvals = (None, None)
             self.image_rotation = dcm.mr.generic_mr.compute_rotation(row_cosines, col_cosines, slice_norm)
             self.qto_xyz = dcm.mr.generic_mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
-            # self.scan_type = dcm.mr.generic_mr.infer_scan_type(self)
-            dcm.mr.generic_mr.infer_scan_type(self)
-            log.debug(self.psd_name)
-            self.aux_files = None
-
-            self.full_parse = True
+            self.infer_psd_type()
+            self.infer_scan_type()
+            log.debug((self.psd_name, self.psd_type, self.scan_type))
+            if self.psd_type == 'muxepi' and self.num_mux_cal_cycle < 2:
+                if self.aux_file:
+                    log.warning('muxepi without own calibration, will checking aux_file %s.' % self.aux_file)
+                else:
+                    log.warning('muxepi without own calibration. please provide an aux_file to load_data fxn.')
+            self.full_parsed = True
+            self.metadata_statue = 'complete'
 
     @property
     def canonical_filename(self):
+        """Return the pfile name, without .7."""
         return self.pfilename
 
     @property
     def priority(self):
-        return int(bool(self.recon_func)) * 2 - 1   # return 1 if we can recon, else -1
+        """Return priority, 1 if can recon, -1 if cannot."""
+        return int(bool(self.recon_func)) * 2 - 1  # 1 = can recon, -1 = cannot
 
-    def get_bvecs_bvals(self):
+    def get_bvecs_bvals(self, dirpath):
         """
-        Retrieve tensor file from within tgz archive.
+        Parse tensor data from tensor file.
 
-        Tensor file, like other supplementary files, will be located within a tgz
+        Parameters
+        ----------
+        dirpath : str
+            path to directory that contains tensor file.  This is usually the same directory that
+            contains the P?????.7 file.
+
+        Returns
+        -------
+        None : NoneType
+            Set dataset.bvecs and dataset.bvals if tensor file is found.
 
         """
-        # TODO: have this identify tensor files from WITHIn a tgz
-        # and then save results to self.bvecs and self.bvals
-        log.debug('collecting tensor info')
+        tensor_name = '%s.7_tensor.dat' % self.pfilename  # pfilename set during _full_parse
+        tensor_path = os.path.join(dirpath, tensor_name)
 
-        tensor_file = os.path.join(self.dirpath, '_' + self.basename + '_tensor.dat')
-        with tarfile.open(self.filepath) as archive:
-            try:
-                fp = archive.extract_file(tensor_file)      # identify the tensor file by name
-            except KeyError:
-                log.warning('%s; tensor file not found')
-            else:
+        if not os.path.exists(tensor_path):
+            log.warning('tensor file %s not found' % tensor_path)
+        else:
+            log.warning('tensor file %s found' % tensor_path)
+            with open(tensor_path) as fp:
                 try:
                     uid = fp.readline().rstrip()
-                    ndirs = int('0' + fp.readline().rstrip())
+                    ndirs = int('0' + fp.readline.rstrip())
                 except:
                     fp.seek(0, 0)
                     uid = None
                     ndirs = int('0' + fp.readline().rstrip())
                 bvecs = np.fromfile(fp, sep=' ')
 
-            if uid and uid != self._hdr.series.series_uid:  # if uid is provided, and does not match
+            if uid and uid != self.series_uid:  # uid provided does not match
                 raise NIMSPFileError('tensor file UID does not match PFile UID!')
             if (ndirs or None) != self.dwi_numdirs or self.dwi_numdirs != bvecs.size / 3.:
                 log.warning('tensor file numdirs does not match PFile header numdirs!')
@@ -575,11 +659,11 @@ class NIMSPFile(medimg.MedImgReader):
 
     @property
     def recon_func(self):
-        log.debug(self.psd_type)
+        """Property that returns a member function that can then be executed."""
         if self.psd_type == 'spiral':
             return self.recon_spirec
         elif self.psd_type == 'muxepi':
-            return self.recon_mux_epi
+            return self.recon_muxepi
         elif self.psd_type == 'mrs':
             return self.recon_mrs
         elif self.psd_type == 'hoshim':
@@ -589,119 +673,108 @@ class NIMSPFile(medimg.MedImgReader):
         else:
             return None
 
-    def prep_convert(self):
-        # FIXME: the following is a hack to get mux_epi2 SE-IR scans to recon properly. There *is* a more generic solution...
-        if self.psd_type == 'muxepi' and (self.num_mux_cal_cycle < 2 or (self.psd_name == 'mux_epi2' and self.ti > 0)):
-            # Mux scan without internal calibration-- request other mux scans be handed to convert
-            # to see if we can find a suitable calibration scan.
-            aux_data = {'psd': self.psd_name}
-        else:
-            aux_data = None
-        return aux_data
+    def do_recon(self, filepath=None, tempdir=None):
+        """
+        Run recon_func on filepath in the specified tempdir.
 
-    def load_data(self, num_jobs=8, tempdir=None, num_virtual_coils=16):
-        self.num_jobs = num_jobs
-        self.num_vcoils = 16
-        # first need to know what type of file it is...
+        Parameters
+        ----------
+        filepath : str
+            path to pfile.7. input file must be pfile.7
+        tempdir : str
+            path to as base for temporary directory
+
+        """
+        pfilepath = filepath or self.filepath
+        pfiledir = os.path.dirname(pfilepath)
+
+        if self.is_dwi:
+            self.get_bvecs_bvals(pfiledir)
+        if self.recon_func:
+            try:
+                self.recon_func(pfilepath, tempdir)
+            except Exception as e:
+                log.debug('an error occured: pixel data could not be loaded from %s' % (self.filepath))
+                self.data = None
+                self.failure_reason = e
+
+        # common stuff that can occur after the recon_func has been run, and data
+        # loaded into self.data, if a recon func was successfull, self.data will be a dict, instead of None
+        if self.data:
+            for k in self.data.iterkeys():
+                if self.reverse_slice_order:
+                    self.data[k] = self.data[k][:,:,::-1,]
+                if self.flip_lr:
+                    self.data[k] = self.data[k][::-1,:,:,]
+
+    def load_data(self, num_jobs=None, num_virtual_coils=None, tempdir=None, aux_file=None):
+        """
+        Load the data and run the appropriate reconstruction.
+
+        Load data always works on the __init__ filepath.  it will determine if the file is a tgz, or not, and
+        take the appropriate action to fully parse and prepare to reconstruct.
+
+        Some parameters are repeated from __init__, to allow resetting those parameters at the time of data load time.
+
+        Parameters
+        ----------
+        num_jobs : int
+            override the number of jobs to use that was set during __init__
+        num_virtual_coils : int
+            override the number of virtual coils that was set during __init__
+        tempdir : str
+            override the temporary directory that was set during __init__
+        aux_file : list
+            override the list of potential aux files that was set during __init__
+
+        """
+        self.num_jobs = num_jobs or self.num_jobs
+        self.num_vcoils = num_virtual_coils or self.num_vcoils
+        self.aux_file = aux_file or self.aux_file
+        self.tempdir = tempdir or self.tempdir
+
         if tarfile.is_tarfile(self.filepath):
-            log.debug('load_data, tgz')
-            # this tempdir will be used both for untaring the tgz, and
-            # for placing the temporary sl000.mat intermediate files
-            with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
-                # extract everything into tarfile
+            log.debug('loading data from tgz %s' % self.filepath)
+            with tempfile.TemporaryDirectory(dir=self.tempdir) as temp_dirpath:
+                log.debug('now working in temp_dirpath=%s' % temp_dirpath)
                 with tarfile.open(self.filepath) as archive:
                     archive.extractall(path=temp_dirpath)
 
-                dirpath = os.listdir(temp_dirpath)[0]
-                files = os.listdir(os.path.join(temp_dirpath, dirpath))
-                for f in files:
-                    fpath = os.path.join(temp_dirpath, dirpath, f)
+                temp_datadir = os.path.join(temp_dirpath, os.listdir(temp_dirpath)[0])    # tgz always has subdir that contains data
+                for f in os.listdir(temp_datadir):
+                    fpath = os.path.join(temp_datadir, f)
                     try:
                         self.version = get_version(fpath)
-                    except Exception as e:
-                        log.debug(e)
+                    except Exception:
+                        pass
                     else:
-                        self._full_parse(fpath)
-                        self.pfile_path = fpath
+                        self._full_parse(fpath)  # provide input to parse
                         break
-                else:
-                    raise NIMSPFileError('no pfile found?', log_level=logging.WARNING)
+                self.do_recon(fpath, self.tempdir)
 
-                # find calibration files, if any
-                self.cal_ref_file = os.path.join(temp_dirpath, dirpath, self.pfilename + '.7_ref.dat')
-                self.cal_vrgf_file = os.path.join(temp_dirpath, dirpath, self.pfilename + '.7_vrgf.dat')
-                if not os.path.exists(self.cal_ref_file):
-                    self.cal_ref_file = ''           # set to empty, bc bob does it
-                if not os.path.exists(self.cal_vrgf_file):
-                    self.cal_vrgf_file = ''          # set to empty, bc bob does it
-
-                # find dti tensor files, if any
-                if self.is_dwi:
-                    self.get_bvecs_bvals()      # needs to know where to look
-
-                if not self.data:  # data starts as empty dict
-                    if self.recon_func:
-                        log.debug('running recon')
-                        self.recon_func(fpath, temp_dirpath, num_jobs)
-                    else:
-                        raise NIMSPFileError('Recon not implemented for this type of data')
-
-                log.debug('closing tempdir %s' % temp_dirpath)
+            log.debug('closing tempdir %s' % self.tempdir)
         else:
-            log.debug('load_data, .7 or .7.gz')
-            # handle .7 or .7.gz
-            if not self.full_parse:
-                self._full_parse(self.filepath)
-            # handle lone P file
-
-            if not self.data:
-                if self.recon_func:
-                    log.debug('running recon')
-                    self.recon_func(self.filepath, tempdir=tempdir, num_jobs=num_jobs)
-                else:
-                    raise NIMSPFileError('Recon not implemented for this type of data')
-
-        # common ground stuff
-        # in some cases, more than one file is supposed to be output.
-        # how to deal wih datasets that have both self.data and self.fm_data?
-        # nimsnifti can only write a single file at a time.
-        # TODO: pfile needs to be updated to return data in dictionary
-        if self.data.get('') is not None:   # data dictionary is not empty
-            if self.reverse_slice_order:
-                self.data[''] = self.data[''][:,:,::-1,]
-                if self.data.get('fieldmap') is not None:
-                    self.data['fieldmap'] = self.data['fieldmap'][:,:,::-1,]
-            if self.flip_lr:
-                self.data[''] = self.data[''][::-1,:,:,]
-                if self.data.get('fieldmap') is not None:
-                    self.data['fieldmap'] = self.data['fieldmap'][::-1,:,:,]
-            if self.psd_type == 'spiral' and self.num_echos == 2:
-                # Uncomment to save spiral in/out
-                # nimsnifti.NIMSNifti.write(self, self.imagedata[:,:,:,:,0], outbase + '_in')
-                # nimsnifti.NIMSNifti.write(self, self.imagedata[:,:,:,:,1], outbase + '_out')
-                # FIXME: Do a more robust test for spiralio!
-                # Assume spiralio, so do a weighted average of the two echos.
-                # FIXME: should do a quick motion correction here
-                w_in = np.mean(self.data[''][:,:,:,:,0], 3)
-                w_out = np.mean(self.data[''][:,:,:,:,1], 3)
-                inout_sum = w_in + w_out
-                w_in = w_in / inout_sum
-                w_out = w_out / inout_sum
-                avg = np.zeros(self.data[''].shape[0:4])
-                for tp in range(self.data[''].shape[3]):
-                    avg[:,:,:,tp] = w_in*self.data[''][:,:,:,tp,0] + w_out*self.data[''][:,:,:,tp,1]
-                self.data[''] = avg
-                log.debug('writing spiral IO')
-            else:
-                log.debug('writing spiral')
-
-            # field map data is automatically written if it exists in self.data dictionary
-            # if self.data.get('fieldmap') is not None:
-            #     log.debug('writing fieldmaps')   # logging message is performed by nimsnifti
+            log.debug('loading data from .7 %s' % self.filepath)
+            if not self.full_parsed:
+                self._full_parse()      # parse original input
+            self.do_recon(self.filepath, self.tempdir)
 
     def load_imagedata_from_file(self, filepath):
-        """Load raw image data from a file and do some sanity checking on num slices, matrix size, etc."""
-        # TODO: confirm that the voxel reordering is necessary. Maybe lean on the recon folks to standardize their voxel order?
+        """
+        Load raw image data from a file and do sanity checking on metadata values.
+
+        Parameters
+        ----------
+        filepath : str
+            path to *.mat, such as sl_001.mat
+
+        Returns
+        -------
+        imagedata: np.array
+            TODO: more details about np.array format?
+
+        """
+        # TODO confirm that the voxel reordering is necessary
         import scipy.io
         mat = scipy.io.loadmat(filepath)
         if 'd' in mat:
@@ -720,7 +793,23 @@ class NIMSPFile(medimg.MedImgReader):
             imagedata = imagedata.reshape(imagedata.shape + (1,))
         return imagedata
 
-    def update_imagedata(self, imagedata):
+    def update_imagedata(self, imagedata, key=''):
+        """
+        Insert imagedata into self.data dictionary under the specified key.
+
+        Update dataset metadata to be consistent with the imagedata.
+
+        TODO: this assumes there is only a primary dataset. needs to rewritten for the
+        case where there is primary and secondary data.
+
+        Parameters
+        ----------
+        imagedata : array
+            np array of voxel data
+        key : str [default ''] (empty string is primary dataset)
+            which key to use in data dict.
+
+        """
         if imagedata.shape[0] != self.size[0] or imagedata.shape[1] != self.size[1]:
             log.warning('Image matrix discrepancy. Fixing the header, assuming imagedata is correct...')
             self.size = [imagedata.shape[0], imagedata.shape[1]]
@@ -734,130 +823,174 @@ class NIMSPFile(medimg.MedImgReader):
                     % (self.num_timepoints, imagedata.shape[3]))
             self.num_timepoints = imagedata.shape[3]
         self.duration = self.num_timepoints * self.tr # FIXME: maybe need self.num_echos?
-        self.data = {'': imagedata}
+        self.data = {key: imagedata}
 
-    def recon_hoshim(self, filepath, tempdir, num_jobs):
-        log.debug('Cannot recon HO SHIM data')
+    def recon_hoshim(self, filepath, tempdir=None):
+        log.debug('HOSHIM recon not implemented')
+        self.is_non_image = True
 
-    def recon_basic(self, filepath, tempdir, num_jobs):
-        log.debug('Cannot recon BASIC data')
+    def recon_basic(self, filepath, tempdir=None):
+        log.debug('BASIC recon not implemented')
+        self.is_non_image = True
 
-    def recon_spirec(self, tempdir, num_jobs):
-        """Do spiral image reconstruction and populate self.imagedata."""
-        log.debug('spiral recon')
+    def recon_spirec(self, filepath, tempdir=None):
+        """
+        Run spirec recon on the input filepath.
+
+        Requires access to the spiral_recon submodule.
+
+        Parameters
+        ----------
+        filepath : str
+            path to P?????.7 to be reconstructed as spiral
+        tempdir : str
+            path to base of temporary directory
+
+        """
+        log.debug('SPIREC recon started')
+
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
-            if self.compressed:
+            log.debug('working in tempdir: %s' % temp_dirpath)
+            if is_gzip(filepath):
                 pfile_path = os.path.join(temp_dirpath, self.basename)
                 with open(pfile_path, 'wb') as fd:
                     with gzip.open(self.filepath, 'rb') as gzfile:
                         fd.writelines(gzfile)
             else:
-                pfile_path = self.filepath
+                pfile_path = filepath
+            recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'spiral_recon'))
             basepath = os.path.join(temp_dirpath, 'recon')
-            recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'spiral_recon/spirec'))
-            cmd = recon_path + ' -l --rotate -90 --magfile --savefmap2 --b0navigator -r %s -t %s' % (pfile_path, 'recon')
+            spirec_path = os.path.join(recon_path, 'spirec')
+            cmd = '%s -l --rotate -90 --magfile --savefmap2 --b0navigator -r %s -t %s' % (spirec_path, pfile_path, basepath)
             log.debug(cmd)
             subprocess.call(shlex.split(cmd), cwd=temp_dirpath, stdout=open('/dev/null', 'w'))  # run spirec to generate .mag and fieldmap files
-
-            self.imagedata = np.fromfile(file=basepath+'.mag_float', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_timepoints,self.num_echos,self.num_slices],order='F').transpose((0,1,4,2,3))
+            log.debug(os.listdir(temp_dirpath))
+            self.data = {'': np.fromfile(file=basepath+'.mag_float', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_timepoints,self.num_echos,self.num_slices],order='F').transpose((0,1,4,2,3))}
             if os.path.exists(basepath+'.B0freq2') and os.path.getsize(basepath+'.B0freq2')>0:
-                self.fm_data = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
+                self.data['fieldmap'] = np.fromfile(file=basepath+'.B0freq2', dtype=np.float32).reshape([self.size[0],self.size[1],self.num_echos,self.num_slices],order='F').transpose((0,1,3,2))
 
-    # TODO: this function needs to be re-assessed.  Is it even useful?  Pfiles that have associated aux files
-    # will always have their aux files inside the tgz with the Pfile....
-    def find_mux_cal_file(self):
-        log.debug('find mux cal')
-        cal_file = []
-        if self.aux_files!=None and len(self.aux_files)>0 and self.aux_files[0]!=None:
-            if self.num_mux_cal_cycle>=2:
-                candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_bands==1]
-            else:
-                candidates = [pf for pf in [(NIMSPFile(f),f) for f in self.aux_files] if pf[0].num_mux_cal_cycle>=2]
-            if len(candidates)==1:
-                cal_file = candidates[0][1].encode()
-            elif len(candidates)>1:
-                series_num_diff = np.array([c[0].series_no for c in candidates]) - self.series_no
-                closest = np.min(np.abs(series_num_diff))==np.abs(series_num_diff)
-                # there may be more than one. We prefer the prior scan:
-                closest = np.where(np.min(series_num_diff[closest])==series_num_diff)[0][0]
-                cal_file = candidates[closest][1].encode()
-        if len(cal_file)>0:
-            cal_compressed = is_compressed(cal_file)
-            cal_basename = cal_file[:-3] if cal_compressed else cal_file
-            cal_ref_file  = os.path.join(os.path.dirname(cal_basename), '_'+os.path.basename(cal_basename)+'.7_ref.dat')
-            cal_vrgf_file = os.path.join(os.path.dirname(cal_basename), '_'+os.path.basename(cal_basename)+'.7_vrgf.dat')
+            if self.num_echos == 2:
+                # FIXME: Do a more robust test for spiralio!
+                # FIXME: should do a quick motion correction here
+                # Assume spiralio, so do a weighted average of the two echos.
+                w_in = np.mean(self.data[''][:,:,:,:,0], 3)
+                w_out = np.mean(self.data[''][:,:,:,:,1], 3)
+                # self.data['w_in'] = w_in    # uncomment to save spiral_in
+                # self.data['w_out'] = w_out  # uncomment to save spiral_out
+                inout_sum = w_in + w_out
+                w_in = w_in / inout_sum
+                w_out = w_out / inout_sum
+                avg = np.zeros(self.data[''].shape[0:4])
+                for tp in range(self.data[''].shape[3]):
+                    avg[:,:,:,tp] = w_in*self.data[''][:,:,:,tp,0] + w_out*self.data[''][:,:,:,tp,1]
+                self.data[''] = avg
+
+    def prep_convert(self):
+        """
+        Return criteria for identifying the additional aux file necessary to perform recon.
+
+        This gives the processor a way of checking if additional files are necessary.  The processor has some knowledge about
+        muxepi and how to identify a valid aux file.
+
+        The main business logic of identifying candidate aux files has been moved into processor.py.
+        """
+        # FIXME: the following is a hack to get mux_epi2 SE-IR scans to recon properly. There *is* a more generic solution...
+        # some mux scans don't have their own calibration, and require fetching calibration a scan with the same psd_name.
+        if self.psd_type=='muxepi' and (self.num_mux_cal_cycle<2 or (self.psd_name=='mux_epi2' and self.ti>0)):
+            aux_data = { 'psd': self.psd_name }
         else:
-            cal_compressed = False
-            cal_ref_file = ''
-            cal_vrgf_file = ''
-        # Make sure we return an empty string when none is found.
-        if not cal_file:
-            cal_file = ''
-        return cal_file,cal_ref_file,cal_vrgf_file,cal_compressed
+            aux_data = None
+        return aux_data
 
-    def recon_mux_epi(self, filepath, tempdir, num_jobs, timepoints=[], octave_bin='octave'):
-        # DOES NOT WORK FOR MICA scans.  Currently, the MICA option causes use of rand_lcg_gcc.m, which relies
-        # on a matlab function to work.  The only way to side-step this.
-        log.debug('mux epi recon')
+    def recon_muxepi(self, filepath, tempdir=None, timepoints=[], octave_bin='octave'):
+        """
+        Do mux_epi image reconstruction and populate self.data.
+
+        Always involves a tempdir.  If input is a pfile.tgz, the tempdir was created during
+        unpacking will be re-used during recon. If input is a pfile.7, then the temp during
+        will be created during this recon.
+
+        Parameters
+        ----------
+        filepath : str
+            input P?????.7 to be reconstructed
+        tempdir : str
+            path to base temporary directory
+        timepoints : list
+            if list is non-empty, restrict reconstruction to the listed timepoints
+        octave_bin : str [default 'octave']
+            path to octave executable, default assumes octave can be found in $PATH
+
+        """
         start_sec = time.time()
-        log.debug(start_sec)
-        """Do mux_epi image reconstruction and populate self.data."""
-        ref_file  = os.path.join(self.dirpath, '_'+self.basename+'_ref.dat')
-        vrgf_file = os.path.join(self.dirpath, '_'+self.basename+'_vrgf.dat')
-        # See if external calibration data files are needed:
-        cal_file,cal_ref_file,cal_vrgf_file,cal_compressed = self.find_mux_cal_file()
-        # The dat files might be missing or empty if the vendor recon was disabled. If so, try to use the cal dat file.
-        # FIXME: if the p-file is not compressed, the cal dat file will not be used! We should refactor the recon
-        # code so that the dat files are always explicitly specified.
-        # if not os.path.isfile(ref_file) or os.path.getsize(ref_file)<64:
-        #     if cal_ref_file:
-        #         ref_file = cal_ref_file
-        #     else:
-        #         raise NIMSPFileError('ref.dat file not found')
-        # if not os.path.isfile(vrgf_file) or os.path.getsize(vrgf_file)<64:
-        #     if cal_vrgf_file:
-        #         vrgf_file = cal_vrgf_file
-        #     else:
-        #         raise NIMSPFileError('vrgf.dat file not found')
-        ref_file = self.cal_ref_file
-        vrgf_file = self.cal_vrgf_file
-
-        if self.recon_type == None:
-            # set the recon type automatically
-            # scans with mux>1, arc>1, caipi
-            if self.is_dwi and self.num_bands>1 and self.phase_encode_undersample<1. and self.caipi:
-                sense_recon = 1
-            else:
-                sense_recon = 0
-        elif self.recon_type == 'sense':
-            sense_recon = 1
-        else:
-            sense_recon = 0
+        log.debug('MUXEPI recon of %s started at %d' % (filepath, start_sec))
+        basename = os.path.basename(filepath)
+        dirpath = os.path.dirname(filepath)
 
         fermi_filt = 1
+        sense_recon = 0
+        if self.recon_type == None:
+            # set the recon type automatically, scans with mux>1, arc>1, caipi
+            if self.is_dwi and self.num_bands>1 and self.phase_encode_undersample<1. and self.caipi:
+                sense_recon = 1
+        elif self.recon_type == 'sense':
+            sense_recon = 1
 
-        # already have a tempdir open...
-        # with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
-        if True:
-            pfile_path = filepath
-            temp_dirpath = tempdir
+        log.debug(self.aux_file)
+        with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
+            # identification and extraction of the aux file has been moved into tempdir context manager
+            # to allow extraction of the valid vrgf and ref within tempdir.
+            # cal file must be either '', or dir/basename that is similar between ref.dat and vrgf.dat
+            cal_file = ''  # XXX matlab/octave, base path determine names of ref.dat and vrgf.dat
+            ref_file = os.path.join(dirpath, basename + '_ref.dat')
+            vrgf_file = os.path.join(dirpath, basename + '_vrgf.dat')
+            log.debug('checking num_mux_cal_cycle: %d' % self.num_mux_cal_cycle)
+            # matlab code checks for num_mux_cal_cycles, so why don't we check the same thing
+            # even scans without num_mux_cal_cycles will still have ref/vrgf files that exceed 64 bytes
+            if not os.path.isfile(ref_file) or os.path.getsize(ref_file) < 64 or not os.path.isfile(vrgf_file) or os.path.getsize(vrgf_file) < 64:
+                log.debug('num_mux_cal_cycle: %d. looking for calibration from a different acq.' % self.num_mux_cal_cycle)
+                if self.aux_file:
+                    with tarfile.open(self.aux_file) as aux_archive:
+                        log.debug('inspecting aux file: %s' % self.aux_file)
+                        aux_archive.extractall(path=temp_dirpath)
+                    aux_subdir = os.listdir(temp_dirpath)[0]
+                    aux_datadir = os.path.join(temp_dirpath, aux_subdir)
+                    log.info(os.listdir(aux_datadir))
+                    for f in os.listdir(aux_datadir):
+                        if f.endswith('_ref.dat'):
+                            cal_ref_file = os.path.join(aux_datadir, f)
+                            log.debug('_ref.dat found, %s' % cal_ref_file)
+                        elif f.endswith('_vrgf.dat'):
+                            cal_vrgf_file = os.path.join(aux_datadir, f)
+                            log.debug('_vrgf.dat found, %s' % cal_vrgf_file)
+                        else:
+                            log.info('uncertain what to do with: %s' % f)
+                if cal_ref_file and cal_vrgf_file:
+                    if cal_ref_file.rsplit('_', 1)[0] == cal_vrgf_file.rsplit('_', 1)[0]:
+                        cal_file = cal_ref_file.rsplit('_', 1)[0]
+                    ref_file = cal_ref_file
+                    vrgf_file = cal_vrgf_file
+                    log.info('ref/vrgf.dat not found-- using calibration ref/vrgf.')
+                else:
+                    raise NIMSPFileError('ref.dat/vrgf.dat not found')
+
+            # run the actual recon, spawning subprocess until all slices have been spawned.
             log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d, notch=%f).'
-                    % (self.num_vcoils, filepath, tempdir, num_jobs, sense_recon, fermi_filt, self.notch_thresh))
+                    % (self.num_vcoils, filepath, temp_dirpath, self.num_jobs, sense_recon, fermi_filt, self.notch_thresh))
             if cal_file!='':
-                log.info('Using calibration file: %s.' % cal_file)
+                log.info('Using calibration file: %s' % cal_file)
             recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mux_epi_recon'))
             outname = os.path.join(temp_dirpath, 'sl')
 
-            # Spawn the desired number of subprocesses until all slices have been spawned
             mux_recon_jobs = []
             slice_num = 0
             while slice_num < self.num_slices:
                 num_running_jobs = sum([job.poll()==None for job in mux_recon_jobs])
-                if num_running_jobs < num_jobs:
+                if num_running_jobs < self.num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
                     cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s, %s);\''
-                        % (octave_bin, recon_path, pfile_path, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(self.notch_thresh)))
+                        % (octave_bin, recon_path, filepath, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(self.notch_thresh)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
@@ -880,14 +1013,27 @@ class NIMSPFile(medimg.MedImgReader):
             self.update_imagedata(img)
             elapsed = time.time() - start_sec
             log.info('Mux recon of %s with %d v-coils finished in %0.2f minutes using %d jobs.'
-                      % (self.filepath, self.num_vcoils,  elapsed/60., min(num_jobs, self.num_slices)))
+                        % (self.filepath, self.num_vcoils,  elapsed/60., min(self.num_jobs, self.num_slices)))
 
-    def recon_mrs(self, filepath, tempdir, num_jobs):
-        """Currently just loads raw spectro data into self.imagedata so that we can save it in a nifti."""
-        log.debug('mrs recon')
-        # Reorder the data to be in [frame, num_frames, slices, passes (repeats), echos, coils]
-        # This roughly complies with the nifti standard of x,y,z,time,[then whatever].
-        # Note that the "frame" is the line of k-space and thus the FID timeseries.
+    def recon_mrs(self, filepath, tempdir=None):
+        """
+        Load raw spectro data.
+
+        Currently just loads raw spectro data into self.data dictionary, to
+        prepare for writing to nifti.
+
+        Parameters
+        ----------
+        filepath : str
+            path to input file, can be .7, .7.gz.  cannot be 7.tgz.
+
+        Returns
+        -------
+        None : NoneType
+            loads spectro data into self.data['']
+
+        """
+        log.debug('MRS recon started')
         self.data = {'': self.get_rawdata(filepath).transpose([0,5,3,1,2,4])}
 
     def get_rawdata(self, filepath, slices=None, passes=None, coils=None, echos=None, frames=None):

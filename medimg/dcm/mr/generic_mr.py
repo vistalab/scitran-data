@@ -125,11 +125,11 @@ def adjust_bvecs(bvecs, bvals, vendor, rotation=None):
     """
     bvecs, bvals = scale_bvals(bvecs, bvals)
     # TODO: Uncomment the following when we are ready to fix the bvec flip issue:
-    # if vendor.lower().startswith('ge') and rotation != None:
-    #   log.debug('rotating bvecs with image orientation matrix')
-    #   bvecs,bvals = rotate_bvecs(bvecs, bvals, rotation)
-    # else:
-    #   bvecs,bvals = rotate_bvecs(bvecs, bvals, np.diag((-1.,-1.,1.)))
+    if vendor.lower().startswith('ge') and rotation != None:
+        log.debug('rotating bvecs with image orientation matrix')
+        bvecs,bvals = rotate_bvecs(bvecs, bvals, rotation)
+    else:
+        bvecs,bvals = rotate_bvecs(bvecs, bvals, np.diag((-1.,-1.,1.)))
     return bvecs, bvals
 
 

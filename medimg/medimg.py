@@ -22,6 +22,7 @@ import string
 import logging
 import datetime
 import dcmstack
+import numpy as np
 
 from .. import nimsdata
 
@@ -306,6 +307,42 @@ _acquisition_properties = {
 acquisition_properties = nimsdata.dict_merge(nimsdata.acquisition_properties, _acquisition_properties)
 
 
+def get_slice_order(slice_order, num_slices):
+    """
+    Return the calculated slice order based on the nifti_slice_code and number of slices.
+
+    See `brainder.org - nifti file format <http://brainder.org/2012/09/23/the-nifti-file-format/>`_ for
+    more information.
+
+    Parameters
+    ----------
+    slice_code : int
+        nifti slice code, usually found as .slice_order.
+    num_slices: int
+        number of slices, usually found as .num_slices.
+
+    Returns
+    -------
+    slice_order: list of int
+        list of slice indexes, in the order acquired
+    """
+    if slice_order == SLICE_ORDER_UNKNOWN or slice_order is None:
+        slice_order_array = None
+    elif slice_order == SLICE_ORDER_SEQ_INC:
+        slice_order_array = np.arange(0, num_slices)
+    elif slice_order == SLICE_ORDER_SEQ_DEC:
+        slice_order_array = np.arange(0, num_slices)[::-1]
+    elif slice_order == SLICE_ORDER_ALT_INC:
+        slice_order_array = np.hstack((np.arange(0, num_slices, 2), np.arange(1, num_slices, 2)))
+    elif slice_order == SLICE_ORDER_ALT_DEC:
+        slice_order_array = np.hstack((np.arange(0, num_slices, 2), np.arange(1, num_slices, 2)))[::-1]
+    elif slice_order == SLICE_ORDER_ALT_INC2:
+        slice_order_array = np.hstack((np.arange(1, num_slices, 2), np.arange(0, num_slices, 2)))
+    elif slice_order == SLICE_ORDER_ALT_DEC2:
+        slice_order_array = np.hstack((np.arange(1, num_slices, 2), np.arange(0, num_slices, 2)))[::-1]
+    return slice_order_array
+
+
 def parse_patient_id(patient_id, default_subj_code):
     """
     Parse a subject code, group name and project name from patient_id.
@@ -452,6 +489,8 @@ class MedImgReader(nimsdata.NIMSReader):
         self.scan_type = None
         self.is_localizer = None
         self.is_dwi = None
+        self.is_non_image = None
+        self.failure_reason = None
 
     @abc.abstractmethod
     def load_data(self):

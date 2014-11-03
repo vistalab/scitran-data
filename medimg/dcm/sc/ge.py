@@ -23,11 +23,10 @@ GEMS_NON_IMAGE_TYPES = [GEMS_TYPE_VXTL, GEMS_TYPE_RFMT]
 
 
 def parse_one(self):
-    if self.image_type == GEMS_TYPE_SCREENSHOT:
+    if self.image_type in [GEMS_TYPE_SCREENSHOT, GEMS_TYPE_VXTL]:
         self.is_screenshot = True
         self.scan_type = 'screenshot'
         self.nims_metadata_status = None
-        self.timestamp = None
 
 def parse_all(self):
     pass
