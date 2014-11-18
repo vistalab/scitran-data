@@ -955,7 +955,6 @@ class NIMSPFile(medimg.MedImgReader):
                         aux_archive.extractall(path=temp_dirpath)
                     aux_subdir = os.listdir(temp_dirpath)[0]
                     aux_datadir = os.path.join(temp_dirpath, aux_subdir)
-                    log.info(os.listdir(aux_datadir))
                     for f in os.listdir(aux_datadir):
                         if f.endswith('_ref.dat'):
                             cal_ref_file = os.path.join(aux_datadir, f)
@@ -964,13 +963,11 @@ class NIMSPFile(medimg.MedImgReader):
                             cal_vrgf_file = os.path.join(aux_datadir, f)
                             log.debug('_vrgf.dat found, %s' % cal_vrgf_file)
                         else:
-                            log.info('uncertain what to do with: %s' % f)
+                            pass
                 if cal_ref_file and cal_vrgf_file:
                     if cal_ref_file.rsplit('_', 1)[0] == cal_vrgf_file.rsplit('_', 1)[0]:
                         cal_file = cal_ref_file.rsplit('_', 1)[0]
-                    ref_file = cal_ref_file
-                    vrgf_file = cal_vrgf_file
-                    log.info('ref/vrgf.dat not found-- using calibration ref/vrgf.')
+                    log.info('ref/vrgf.dat not found-- using calibration ref/vrgf from %s' % self.aux_file)
                 else:
                     raise NIMSPFileError('ref.dat/vrgf.dat not found')
 

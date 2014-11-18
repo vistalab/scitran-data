@@ -24,7 +24,6 @@ import nibabel.nicom.csareader
 
 import medimg
 
-
 log = logging.getLogger(__name__)
 
 
@@ -61,6 +60,29 @@ SUPPORTED_SOP = {
 # formed header field.  The raised exception prevents the remaining
 # sections of mr phoenix protocol to not get parsed.
 # this problem is located in Csa Series Header, 'sWiPMemBlock.tFree'
+class Extractor(dcmstack.extract.MetaExtractor):
+
+    """
+    Override the default dcmstack.extract.MetaExtractor.
+
+    If an elements value cannot be translated using the supplied Value Representation (VR),
+    then return an empty string.  dcmstack.extract.MetaExtractor would normally raise a ValueError
+    upon value-VR mismatch.
+
+    """
+    def _get_elem_value(self, elem):
+        """
+        Get the value for any non-translated elements.
+
+        If element is not translateable with its own VR, then return value=None.
+        """
+        try:
+            value = super(Extractor, self)._get_elem_value(elem)
+        except ValueError:
+            value = ''
+        return value
+
+
 def _parse_phoenix_prot(prot_key, prot_val):
     """Parse a siemens MrProtocol or MrPhoenixProtocol string."""
     if prot_key == 'MrPhoenixProtocol':         # syngo B
@@ -103,16 +125,58 @@ def _csa_series_trans_func(elem):
     return csa_dict
 
 
+def _simplify_csa_dict(csa_dict):
+    """
+    Simplify the result of nibabel.nicom.csareader and normalize list content types.
+
+    dcmstack.extract.csa_dict naively inserts values into the result without attempting
+    to normalize list item types.  For example, if a value is a list, and contains mixed
+    string and unicode types, the value will contain mixed string and unicode types. If the first
+    item in the list is a string, and the remaining are unicode, dcmstack.extract.MetaExtractor.__call__
+    will attempt to cast all values as unicode(in_str, 'utf-8'), which will raise exception.
+
+    By converting all list items that are strings to unicode, the first list item will be recognized
+    as unicode, and the second round (MetaExtactor.__call__) of unicode conversion will be skipped.
+
+    Alternatively, could convert all list items that are unicode to string.  In this case, the first
+    list item would be recognized as a str, and the second round unicode conversion
+    (MetaExtractor.__call__) should succeeed.
+
+    """
+    if csa_dict is None:
+        return None
+
+    result = collections.OrderedDict()
+    for tag in csa_dict['tags']:
+        items = csa_dict['tags'][tag]['items']
+        if len(items) == 0:
+            continue
+        elif len(items) == 1:
+            result[tag] = items[0]
+        else:
+            # convert any strings to unicode,
+            result[tag] = [(unicode(i) if isinstance(i, str) else i) for i in items]
+    return result
+
+
+def _csa_image_trans_func(elem):
+    return _simplify_csa_dict(nibabel.nicom.csareader.read(elem.value))
+
 _csa_series_trans = dcmstack.extract.Translator(
         'CsaSeries',
         dicom.tag.Tag(0x29, 0x1020),
         'SIEMENS CSA HEADER',
         _csa_series_trans_func)
 
+_csa_image_trans = dcmstack.extract.Translator(
+        'CsaImage',
+        dicom.tag.Tag(0x29, 0x1010),
+        'SIEMENS CSA HEADER',
+        _csa_image_trans_func)
 
-MetaExtractor = dcmstack.extract.MetaExtractor(
+MetaExtractor = Extractor(
         ignore_rules=[dcmstack.extract.ignore_non_ascii_bytes],
-        translators=[dcmstack.extract.csa_image_trans, _csa_series_trans]
+        translators=[_csa_image_trans, _csa_series_trans]
         )
 
 
