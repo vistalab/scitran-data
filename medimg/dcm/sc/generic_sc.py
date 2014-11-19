@@ -15,16 +15,6 @@ import numpy as np
 log = logging.getLogger('dcm.sc.generic')
 
 
-def parse_one(self):
-    """Parse one SC dicom as the header."""
-    pass
-
-
-def parse_all(self):
-    """Parse all SC dicoms as a series."""
-    pass
-
-
 def convert_screenshot(self):
     """conver the voxel data from dcm list into np array."""
     log.debug('screenshot recon')

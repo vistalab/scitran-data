@@ -33,3 +33,7 @@ MedImageWriter = medimg.MedImgWriter
 acquisition_properties = medimg.acquisition_properties
 session_properties = medimg.session_properties
 project_properties = medimg.project_properties
+get_slice_order = medimg.get_slice_order
+parse_patient_id = medimg.parse_patient_id
+parse_patient_name = medimg.parse_patient_name
+parse_patient_dob = medimg.parse_patient_dob

@@ -40,13 +40,15 @@ dcmstack         0.7.0dev
 installation on fresh ubuntu 14.04
 ----------------------------------
 - install dependencies, **had to chmod o+w /var/local to allow regular user to write; not ideal**
-    - pillow must be compiled with JPEG support, see `Python Image Library fails with message “decoder JPEG not available” - PIL
-      <http://stackoverflow.com/questions/8915296/python-image-library-fails-with-message-decoder-jpeg-not-available-pil>`_.
+    - **python-dev** is required to build numpy, and pillow.
+    - **python-virtualenv** is required to make use of python virtual environment.
+    - **libjeg-dev** is required for pillow JPEG support.  Pillow must be compiled with JPEG support.  See `this stack overflow question
+      <http://stackoverflow.com/questions/8915296/python-image-library-fails-with-message-decoder-jpeg-not-available-pil>`_ for more information.
+    - **git** is required to pip install from git repositories.
 
 .. code:: bash
 
-    sudo apt-get update
-    sudo apt-get upgrade
+    sudo apt-get update && sudo apt-get upgrade
     sudo apt-get install python-dev python-virtualenv libjpeg-dev git
     sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 
@@ -54,8 +56,8 @@ installation on fresh ubuntu 14.04
 
 .. code:: bash
 
-    virtualenv /var/local/nimsdata_env
-    source /var/local/nimsdata_env/bin/bin/activate
+    virtualenv nimsdata_env
+    source nimsdata_env/bin/bin/activate
 
 - install dependencies, these are VERY specific version. once these versions are available
   through pypi, these installation commands will change.  (subject to change)
@@ -73,10 +75,15 @@ installation on fresh ubuntu 14.04
 
 .. code:: bash
 
-    git clone https://github.com/scitran/nimsdata.git /var/local/nimsdata
-    cd /var/local/nimsdata
-    git submodule init  # optional
-    git submodule update  # optional
+    git clone https://github.com/scitran/nimsdata.git nimsdata
+
+- add the directory containing the nimsdata repository to the front of the PYTHONPATH, this can be done
+  by hacking the virtualenv easy-install.pth, or setting the PYTHONPATH bash environment variable. (TODO:
+  create `setup.py`).  If nimsdata is cloned into `/var/local`, then `export PYTHONPATH=/var/local`.
+
+.. code:: bash
+
+    export PYTHONPATH=/directory/above_nimsdata/
 
 
 Basic Conversion
@@ -133,5 +140,13 @@ run the following git config commands to enable a git filter for the branch name
     git config filter.brancher.smudge "./git_branch_filter.py smudge"
     git config filter.brancher.clean "./git_branch_filter.py clean"
 
-Combined with .gitattributes, the smudge and clean filters will
-replace 'branch=\_\_BRANCH\_\_' to indicate the current branch.
+Combined with .gitattributes, the smudge and clean filters will replace 'branch=\_\_BRANCH\_\_' to indicate
+the current branch.
+
+
+Testdata is not distributed with this package.  Downloading/cloning the testdata is necessary
+to run tests locally.  clone the `nimsdata_testdata` repository into `nimsdata/test/nimsdata_testdata`.
+
+.. code:: bash
+
+    git clone https://github/com/scitran/nimsdata_testdata.git nimsdata/test/nimsdata_testdata

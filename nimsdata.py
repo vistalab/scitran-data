@@ -178,7 +178,7 @@ def module_by_type(domain_kind):
     mod_name = MODULES.get('%s.%s' % (domain, kind)) if (domain and kind) else MODULES.get(domain)
     try:
         mod = __import__(mod_name, globals())
-    except ImportError:
+    except (ImportError, TypeError):
         raise NIMSDataError('no module matches that domain/datatype %s' % mod_name, log_level=logging.ERROR)
     return mod
 
@@ -284,7 +284,7 @@ def project_properties_by_type_list(type_list):
 
 
 # FIXME; make this more flexible to deal with various levels of nesting
-def _get_handler(name, handlerdict):
+def get_handler(name, handlerdict):
     """
     Retrieve the class object of reader or writer from its string label.
 
@@ -341,7 +341,7 @@ def _parse_dataset(path, filetype, load_data, debug, **kwargs):
         readers NIMSReader subclass of that data that could be parsed.
     """
     try:
-        nimsparser = _get_handler(filetype, READERS)
+        nimsparser = get_handler(filetype, READERS)
         ds = nimsparser(path, load_data, **kwargs)
     except Exception as e:
         if debug:
@@ -433,7 +433,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
             return ds
 
     json_data = {}
-    if tarfile.is_tarfile(path):
+    if os.path.isfile(path) and tarfile.is_tarfile(path):
         log.debug('inspecting tarfile %s for json' % path)
         with tarfile.open(path) as archive:
             for ti in archive:
@@ -447,6 +447,8 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
                         filetype = json_data.get('filetype')
                         log.debug('filetype from json: %s' % filetype)
                     break
+            else:
+                raise NIMSDataError('expected json file that indicates filetype in tgz')
     elif os.path.isdir(path):  # TODO: implement 'break-at-first-readable' json read for directory
         raise NIMSDataError('directory input not implemented', log_level=logging.ERROR)
     elif os.path.isfile(path):  # TODO: infer type
@@ -506,7 +508,12 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
     if not filetype:
         raise NIMSDataError('filetype cannot be None')  # XXX FAIL! unexpected to get no filetype
 
-    nimswriter = _get_handler(filetype, WRITERS)  # raises exception if no handler
+    if metadata is None:
+        raise NIMSDataError('metadata cannot be None')
+    if imagedata is None:
+        raise NIMSDataError('imagedata cannot be None')
+
+    nimswriter = get_handler(filetype, WRITERS)  # raises exception if no handler
     output_list = nimswriter.write(metadata, imagedata, outbase, **kwargs)  # writer checks if data is present
 
     log.debug('write end: %s' % str(datetime.datetime.now()))
@@ -537,7 +544,6 @@ class NIMSDataError(Exception):
             log.log(log_level, message)
 
 
-
 class NIMSReader(object):
 
     """
@@ -560,7 +566,6 @@ class NIMSReader(object):
     project_properties = project_properties
     session_properties = session_properties
     acquisition_properties = acquisition_properties
-
 
     def _schema_init(self, schema):
         for k, v in schema.iteritems():

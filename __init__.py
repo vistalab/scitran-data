@@ -23,6 +23,7 @@ import nimsdata
 
 parse = nimsdata.parse
 write = nimsdata.write
+get_handler = nimsdata.get_handler
 dict_merge = nimsdata.dict_merge
 NIMSDataError = nimsdata.NIMSDataError
 acquisition_properties_by_type_list = nimsdata.acquisition_properties_by_type_list

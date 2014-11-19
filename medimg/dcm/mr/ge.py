@@ -172,7 +172,7 @@ def parse_all(self):
 
     recon_mode_flag = np.unique([self.getelem(d, TAG_RECON_FLAG, int, 0) for d in self._dcm_list])
     log.debug('recon mode flag word: %s' % (recon_mode_flag))
-    if recon_mode_flag == [1]:
+    if recon_mode_flag == [1] and self.psd_type not in ['fieldmap']:
         log.debug('attempting to guess multicoil groupings')
         self.is_multicoil = True
         self.num_receivers = (self.total_num_slices / self.num_slices) - 1   # actual #recv = -1 of num volumes

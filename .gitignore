@@ -5,3 +5,4 @@
 pfile?*.py
 pfile?*.xml
 docs/_*
+test/*_testdata

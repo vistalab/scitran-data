@@ -1,21 +1,41 @@
 language: python
 
-git:
-    submodules: false
-
 python:
-    - "2.7"
+    - 2.7
 
-# command to install
+git:
+  submodules: false
+
+env:
+  global:
+    secure: IvL1vYm6Dmp1QHI0eYeMgm0hyxfsIneYOqH20WnrlRqjPPaci9Dzrtw9Aljb4UdyLUKxysJtIIIv2wMa+FWZAGAOJ/vETob6Q85t/hy9eekkKMnHbBv2NamvB1Q2htfJncEL4P5QdwZQem6Nyu12CQbhIwPVycBw6itntpQ5Gbk=
+
+before_install:
+    - sudo apt-get update -qq
+    - sudo apt-get install -qq libjpeg-dev && sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
+
 install:
-    - "pip install webapp2 requests webob db-sqlite3 nose"
-    - "pip install numpy"
-    - "pip install git+https://github.com/nipy/nibabel.git"
-    - "pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch"
-    - "pip install git+https://github.com/moloney/dcmstack.git"
-    - "pip install pymongo"
-    - "pip install PIL --allow-unverified PIL --allow-external PIL"
+    - pip install webapp2 requests webob db-sqlite3 nose numpy pymongo pillow sphinx numpydoc
+    - pip install git+https://github.com/nipy/nibabel.git
+    - pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
+    - pip install git+https://github.com/moloney/dcmstack.git
 
-# tests
+before_script:
+    - git clone http://github.com/scitran/nimsdata_testdata ${TRAVIS_BUILD_DIR}/test/nimsdata_testdata
+
 script:
     - nosetests
+
+after_success:
+    - cd docs && make html && mv _build/html /tmp/html
+    - git config --global user.email "travis@travis-ci.org"
+    - git config --global user.name "travis-ci"
+    - git config --global push.default simple
+    - git clone --quiet --branch=gh-pages https://${GHTOKEN}@github.com/${TRAVIS_REPO_SLUG} $HOME/gh-pages > /dev/null
+    - rm -rf $HOME/gh-pages/*
+    - mv /tmp/html/* $HOME/gh-pages/
+    - touch $HOME/gh-pages/.nojekyll
+    - cd $HOME/gh-pages
+    - git add -A
+    - git commit -m "updates docs to rev ${TRAVIS_COMMIT}"
+    - "[[ ${TRAVIS_BRANCH} == 'master' ]] && git push || echo 'branch != master, skip pushing docs.'"
