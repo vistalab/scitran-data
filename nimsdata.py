@@ -306,7 +306,6 @@ def _get_handler(name, handlerdict):
         The specified handler does not exist, or cannot be imported
 
     """
-    handler = None
     try:
         # is there a more flexible way to do this? get nested attr?
         container, mod, klass = map(str, handlerdict.get(name).split('.'))
@@ -316,7 +315,49 @@ def _get_handler(name, handlerdict):
     return handler
 
 
-def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
+def _parse_dataset(path, filetype, load_data, debug, **kwargs):
+    """
+    Implementation detail to reduce repeated code, called by parse().
+
+    Main parse interface has two paths, one that inspects a json file
+    for filetype, and one that does not.
+
+    Parameters
+    ----------
+    path : str
+        path to input file
+    filetype : str
+        filetype
+    load_data : bool
+        whether or not to load all data
+    debug : bool
+        whether or not to mask exceptions
+    **kwargs : dict
+        passes **kwargs to filetype specific parsers
+
+    Returns
+    -------
+    ds : NIMSReader subclass
+        readers NIMSReader subclass of that data that could be parsed.
+    """
+    try:
+        nimsparser = _get_handler(filetype, READERS)
+        ds = nimsparser(path, load_data, **kwargs)
+    except Exception as e:
+        if debug:
+            raise e
+        else:
+            raise NIMSDataError(e)
+    else:
+        ds.compressed = True  # v1 compat: inform scheduler to not compress
+        log.debug('parse end: %s' % str(datetime.datetime.now()))
+
+    if hasattr(ds, 'failure_reason') and ds.failure_reason:
+        log.warning('error during parsing: %s' % str(ds.failure_reason))
+    return ds
+
+
+def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, **kwargs):
     """
     Parse the file at path with a filetype-specific parser.
 
@@ -348,6 +389,9 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
     ignore_json : bool [default False]
         True, don't look for json file. therefore the parser cannot be read from the json, and a
         parser MUST be specfied if ignore_json is true. False, do look for json file.
+    debug : bool [default False]
+        developer option, False masks all exceptions as NIMSDataError.  debug=True does not
+        mask exceptions.
     kwargs : dict
         keyword arguments passed to reader.
 
@@ -385,10 +429,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
         if not filetype:
             raise NIMSDataError('filetype must be specified if ignore_json=True', log_level=logging.ERROR)
         else:
-            nimsparser = _get_handler(filetype, READERS)
-            ds = nimsparser(path, load_data, **kwargs)
-            ds.compressed = True  # v1 compat: inform scheduler to not compress
-            log.debug('parse end: %s' % str(datetime.datetime.now()))
+            ds = _parse_dataset(path, filetype, load_data, debug, **kwargs)
             return ds
 
     json_data = {}
@@ -398,7 +439,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
             for ti in archive:
                 try:
                     json_data = json.loads(archive.extractfile(ti).read(), object_hook=bson.json_util.object_hook)
-                except (TypeError, KeyError, AttributeError):
+                except (TypeError, KeyError, AttributeError, ValueError):
                     pass
                 else:
                     log.debug('json found, %s' % ti.name)
@@ -414,14 +455,9 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, **kwargs):
         else:
             raise NIMSDataError('non tar-files not implemented', log_level=logging.ERROR)
 
-    nimsparser = _get_handler(filetype, READERS)
-    ds = nimsparser(path, load_data, **kwargs)
-
+    ds = _parse_dataset(path, filetype, load_data, debug, **kwargs)
     for key, value in json_data.get('overwrite', {}).iteritems():  # FIXME: handle NESTED information
         setattr(ds, key, value)
-
-    ds.compressed = True  # v1 compat: inform scheduler to not compress
-    log.debug('parse end: %s' % str(datetime.datetime.now()))
     return ds
 
 
