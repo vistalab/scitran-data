@@ -1,0 +1,184 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Python Tutorial &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="index.html" />
+    <link rel="next" title="API Documentation" href="api_documentation.html" />
+    <link rel="prev" title="CLI Tutorial" href="cli_tutorial.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api_documentation.html" title="API Documentation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="cli_tutorial.html" title="CLI Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="python-tutorial">
+<h1>Python Tutorial<a class="headerlink" href="#python-tutorial" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="basic-usage">
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Permalink to this headline">¶</a></h2>
+<p>Performing conversions from Python requires a few extra steps compared to the command line usage, but offers
+great flexibility.</p>
+<p>convert dcm to nifti, do not reorient voxels</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">input_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="c"># ds, the dataset contains metadata, such as affine info</span>
+<span class="c"># ds.data contains a dictionary of np arrays of pixel data</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>convert dcm to nifti, reorient voxels to &#8216;LAS&#8217;</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">input_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="s">&#39;LAS&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>convert dcm to nifti, backward compatible with nimsdata v1 (reorient to &#8216;LPS&#8217;)</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">input_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="s">&#39;LPS&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>convert pfile to nifti, where there is primary data, and secondary field map data</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">pfile_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;pfile&#39;</span><span class="p">)</span>
+<span class="c"># ds.data is {&#39;&#39;: primary_data_array, &#39;fieldmap&#39;: secondary_data_array}</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="s">&#39;LPS&#39;</span><span class="p">)</span>
+<span class="c"># creates outpath.nii.gz and outpath_fieldmap.nii.gz</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="advanced-usage">
+<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Permalink to this headline">¶</a></h2>
+<p>Reading and writing are decoupled to create a user-accesible space between reading and writing.
+This separation allows for conditional writing based upon the input file type
+conditional writing</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">input_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">is_screenshot</span><span class="p">:</span>
+    <span class="c"># PNG default voxel_order=LPS</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;png&#39;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c"># Montage default voxel_order=LPS</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;montage&#39;</span><span class="p">)</span>
+    <span class="c"># Nifti default voxel_order=None</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
+
+<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">nimsdicom</span><span class="o">.</span><span class="n">NIMSDicom</span><span class="p">(</span><span class="n">input_tgz</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">is_screenshot</span><span class="p">:</span>
+    <span class="c"># PNG default voxel_order=LPS</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;png&#39;</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="c"># Montage default voxel_order=LPS</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;montage&#39;</span><span class="p">)</span>
+    <span class="c"># Nifti default voxel_order=None</span>
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outpath</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="s">&#39;LPS&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Python Tutorial</a><ul>
+<li><a class="reference internal" href="#basic-usage">Basic Usage</a></li>
+<li><a class="reference internal" href="#advanced-usage">Advanced Usage</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="cli_tutorial.html"
+                        title="previous chapter">CLI Tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="api_documentation.html"
+                        title="next chapter">API Documentation</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/python_tutorial.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api_documentation.html" title="API Documentation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="cli_tutorial.html" title="CLI Tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

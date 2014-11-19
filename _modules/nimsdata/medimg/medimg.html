@@ -1,0 +1,726 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.medimg.medimg &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.medimg.medimg</h1><div class="highlight"><pre>
+<span class="c"># @author:  Kevin S. Hahn</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">nimsdata.medimg.medimg</span>
+<span class="sd">======================</span>
+
+<span class="sd">Contains generally useful functions to parse information from a medical image, such as dicom,</span>
+<span class="sd">pfile, siemens raw, or nifti. Which allows all such medical images to use the same fxns to</span>
+<span class="sd">parse data in a consistent way.</span>
+
+<span class="sd">Contains base class MedImgReader, MedImgWriter, which provide schema information, properties</span>
+<span class="sd">and functions for subclasses.</span>
+
+<span class="sd">functions that have to do with parsing names, dob (which has nothing to do with MR data) are</span>
+<span class="sd">located here.  MR fxns are contained with dcm.mr.generic_mr</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">bson</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">dcmstack</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">nimsdata</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+<span class="c"># slice order codes. all medical imgaes will use nifti1 style slice order codes</span>
+<span class="c"># although these slice order codes &quot;belong&quot; to the nifti format, they can be</span>
+<span class="c"># used by any medical images</span>
+<span class="n">SLICE_ORDER_UNKNOWN</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">SLICE_ORDER_SEQ_INC</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">SLICE_ORDER_SEQ_DEC</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">SLICE_ORDER_ALT_INC</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">SLICE_ORDER_ALT_DEC</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="n">SLICE_ORDER_ALT_INC2</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c"># interleaved, increased, starting at 2nd MRI slice</span>
+<span class="n">SLICE_ORDER_ALT_DEC2</span> <span class="o">=</span> <span class="mi">6</span>  <span class="c"># interleave, decreasing, starting at one before last MRI slice</span>
+
+<span class="n">project_properties</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">project_properties</span>
+
+<span class="n">_session_properties</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;exam_uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;exam_uid&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;DICOM UID&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;exam&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;exam_no&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Exam Number&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;patient_id&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;patient_id&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Patient ID&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;subject&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;firstname&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_firstname&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;First Name&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;lastname&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_lastname&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Last Name&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;dob&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_dob&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Date of Birth&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="s">&#39;format&#39;</span><span class="p">:</span> <span class="s">&#39;date&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;sex&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;subj_sex&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Sex&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                <span class="s">&#39;enum&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;male&#39;</span><span class="p">,</span> <span class="s">&#39;female&#39;</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s">&#39;instrument&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Instrument&#39;</span><span class="p">,</span>  <span class="c"># FIXME: should be surrounded by an array of multiple instruments</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;manufacturer&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;manufacturer&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Manufacturer&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;model&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;manufacturer_model&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Model&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;scanner_name&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;ID&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+<span class="n">session_properties</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">dict_merge</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">session_properties</span><span class="p">,</span> <span class="n">_session_properties</span><span class="p">)</span>
+
+<span class="n">_acquisition_properties</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">&#39;series_uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;series_uid&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;DICOM UID&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;series&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;series_no&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Series&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;acquisition&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acq_no&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Acquisition&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;psd&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;psd_name&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;PSD&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;tr&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;tr&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Tr&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;te&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;te&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Te&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;ti&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;ti&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Ti&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;flip_angle&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;flip_angle&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Flip Angle&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;pixel_bandwidth&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;pixel_bandwidth&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Pixel Bandwidth&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_averages&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_averages&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Averages&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_bands&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_bands&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Bands&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_echos&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_echos&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Echos&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_slices&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_slices&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Slices&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_timepoints&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_timepoints&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Time Points&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;rx_coil&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;receive_coil_name&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Coil&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;num_receivers&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;num_receivers&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Receivers&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;protocol&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;protocol_name&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Protocol&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;size&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Size&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;size_x&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;size_y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s">&#39;fov&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Field of View&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;fov_x&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;fov_y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s">&#39;mm_per_voxel&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;mm per Voxel&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_x&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;z&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;mm_per_vox_z&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Z&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="s">&#39;effective_echo_spacing&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;effective_echo_spacing&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Effective Echo Spacing&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;phase_encode_direction&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;phase_encode_direction&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Phase-encode Direction&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;duration&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;duration&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Duration&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;prescribed_duration&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;prescribed_duration&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Prescribed Duration&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;slice_encode_undersample&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;slice_encode_undersample&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Slice Encode Undersample&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;phase_encode_undersample&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;phase_encode_undersample&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Phase Encode Undersample&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;integer&#39;</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;device&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;scanner_name&#39;</span><span class="p">,</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Device&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s">&#39;acquisition_matrix&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Acquisition Matrix&#39;</span><span class="p">,</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+        <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;x&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acquisition_matrix_x&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;X&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="s">&#39;y&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;acquisition_matrix_y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Y&#39;</span><span class="p">,</span>
+                <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;number&#39;</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+<span class="n">acquisition_properties</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">dict_merge</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">acquisition_properties</span><span class="p">,</span> <span class="n">_acquisition_properties</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="get_slice_order"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.get_slice_order">[docs]</a><span class="k">def</span> <span class="nf">get_slice_order</span><span class="p">(</span><span class="n">slice_order</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the calculated slice order based on the nifti_slice_code and number of slices.</span>
+
+<span class="sd">    See `brainder.org - nifti file format &lt;http://brainder.org/2012/09/23/the-nifti-file-format/&gt;`_ for</span>
+<span class="sd">    more information.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    slice_code : int</span>
+<span class="sd">        nifti slice code, usually found as .slice_order.</span>
+<span class="sd">    num_slices: int</span>
+<span class="sd">        number of slices, usually found as .num_slices.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    slice_order: list of int</span>
+<span class="sd">        list of slice indexes, in the order acquired</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_UNKNOWN</span> <span class="ow">or</span> <span class="n">slice_order</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_SEQ_INC</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_SEQ_DEC</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_ALT_INC</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_ALT_DEC</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_ALT_INC2</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))</span>
+    <span class="k">elif</span> <span class="n">slice_order</span> <span class="o">==</span> <span class="n">SLICE_ORDER_ALT_DEC2</span><span class="p">:</span>
+        <span class="n">slice_order_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_slices</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">slice_order_array</span>
+
+</div>
+<div class="viewcode-block" id="parse_patient_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.parse_patient_id">[docs]</a><span class="k">def</span> <span class="nf">parse_patient_id</span><span class="p">(</span><span class="n">patient_id</span><span class="p">,</span> <span class="n">default_subj_code</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse a subject code, group name and project name from patient_id.</span>
+
+<span class="sd">    If the patient id does not contain a subject code, rely on default (exam no).</span>
+
+<span class="sd">    Expects formatting</span>
+<span class="sd">    subjcode@group_name/project_name</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    patient_id : str</span>
+<span class="sd">        patient_id string from dicom tag (0x10,0x20), &#39;PatientID&#39;</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    subj_code : str</span>
+<span class="sd">        string of subject identifer</span>
+<span class="sd">    group_name : str</span>
+<span class="sd">        string of group name</span>
+<span class="sd">    project_name : str</span>
+<span class="sd">        string of project name</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">subj_code</span> <span class="o">=</span> <span class="n">group_name</span> <span class="o">=</span> <span class="n">exp_name</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">patient_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">default_subj_code</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">subj_code</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">lab_info</span> <span class="o">=</span> <span class="n">patient_id</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">punctuation</span> <span class="o">+</span> <span class="n">string</span><span class="o">.</span><span class="n">whitespace</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s">&#39;@&#39;</span><span class="p">)</span>
+        <span class="n">group_name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exp_name</span> <span class="o">=</span> <span class="n">lab_info</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">)</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">([</span><span class="n">subj_code</span> <span class="ow">or</span> <span class="n">default_subj_code</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">exp_name</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">subj_code</span> <span class="ow">or</span> <span class="n">default_subj_code</span><span class="p">,</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">exp_name</span>
+
+</div>
+<div class="viewcode-block" id="parse_patient_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.parse_patient_name">[docs]</a><span class="k">def</span> <span class="nf">parse_patient_name</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse subject name.</span>
+
+<span class="sd">    TODO: accepts a list of delimiters. if none are provided, default list is used</span>
+
+<span class="sd">    expects &quot;lastname&quot; + &quot;delimiter&quot; + &quot;firstname&quot;.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        string of subject first and last name, delimited by a &#39;^&#39; or &#39; &#39;</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    firstname : str</span>
+<span class="sd">        first name parsed from name</span>
+<span class="sd">    lastname : str</span>
+<span class="sd">        last name parsed from name</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">firstname</span> <span class="o">=</span> <span class="n">lastname</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s">&#39;^&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">lastname</span><span class="p">,</span> <span class="n">firstname</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;^&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="s">&#39; &#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span> <span class="o">=</span> <span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+        <span class="n">firstname</span> <span class="o">=</span> <span class="n">firstname</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+        <span class="n">lastname</span> <span class="o">=</span> <span class="n">lastname</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">([</span><span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">firstname</span><span class="p">,</span> <span class="n">lastname</span>
+
+</div>
+<div class="viewcode-block" id="parse_patient_dob"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.parse_patient_dob">[docs]</a><span class="k">def</span> <span class="nf">parse_patient_dob</span><span class="p">(</span><span class="n">dob</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse date string and sanity check.</span>
+
+<span class="sd">    expects date string in YYYYMMDD format</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dob : str</span>
+<span class="sd">        dob as string YYYYMMDD</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dob : datetime object</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">dob</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">dob</span><span class="p">,</span> <span class="s">&#39;%Y%m</span><span class="si">%d</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dob</span> <span class="o">&lt;</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">1900</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+        <span class="n">dob</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">dob</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dob</span>
+
+</div>
+<div class="viewcode-block" id="MedImgError"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgError">[docs]</a><span class="k">class</span> <span class="nc">MedImgError</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSDataError</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+</div>
+<div class="viewcode-block" id="MedImgReader"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader">[docs]</a><span class="k">class</span> <span class="nc">MedImgReader</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSReader</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base MR data reader class.</span>
+
+<span class="sd">    A NIMSMRReader object will have a few special attributes that must be defined in order</span>
+<span class="sd">    to proceed to writing.</span>
+<span class="sd">    ds.data = {&#39;imagedata&#39;: None&#39;}      # must have at least this, which contains the primary imagedata</span>
+
+<span class="sd">    in some cases, scans might have &quot;supporting&quot; or &quot;auxillary&quot; data that should also be writtten out.</span>
+<span class="sd">    in these cases, the data is included in the dicionary under a different key name.</span>
+
+<span class="sd">    for example, a scan that has both imagedata and fieldmap_data would define ds.data as</span>
+<span class="sd">    `ds.data = {&#39;imagedata&#39;: voxeldata, &#39;fieldmap_data&#39;: fm_voxeldata}`</span>
+
+<span class="sd">    NIMSMRReaders assume that multiple data values have the same metadata; the metadata applies to</span>
+<span class="sd">    all of the included voxel arrays in ds.data.</span>
+
+<span class="sd">    This is especially useful in cases like multicoil data, images with included B0 (fieldmap).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        path to input file</span>
+<span class="sd">    load_data : boolean</span>
+<span class="sd">        indicate if a reader should attempt to immediately load all data. default False.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span>
+    <span class="n">project_properties</span> <span class="o">=</span> <span class="n">project_properties</span>
+    <span class="n">session_properties</span> <span class="o">=</span> <span class="n">session_properties</span>
+    <span class="n">acquisition_properties</span> <span class="o">=</span> <span class="n">acquisition_properties</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MedImgReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_screenshot</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_id</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">series_desc</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_localizer</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_dwi</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_non_image</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">failure_reason</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+<div class="viewcode-block" id="MedImgReader.load_data"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MedImgReader</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_group_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_group_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_group_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">group_name</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_project"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_project">[docs]</a>    <span class="k">def</span> <span class="nf">nims_project</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">project_name</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_session_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exam_uid</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_session_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">study_datetime</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s">&#39;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M&#39;</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_session_subject"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">subj_code</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_acquisition_id"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_acquisition_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_id</span><span class="p">:</span>  <span class="c"># as in pfile json header</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_id</span>
+        <span class="n">series_uid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_screenshot</span><span class="p">:</span>
+            <span class="n">front</span><span class="p">,</span> <span class="n">back</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">series_uid</span> <span class="o">=</span> <span class="n">front</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">back</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>  <span class="c"># don&#39;t change real series_uid</span>
+        <span class="k">return</span> <span class="n">series_uid</span> <span class="o">+</span> <span class="p">(</span><span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_acquisition_label"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_acquisition_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;</span><span class="si">%d</span><span class="s">.</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">series_no</span><span class="p">)</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_acquisition_description"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_acquisition_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_desc</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_name"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_id</span><span class="p">:</span>  <span class="c"># as in pfile json header</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_id</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">series_uid</span> <span class="o">+</span> <span class="p">(</span><span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">acq_no</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="s">&#39;&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;_&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_ext"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;.tgz&#39;</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_domain"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_domain">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_type"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">filetype</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_kinds"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_kinds">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># this really SHOULDn&#39;t be scan_type, because not all medical images will set a scan type</span>
+        <span class="c"># pick a more general name. that is suitable for non-scan type</span>
+        <span class="c"># or define this property in EVERY class...</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">scan_type</span><span class="p">]</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_file_state"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_file_state">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_timestamp"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">tz_util</span><span class="o">.</span><span class="n">FixedOffset</span><span class="p">(</span><span class="o">-</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span> <span class="s">&#39;pacific&#39;</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="k">else</span> <span class="bp">None</span> <span class="c"># FIXME: use pytz</span>
+</div>
+    <span class="nd">@property</span>
+<div class="viewcode-block" id="MedImgReader.nims_timezone"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgReader.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>  <span class="c"># FIXME</span>
+</div>
+    <span class="k">def</span> <span class="nf">_get_mm_per_vox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_mm_per_vox</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mm_per_vox_z</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">mm_per_vox</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_mm_per_vox</span><span class="p">,</span> <span class="n">_set_mm_per_vox</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">size_y</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_size</span><span class="p">,</span> <span class="n">_set_size</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_acquisition_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_acquisition_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">acquisition_matrix_y</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">acquisition_matrix</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_acquisition_matrix</span><span class="p">,</span> <span class="n">_set_acquisition_matrix</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_get_fov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fov_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov_y</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_set_fov</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fov_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fov_y</span> <span class="o">=</span> <span class="n">value</span>
+    <span class="n">fov</span> <span class="o">=</span> <span class="nb">property</span><span class="p">(</span><span class="n">_get_fov</span><span class="p">,</span> <span class="n">_set_fov</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="MedImgWriter"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgWriter">[docs]</a><span class="k">class</span> <span class="nc">MedImgWriter</span><span class="p">(</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">NIMSWriter</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base MR data writer class.</span>
+
+<span class="sd">    Cannot be instantiated.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="MedImgWriter.reorder_voxels"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgWriter.reorder_voxels">[docs]</a>    <span class="k">def</span> <span class="nf">reorder_voxels</span><span class="p">(</span><span class="n">imagedata</span><span class="p">,</span> <span class="n">qto_xyz</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reorder voxel data to the specified voxel_order.</span>
+
+<span class="sd">        Does not directly manipulate imagedata or qto_xyz.</span>
+<span class="sd">        Returns manipulated copies of imagedata and qto_xyz.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        imagedata : np.array</span>
+<span class="sd">            single np.array of image data</span>
+<span class="sd">        qto_xyz : np.matrix, 4x4</span>
+<span class="sd">            patient space</span>
+<span class="sd">        voxel_order : str, 3 char</span>
+<span class="sd">            3 character voxel order string, such as &#39;LPS&#39; or &#39;RAI&#39;</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;reorienting to voxel order </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">voxel_order</span><span class="p">)</span>
+        <span class="n">new_data</span><span class="p">,</span> <span class="n">new_qto_xyz</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">dcmstack</span><span class="o">.</span><span class="n">reorder_voxels</span><span class="p">(</span><span class="n">imagedata</span><span class="p">,</span> <span class="n">qto_xyz</span><span class="p">,</span> <span class="n">voxel_order</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_data</span><span class="p">,</span> <span class="n">new_qto_xyz</span>
+</div>
+    <span class="nd">@nimsdata.abstractclassmethod</span>
+<div class="viewcode-block" id="MedImgWriter.write"><a class="viewcode-back" href="../../../nimsdata.html#nimsdata.medimg.medimg.MedImgWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">voxel_order</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MedImgWriter</span><span class="p">,</span> <span class="n">cls</span><span class="p">)</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,886 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>nimsdata.nimsdata &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for nimsdata.nimsdata</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c"># @author:  Gunnar Schaefer</span>
+<span class="c">#           Bob Dougherty</span>
+<span class="c">#           Kevin S. Hahn</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">nimsdata.nimsdata</span>
+<span class="sd">=================</span>
+
+<span class="sd">provides base classes for NIMS related exceptions and an abstract implementation of a NIMSData</span>
+<span class="sd">object. nimsdata.nimsdata module provides base classes for Exceptions, Readers and Writers.</span>
+<span class="sd">Also provides the nimsdata command line interface. The NIMSData object is meant to be subclassed</span>
+<span class="sd">to create abstract classes for data domains (e.g. MRData) and concrete classes for domain specific</span>
+<span class="sd">data type (e.g. Dicom).</span>
+
+<span class="sd">In some cases, such as with MR data, there are functions and definitions that are used by multiple</span>
+<span class="sd">data types, such as MR Dicoms, MR Nifti, and MR PFiles, all may want to manipulate metadata in the</span>
+<span class="sd">same way.  In these cases, it may be more prudent to add an abstract base class for your data</span>
+<span class="sd">domain, and several seperate data type specific classes.</span>
+
+<span class="sd">see :doc:`extending_nimsdata` for more information on creating a new reader</span>
+<span class="sd">subclass.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">tarfile</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">bson.json_util</span>
+
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s">&#39;ignore&#39;</span><span class="p">,</span> <span class="ne">FutureWarning</span><span class="p">)</span>
+
+<span class="c"># note: readers/writers.json will never contain datetime, or objects that require bson.json_util</span>
+<span class="n">READERS</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">__file__</span><span class="p">)),</span> <span class="s">&#39;readers.json&#39;</span><span class="p">)))</span>
+<span class="n">WRITERS</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">__file__</span><span class="p">)),</span> <span class="s">&#39;writers.json&#39;</span><span class="p">)))</span>
+<span class="n">MODULES</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">__file__</span><span class="p">)),</span> <span class="s">&#39;modules.json&#39;</span><span class="p">)))</span>
+
+
+<span class="n">project_properties</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;gid&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_group_id&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;group&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Group&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="c"># FIXME: dynamically add enum of all possible groups</span>
+        <span class="p">},</span>
+        <span class="s">&#39;name&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_project&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Name&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timestamp&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timestamp&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;format&#39;</span><span class="p">:</span> <span class="s">&#39;date-time&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timezone&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timezone&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">session_properties</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_session_id&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;label&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_session_label&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Label&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;subject&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Subject&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s">&#39;code&#39;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_session_subject&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Code&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+                    <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Type&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;array&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timestamp&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timestamp&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;format&#39;</span><span class="p">:</span> <span class="s">&#39;date-time&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timezone&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timezone&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+<span class="p">}</span>
+
+<span class="n">acquisition_properties</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;uid&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_acquisition_id&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;label&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_acquisition_label&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Label&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;description&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_acquisition_description&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Description&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;maxLength&#39;</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;datatype&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Datatype&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;array&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timestamp&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_timestamp&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timestamp&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s">&#39;format&#39;</span><span class="p">:</span> <span class="s">&#39;date-time&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;timezone&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_timezone&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Timezone&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;filetype&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_file_type&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;Filetype&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s">&#39;state&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s">&#39;field&#39;</span><span class="p">:</span> <span class="s">&#39;nims_file_state&#39;</span><span class="p">,</span>
+            <span class="s">&#39;title&#39;</span><span class="p">:</span> <span class="s">&#39;State&#39;</span><span class="p">,</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="module_by_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.module_by_type">[docs]</a><span class="k">def</span> <span class="nf">module_by_type</span><span class="p">(</span><span class="n">domain_kind</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve a module based on tuple(domain, kind).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    domain_kind : 2-item tuple</span>
+<span class="sd">        Tuple of data domain and kind. kind can be None.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    mod : module</span>
+<span class="sd">        module that defines the properties for (domain, kind).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        Unable to import the module specified by (domain, kind) in modules.json.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">domain</span><span class="p">,</span> <span class="n">kind</span> <span class="o">=</span> <span class="n">domain_kind</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">domain_kind</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">mod_name</span> <span class="o">=</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">kind</span><span class="p">))</span> <span class="k">if</span> <span class="p">(</span><span class="n">domain</span> <span class="ow">and</span> <span class="n">kind</span><span class="p">)</span> <span class="k">else</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">mod</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no module matches that domain/datatype </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">mod_name</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mod</span>
+
+</div>
+<div class="viewcode-block" id="dict_merge"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.dict_merge">[docs]</a><span class="k">def</span> <span class="nf">dict_merge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Recursively merge dictionaries.</span>
+
+<span class="sd">    If a and b are both dictionaries, merge them. If a is a list of dicionaries, b must be None,</span>
+<span class="sd">    then merge all the dictionaries.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    a : dict or list</span>
+<span class="sd">        dictionary, or list of dicionaries to merge.</span>
+<span class="sd">    b : dict or None</span>
+<span class="sd">        dictionary or None.  if a is a list, b must be None.</span>
+<span class="sd">    in_place : bool [default False]</span>
+<span class="sd">        False creates a deep copy of dict a. dict a is not modified.</span>
+<span class="sd">        True merges dict a with dict b, altering dict a. dict a is modified.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged : dict</span>
+<span class="sd">        dictionary of dict b merged into dict a.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        inputs were of unexpected types.  Inputs must be two dictionaries, or one list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">in_place</span> <span class="k">else</span> <span class="n">a</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">b</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">result</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">dict_merge</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">v</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">b</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">in_place</span> <span class="k">else</span> <span class="n">a</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">dict_merge</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">in_place</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;inputs must be two dictionaries, or a list of dicionaries&#39;</span><span class="p">,</span>
+                            <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+</div>
+<div class="viewcode-block" id="acquisition_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.acquisition_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">acquisition_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble acquisition properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two-item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged acquisition properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">acquisition_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="session_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.session_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">session_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble session properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged session properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">session_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="project_properties_by_type_list"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.project_properties_by_type_list">[docs]</a><span class="k">def</span> <span class="nf">project_properties_by_type_list</span><span class="p">(</span><span class="n">type_list</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assemble project properties from list of types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    type_list : list</span>
+<span class="sd">        list of two-item (domain, kind) tuples.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged_dict : dict</span>
+<span class="sd">        merged project properties for items in type_list.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">dict_merge</span><span class="p">([</span><span class="n">module_by_type</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">project_properties</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">type_list</span><span class="p">])</span>
+
+
+<span class="c"># FIXME; make this more flexible to deal with various levels of nesting</span></div>
+<span class="k">def</span> <span class="nf">_get_handler</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">handlerdict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve the class object of reader or writer from its string label.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name : str</span>
+<span class="sd">        reader or writer name</span>
+<span class="sd">    handlerdict : dict</span>
+<span class="sd">        name of which handler dict to search from, READERS or WRITERS.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    handler : NIMSReader or NIMSWriter subclass</span>
+<span class="sd">        Reader or Writer object.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        The specified handler does not exist, or cannot be imported</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c"># is there a more flexible way to do this? get nested attr?</span>
+        <span class="n">container</span><span class="p">,</span> <span class="n">mod</span><span class="p">,</span> <span class="n">klass</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">handlerdict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">))</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="nb">__import__</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="nb">globals</span><span class="p">(),</span> <span class="n">fromlist</span><span class="o">=</span><span class="p">[</span><span class="n">mod</span><span class="p">]),</span> <span class="n">mod</span><span class="p">),</span> <span class="n">klass</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no handler&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected no handler</span>
+    <span class="k">return</span> <span class="n">handler</span>
+
+
+<span class="k">def</span> <span class="nf">_parse_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="n">debug</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation detail to reduce repeated code, called by parse().</span>
+
+<span class="sd">    Main parse interface has two paths, one that inspects a json file</span>
+<span class="sd">    for filetype, and one that does not.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        path to input file</span>
+<span class="sd">    filetype : str</span>
+<span class="sd">        filetype</span>
+<span class="sd">    load_data : bool</span>
+<span class="sd">        whether or not to load all data</span>
+<span class="sd">    debug : bool</span>
+<span class="sd">        whether or not to mask exceptions</span>
+<span class="sd">    **kwargs : dict</span>
+<span class="sd">        passes **kwargs to filetype specific parsers</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ds : NIMSReader subclass</span>
+<span class="sd">        readers NIMSReader subclass of that data that could be parsed.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">nimsparser</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">READERS</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">nimsparser</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">e</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">compressed</span> <span class="o">=</span> <span class="bp">True</span>  <span class="c"># v1 compat: inform scheduler to not compress</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;parse end: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s">&#39;failure_reason&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ds</span><span class="o">.</span><span class="n">failure_reason</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&#39;error during parsing: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">failure_reason</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ds</span>
+
+
+<div class="viewcode-block" id="parse"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.parse">[docs]</a><span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse the file at path with a filetype-specific parser.</span>
+
+<span class="sd">    The parse function expects a tgz that contains input file(s) and a metadata.json.  The json</span>
+<span class="sd">    should be the first item in the tar achive, and the json should declare the filetype, and any</span>
+<span class="sd">    metadata that should be overwritten.</span>
+
+<span class="sd">    This function will pass the input file to the appropriate handler,</span>
+<span class="sd">    if available.</span>
+
+<span class="sd">    =========== ======== ===================================================</span>
+<span class="sd">    ignore_json filetype behavior</span>
+<span class="sd">    =========== ======== ===================================================</span>
+<span class="sd">    False       None     **DEFAULT** try to read json, use parser from json.</span>
+<span class="sd">    False       &#39;dicom&#39;  try to read json, use &#39;dicom&#39; parser.</span>
+<span class="sd">    True        None     **INVALID**</span>
+<span class="sd">    True        &#39;dicom&#39;  don&#39;t try to read json, use &#39;dicom&#39; parser.</span>
+<span class="sd">    =========== ======== ===================================================</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        path to input file.</span>
+<span class="sd">    filetype : str</span>
+<span class="sd">        string name of parser to use.  no special search or inferences will be made if this option</span>
+<span class="sd">        is specified.</span>
+<span class="sd">    load_data : bool  [default False]</span>
+<span class="sd">        attempt to load all metadata and data at parse.  like running parse, then load_data</span>
+<span class="sd">    ignore_json : bool [default False]</span>
+<span class="sd">        True, don&#39;t look for json file. therefore the parser cannot be read from the json, and a</span>
+<span class="sd">        parser MUST be specfied if ignore_json is true. False, do look for json file.</span>
+<span class="sd">    debug : bool [default False]</span>
+<span class="sd">        developer option, False masks all exceptions as NIMSDataError.  debug=True does not</span>
+<span class="sd">        mask exceptions.</span>
+<span class="sd">    kwargs : dict</span>
+<span class="sd">        keyword arguments passed to reader.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    parser_class : obj</span>
+<span class="sd">        NIMSReader populated with data and metadata attributes. this NIMSReader object can be</span>
+<span class="sd">        passed to any compatible writer to complete the conversion process.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        input file is of unacceptable type, or problem with combination of input parameters.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    convert dicom.tgz to dicoms.nii.gz</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import nimsdata</span>
+<span class="sd">        ds = nimsdata.parse(&#39;dicoms.tgz&#39;, load_data=False, filetype=&#39;dicom&#39;)</span>
+<span class="sd">        ds.load_data()</span>
+<span class="sd">        nimsdata.write(ds, ds.data, outbase, filetype=&#39;nifti&#39;)</span>
+
+<span class="sd">    TODO: convert all in-line code EXAMPLES to using doc-string code.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;parse start: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;input path </span><span class="si">%s</span><span class="s"> not found&#39;</span> <span class="o">%</span> <span class="n">path</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ignore_json</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;ignore_json = True&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">filetype</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;filetype must be specified if ignore_json=True&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">_parse_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="n">debug</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ds</span>
+
+    <span class="n">json_data</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">is_tarfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;inspecting tarfile </span><span class="si">%s</span><span class="s"> for json&#39;</span> <span class="o">%</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">archive</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ti</span> <span class="ow">in</span> <span class="n">archive</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">json_data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">archive</span><span class="o">.</span><span class="n">extractfile</span><span class="p">(</span><span class="n">ti</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">object_hook</span><span class="o">=</span><span class="n">bson</span><span class="o">.</span><span class="n">json_util</span><span class="o">.</span><span class="n">object_hook</span><span class="p">)</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+                    <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;json found, </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">ti</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">filetype</span><span class="p">:</span>
+                        <span class="n">filetype</span> <span class="o">=</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filetype&#39;</span><span class="p">)</span>
+                        <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;filetype from json: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">filetype</span><span class="p">)</span>
+                    <span class="k">break</span>
+    <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>  <span class="c"># TODO: implement &#39;break-at-first-readable&#39; json read for directory</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;directory input not implemented&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>  <span class="c"># TODO: infer type</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;.7.gz&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s">&#39;.7&#39;</span><span class="p">):</span>   <span class="c"># single P12345.7 or P12345.7.gz</span>
+            <span class="n">filetype</span> <span class="o">=</span> <span class="s">&#39;pfile&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;non tar-files not implemented&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">_parse_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="n">debug</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;overwrite&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>  <span class="c"># FIXME: handle NESTED information</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ds</span>
+
+</div>
+<div class="viewcode-block" id="write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.write">[docs]</a><span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write the metadata, imagedata into ouput file named outbase.</span>
+
+<span class="sd">    kwargs can be passed to the writer specified by filetype.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metadata : dataset object</span>
+<span class="sd">        dataset from nimsdata.parse.</span>
+<span class="sd">    imagedata : dict</span>
+<span class="sd">        dictionary of data with string labels as keys.</span>
+<span class="sd">    outbase : string</span>
+<span class="sd">        base of name to use, without any file extension.</span>
+<span class="sd">    filetype : string</span>
+<span class="sd">        string name of writer to use.</span>
+<span class="sd">    kwargs : dict</span>
+<span class="sd">        keyword arguments to be passed to writer.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    output_list : list</span>
+<span class="sd">        list of created output filepaths.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    NIMSDataError</span>
+<span class="sd">        filetype parameters was not specified.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    convert dicom.tgz to dicoms.nii.gz</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        import nimsdata</span>
+<span class="sd">        ds = nimsdata.parse(&#39;dicoms.tgz&#39;, load_data=False, filetype=&#39;dicom&#39;)</span>
+<span class="sd">        ds.load_data()</span>
+<span class="sd">        nimsdata.write(ds, ds.data, outbase, filetype=&#39;nifti&#39;)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;write start: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">filetype</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;filetype cannot be None&#39;</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected to get no filetype</span>
+
+    <span class="n">nimswriter</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">WRITERS</span><span class="p">)</span>  <span class="c"># raises exception if no handler</span>
+    <span class="n">output_list</span> <span class="o">=</span> <span class="n">nimswriter</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># writer checks if data is present</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;write end: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;generated: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_list</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">output_list</span>
+
+</div>
+<div class="viewcode-block" id="NIMSDataError"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSDataError">[docs]</a><span class="k">class</span> <span class="nc">NIMSDataError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for NIMS exceptions.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Message to report along with the exception.</span>
+<span class="sd">    log_level : logging level [default None]</span>
+<span class="sd">        What logging level to report the error with, must be a valid logging level class, such as</span>
+<span class="sd">        `logging.DEBUG` or `logging.ERROR`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;instantiate nimsdataerror exception class.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NIMSDataError</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">log_level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">log_level</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+
+
+</div>
+<div class="viewcode-block" id="NIMSReader"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader">[docs]</a><span class="k">class</span> <span class="nc">NIMSReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract base class that provides interfaces, and functions for readers.</span>
+
+<span class="sd">    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing</span>
+<span class="sd">    NIMSReader to create a new data reader.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        filepath as string</span>
+<span class="sd">    load_data : boolean [default False]</span>
+<span class="sd">        Indicate if parse should return with all data loaded.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span>
+
+    <span class="n">project_properties</span> <span class="o">=</span> <span class="n">project_properties</span>
+    <span class="n">session_properties</span> <span class="o">=</span> <span class="n">session_properties</span>
+    <span class="n">acquisition_properties</span> <span class="o">=</span> <span class="n">acquisition_properties</span>
+
+
+    <span class="k">def</span> <span class="nf">_schema_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">schema</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_schema_init</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="o">==</span> <span class="s">&#39;field&#39;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;nims_&#39;</span><span class="p">):</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_schema_init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">project_properties</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_schema_init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session_properties</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_schema_init</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">acquisition_properties</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_status</span> <span class="o">=</span> <span class="s">&#39;empty&#39;</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+<div class="viewcode-block" id="NIMSReader.load_data"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.load_data">[docs]</a>    <span class="k">def</span> <span class="nf">load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_group_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_group_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_group_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_project"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_project">[docs]</a>    <span class="k">def</span> <span class="nf">nims_project</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_session_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_session_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_session_label"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_session_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_session_subject"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_session_subject">[docs]</a>    <span class="k">def</span> <span class="nf">nims_session_subject</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_acquisition_id"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_acquisition_id">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_acquisition_label"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_acquisition_label">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_label</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_acquisition_description"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_acquisition_description">[docs]</a>    <span class="k">def</span> <span class="nf">nims_acquisition_description</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_name"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_name">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_ext"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_ext">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_ext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_domain"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_domain">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_type"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_type">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_kinds"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_kinds">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_file_state"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_file_state">[docs]</a>    <span class="k">def</span> <span class="nf">nims_file_state</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_timestamp"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_timestamp">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="nd">@abc.abstractproperty</span>
+<div class="viewcode-block" id="NIMSReader.nims_timezone"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader.nims_timezone">[docs]</a>    <span class="k">def</span> <span class="nf">nims_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
+</div>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c"># TODO: tighten this up. or just get rid of it completely</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">vars</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">prop</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;data&#39;</span><span class="p">,</span> <span class="s">&#39;imagedata&#39;</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">prop</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">prop</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+
+        <span class="n">properties</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">prop</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">if</span> <span class="n">prop</span> <span class="ow">in</span> <span class="p">[</span><span class="s">&#39;data&#39;</span><span class="p">,</span> <span class="s">&#39;imagedata&#39;</span><span class="p">]:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">prop</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;nims&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prop</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">value</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+            <span class="n">properties</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">prop</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)))</span>
+
+        <span class="k">return</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s">&#39;</span><span class="si">%-30s</span><span class="s">: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">])</span>
+
+</div>
+<div class="viewcode-block" id="abstractclassmethod"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.abstractclassmethod">[docs]</a><span class="k">class</span> <span class="nc">abstractclassmethod</span><span class="p">(</span><span class="nb">classmethod</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decorator for abstract classmethods.</span>
+
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        class C(object):</span>
+<span class="sd">            __metaclass__ = abc.ABCMeta</span>
+<span class="sd">            @abstractclassmethod</span>
+<span class="sd">            def my_abstract_classmethod(cls, ...):</span>
+<span class="sd">                ...</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__isabstractmethod__</span> <span class="o">=</span> <span class="bp">True</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">callable</span><span class="p">):</span>
+        <span class="nb">callable</span><span class="o">.</span><span class="n">__isabstractmethod__</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">abstractclassmethod</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="nb">callable</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="NIMSWriter"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSWriter">[docs]</a><span class="k">class</span> <span class="nc">NIMSWriter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract base class that provides interfaces and functions for writers.</span>
+
+<span class="sd">    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing</span>
+<span class="sd">    NIMSReader to create a new data writer.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span>
+
+    <span class="nd">@abstractclassmethod</span>
+<div class="viewcode-block" id="NIMSWriter.write"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSWriter.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Write metadata and imagedata to output file outbase.</span>
+
+<span class="sd">        Abstract implementaiton doesn&#39;t REALLY need to know about filepath.  Subclasses may want to</span>
+<span class="sd">        build upon write, such as performing voxel reordering of MR data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        metadata : object</span>
+<span class="sd">            fully loaded instance of a NIMSReader.</span>
+<span class="sd">        imagedata : dict</span>
+<span class="sd">            dictionary of np.darrays. label suffix as keys, with np.darrays as values.</span>
+<span class="sd">        outbase : str</span>
+<span class="sd">            output name prefix.</span>
+<span class="sd">        **kwargs :</span>
+<span class="sd">            all remaining keyword arguments will be passed to the underlying file writer.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None : NoneType</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        NIMSDataError</span>
+<span class="sd">            metadata or data is None.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">imagedata</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no metadata/data?&#39;</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected to get no data</span>
+
+</div></div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">sys</span>
+    <span class="kn">import</span> <span class="nn">argparse</span>
+
+    <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">__file__</span><span class="p">))))</span>
+    <span class="kn">import</span> <span class="nn">nimsdata</span>
+
+    <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s">&#39;nimsdata&#39;</span><span class="p">)</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;input&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;file to convert&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;outbase&#39;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s">&#39;?&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;basename for output files (default: input)&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-p&#39;</span><span class="p">,</span> <span class="s">&#39;--parser&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;parser to use&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">READERS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-i&#39;</span><span class="p">,</span> <span class="s">&#39;--ignore_json&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;do not use json metadata in output metadata&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-w&#39;</span><span class="p">,</span> <span class="s">&#39;--writer&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;write to use&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">nimsdata</span><span class="o">.</span><span class="n">WRITERS</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s">&#39;-v&#39;</span><span class="p">,</span> <span class="s">&#39;--verbose&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;enable verbose logging&#39;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&#39;verbose&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>      <span class="s">&#39;--parser_kwarg&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&#39;append&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;keyword arguments to pass directly to the parser&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>      <span class="s">&#39;--writer_kwarg&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s">&#39;append&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&#39;keyword arguments to pass directly to the writer&#39;</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;could not find input file </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
+
+    <span class="n">outbase</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">outbase</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">))[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">p_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">parser_kwarg</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">parser_kwarg</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;=&#39;</span><span class="p">)</span>
+            <span class="n">p_kwargs</span><span class="p">[</span><span class="n">kw</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">p_kwargs</span><span class="p">)</span>
+
+    <span class="n">w_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">writer_kwarg</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">writer_kwarg</span><span class="p">:</span>
+            <span class="n">kw</span><span class="p">,</span> <span class="n">val</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;=&#39;</span><span class="p">)</span>
+            <span class="n">w_kwargs</span><span class="p">[</span><span class="n">kw</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">w_kwargs</span><span class="p">)</span>
+
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">load_data</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">ignore_json</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">ignore_json</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">parser</span><span class="p">,</span> <span class="o">**</span><span class="n">p_kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ds</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> could not be parsed&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s"> has no data&#39;</span> <span class="o">%</span> <span class="n">args</span><span class="o">.</span><span class="n">input</span><span class="p">)</span>
+
+    <span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">writer</span><span class="p">,</span> <span class="o">**</span><span class="n">w_kwargs</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">NIMSData  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>NIMSData &mdash; NIMSData  documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="NIMSData  documentation" href="index.html" />
+    <link rel="next" title="CLI Tutorial" href="cli_tutorial.html" />
+    <link rel="prev" title="Welcome to NIMSData documentation!" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="cli_tutorial.html" title="CLI Tutorial"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to NIMSData documentation!"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="nimsdata-travis-badge">
+<h1>NIMSData <a class="reference external" href="https://travis-ci.org/scitran/nimsdata"><img alt="travis_badge" src="https://travis-ci.org/scitran/nimsdata.svg?branch=ksh-nimsdata2" /></a><a class="headerlink" href="#nimsdata-travis-badge" title="Permalink to this headline">¶</a></h1>
+<p>Data handling utilities.</p>
+<p>Provides class and functions for parsing, identifying and writing scientific datasets. Currently,
+medical images (such as various flavors of MRI, dicoms, niftis, and some raw-files) are supported.</p>
+<p>Also provides base classes that can be used to extend this package to cover additional data-domains.</p>
+<p>Note that these utilites also have command-line interfaces, so you don&#8217;t need a full NIMS
+instance to use them. E.g., you can run our image reconstruction pipeline.</p>
+<div class="section" id="how-to-use-the-documentation">
+<h2>How to use the documentation<a class="headerlink" href="#how-to-use-the-documentation" title="Permalink to this headline">¶</a></h2>
+<p>Documentation is available as docstrings provided within the code, and
+<a class="reference external" href="https://scitran.github.io/nimsdata">additional narrative documentation</a>.</p>
+</div>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
+<p>development version is currently using the following:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="44%" />
+<col width="56%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">package</th>
+<th class="head">version</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>Pillow</td>
+<td>2.6.1</td>
+</tr>
+<tr class="row-odd"><td>numpy</td>
+<td>1.9.0</td>
+</tr>
+<tr class="row-even"><td>nibabel</td>
+<td>1.4.0dev</td>
+</tr>
+<tr class="row-odd"><td>pydicom</td>
+<td>0.9.9</td>
+</tr>
+<tr class="row-even"><td>dcmstack</td>
+<td>0.7.0dev</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="installation-on-fresh-ubuntu-14-04">
+<h2>installation on fresh ubuntu 14.04<a class="headerlink" href="#installation-on-fresh-ubuntu-14-04" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p class="first">install dependencies, <em>had to chmod o+w /var/local to allow regular user to write; not ideal</em></p>
+<blockquote>
+<div><ul class="simple">
+<li><strong>python-dev</strong> is required to build numpy, and pillow.</li>
+<li><strong>python-virtualenv</strong> is required to make use of python virtual environment.</li>
+<li><strong>libjeg-dev</strong> is required for pillow JPEG support.  Pillow must be compiled with JPEG support.  See <a class="reference external" href="http://stackoverflow.com/questions/8915296/python-image-library-fails-with-message-decoder-jpeg-not-available-pil">this stack overflow question</a> for more information.</li>
+<li><strong>git</strong> is required to pip install from git repositories.</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<div class="code bash highlight-python"><div class="highlight"><pre>sudo apt-get update &amp;&amp; sudo apt-get upgrade
+sudo apt-get install python-dev python-virtualenv libjpeg-dev git
+sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
+</pre></div>
+</div>
+<ul class="simple">
+<li>create and activate virtualenv</li>
+</ul>
+<div class="code bash highlight-python"><div class="highlight"><pre>virtualenv nimsdata_env
+source nimsdata_env/bin/bin/activate
+</pre></div>
+</div>
+<ul class="simple">
+<li>install dependencies, these are VERY specific version. once these versions are available
+through pypi, these installation commands will change.  (subject to change)</li>
+</ul>
+<div class="code bash highlight-python"><div class="highlight"><pre>pip install numpy==1.9.0
+pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
+pip install git+https://github.com/nipy/nibabel.git
+pip install git+https://github.com/moloney/dcmstack.git
+pip install pillow
+pip install pymongo
+</pre></div>
+</div>
+<ul class="simple">
+<li>clone nimsdata from github</li>
+</ul>
+<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github.com/scitran/nimsdata.git
+</pre></div>
+</div>
+<ul class="simple">
+<li>add the directory containing the nimsdata repository to the front of the PYTHONPATH, this can be done
+by hacking the virtualenv easy-install.pth, or setting the PYTHONPATH bash environment variable. (TODO:
+create <cite>setup.py</cite>).  If nimsdata is cloned into <cite>/var/local</cite>, then <cite>export PYTHONPATH=/var/local</cite>.</li>
+</ul>
+<div class="code bash highlight-python"><div class="highlight"><pre>export PYTHONPATH=/directory/above_nimsdata/
+</pre></div>
+</div>
+</div>
+<div class="section" id="basic-conversion">
+<h2>Basic Conversion<a class="headerlink" href="#basic-conversion" title="Permalink to this headline">¶</a></h2>
+<p>The software consists of the python package, <em>nimsdata</em>, with a single command line interface
+<cite>nimsdata.py</cite>.</p>
+<p>NIMSData has a semi-standard input filetype, a tgz, that contains raw data and a json that
+indicates the raw data filetype, header data, and metadata corrections.</p>
+<p><cite>nimsdata.py</cite> expects at least 3 options, <em>&lt;input.tgz&gt;</em>, <em>&#8211;parser &lt;filetype&gt;</em>, <em>&#8211;writer &lt;filetype&gt;</em>.</p>
+<p>The following shell command will take the <em>dicom</em> input <em>input.tgz</em> and convert it to nifti, <em>outprefix.nii.gz</em>.</p>
+<div class="highlight-sh"><div class="highlight"><pre>nimsdata.py -p dicom input.tgz -w nifti outprefix.nii.gz
+</pre></div>
+</div>
+<p>And the equivelant command in python.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;/path/to/input.gz&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">&#39;outprefix&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For more information on using NIMSData in bash, see <a class="reference external" href="https://scitran.github.io/cli_tutorial.html">CLI tutorial</a>.</p>
+<p>For more information on using NIMSData in python see <a class="reference external" href="https://scitran.github.io/nimsdata/python_tutorial.html">Python tutorial</a>.</p>
+</div>
+<div class="section" id="developer-notes">
+<h2>Developer Notes<a class="headerlink" href="#developer-notes" title="Permalink to this headline">¶</a></h2>
+<p>To generate the docs locally, you will need sphinx, and numpydoc.</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>pip install sphinx numpydoc
+</pre></div>
+</div>
+<p>numpy 1.9 changes how numpy.unique() behaves when given an array of arrays.  Pre 1.9, np.unique
+would return each unique array. Post 1.9, np.unique returns unique items from the arrays. dcmstack
+is compatible with numpy 1.9, but numpy throws some FutureWarnings.  The current version of
+dcmstack (0.7.0dev) may not be compatible with future version of numpy.</p>
+<p>run the following git config commands to enable a git filter for the branch name.</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>git config filter.brancher.smudge &quot;./git_branch_filter.py smudge&quot;
+git config filter.brancher.clean &quot;./git_branch_filter.py clean&quot;
+</pre></div>
+</div>
+<p>Combined with .gitattributes, the smudge and clean filters will
+replace &#8216;branch=__BRANCH__&#8217; to indicate the current branch.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">NIMSData </a><ul>
+<li><a class="reference internal" href="#how-to-use-the-documentation">How to use the documentation</a></li>
+<li><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li><a class="reference internal" href="#installation-on-fresh-ubuntu-14-04">installation on fresh ubuntu 14.04</a></li>
+<li><a class="reference internal" href="#basic-conversion">Basic Conversion</a></li>
+<li><a class="reference internal" href="#developer-notes">Developer Notes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Welcome to NIMSData documentation!</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="cli_tutorial.html"
+                        title="next chapter">CLI Tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/introduction.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="cli_tutorial.html" title="CLI Tutorial"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to NIMSData documentation!"
+             >previous</a> |</li>
+        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>
