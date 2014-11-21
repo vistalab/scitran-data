@@ -227,7 +227,7 @@
     <span class="n">mod_name</span> <span class="o">=</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;</span><span class="si">%s</span><span class="s">.</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">kind</span><span class="p">))</span> <span class="k">if</span> <span class="p">(</span><span class="n">domain</span> <span class="ow">and</span> <span class="n">kind</span><span class="p">)</span> <span class="k">else</span> <span class="n">MODULES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">mod</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">mod_name</span><span class="p">,</span> <span class="nb">globals</span><span class="p">())</span>
-    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">ImportError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no module matches that domain/datatype </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">mod_name</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">mod</span>
 
@@ -333,7 +333,7 @@
 
 
 <span class="c"># FIXME; make this more flexible to deal with various levels of nesting</span></div>
-<span class="k">def</span> <span class="nf">_get_handler</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">handlerdict</span><span class="p">):</span>
+<div class="viewcode-block" id="get_handler"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.get_handler">[docs]</a><span class="k">def</span> <span class="nf">get_handler</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">handlerdict</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieve the class object of reader or writer from its string label.</span>
 
@@ -363,7 +363,7 @@
         <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;no handler&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected no handler</span>
     <span class="k">return</span> <span class="n">handler</span>
 
-
+</div>
 <span class="k">def</span> <span class="nf">_parse_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">filetype</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="n">debug</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Implementation detail to reduce repeated code, called by parse().</span>
@@ -390,7 +390,7 @@
 <span class="sd">        readers NIMSReader subclass of that data that could be parsed.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">nimsparser</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">READERS</span><span class="p">)</span>
+        <span class="n">nimsparser</span> <span class="o">=</span> <span class="n">get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">READERS</span><span class="p">)</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">nimsparser</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">load_data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
@@ -482,7 +482,7 @@
             <span class="k">return</span> <span class="n">ds</span>
 
     <span class="n">json_data</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">is_tarfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">and</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">is_tarfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
         <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;inspecting tarfile </span><span class="si">%s</span><span class="s"> for json&#39;</span> <span class="o">%</span> <span class="n">path</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">tarfile</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">archive</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">ti</span> <span class="ow">in</span> <span class="n">archive</span><span class="p">:</span>
@@ -496,6 +496,8 @@
                         <span class="n">filetype</span> <span class="o">=</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;filetype&#39;</span><span class="p">)</span>
                         <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;filetype from json: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">filetype</span><span class="p">)</span>
                     <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;expected json file that indicates filetype in tgz&#39;</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>  <span class="c"># TODO: implement &#39;break-at-first-readable&#39; json read for directory</span>
         <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;directory input not implemented&#39;</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>  <span class="c"># TODO: infer type</span>
@@ -555,7 +557,12 @@
     <span class="k">if</span> <span class="ow">not</span> <span class="n">filetype</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;filetype cannot be None&#39;</span><span class="p">)</span>  <span class="c"># XXX FAIL! unexpected to get no filetype</span>
 
-    <span class="n">nimswriter</span> <span class="o">=</span> <span class="n">_get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">WRITERS</span><span class="p">)</span>  <span class="c"># raises exception if no handler</span>
+    <span class="k">if</span> <span class="n">metadata</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;metadata cannot be None&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">imagedata</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">NIMSDataError</span><span class="p">(</span><span class="s">&#39;imagedata cannot be None&#39;</span><span class="p">)</span>
+
+    <span class="n">nimswriter</span> <span class="o">=</span> <span class="n">get_handler</span><span class="p">(</span><span class="n">filetype</span><span class="p">,</span> <span class="n">WRITERS</span><span class="p">)</span>  <span class="c"># raises exception if no handler</span>
     <span class="n">output_list</span> <span class="o">=</span> <span class="n">nimswriter</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">imagedata</span><span class="p">,</span> <span class="n">outbase</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># writer checks if data is present</span>
 
     <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;write end: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()))</span>
@@ -585,7 +592,6 @@
             <span class="n">message</span> <span class="o">=</span> <span class="s">&#39;</span><span class="si">%s</span><span class="se">\n</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
             <span class="n">log</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">log_level</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
 
-
 </div>
 <div class="viewcode-block" id="NIMSReader"><a class="viewcode-back" href="../../nimsdata.html#nimsdata.nimsdata.NIMSReader">[docs]</a><span class="k">class</span> <span class="nc">NIMSReader</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
 
@@ -609,7 +615,6 @@
     <span class="n">project_properties</span> <span class="o">=</span> <span class="n">project_properties</span>
     <span class="n">session_properties</span> <span class="o">=</span> <span class="n">session_properties</span>
     <span class="n">acquisition_properties</span> <span class="o">=</span> <span class="n">acquisition_properties</span>
-
 
     <span class="k">def</span> <span class="nf">_schema_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">schema</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">schema</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>

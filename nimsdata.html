@@ -360,6 +360,40 @@ True merges dict a with dict b, altering dict a. dict a is modified.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="nimsdata.nimsdata.get_handler">
+<tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">get_handler</tt><big>(</big><em>name</em>, <em>handlerdict</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#get_handler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.get_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve the class object of reader or writer from its string label.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> : str</p>
+<blockquote>
+<div><p>reader or writer name</p>
+</div></blockquote>
+<p><strong>handlerdict</strong> : dict</p>
+<blockquote>
+<div><p>name of which handler dict to search from, READERS or WRITERS.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>handler</strong> : NIMSReader or NIMSWriter subclass</p>
+<blockquote>
+<div><p>Reader or Writer object.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body"><p class="first"><strong>NIMSDataError</strong></p>
+<blockquote class="last">
+<div><p>The specified handler does not exist, or cannot be imported</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="nimsdata.nimsdata.module_by_type">
 <tt class="descclassname">nimsdata.nimsdata.</tt><tt class="descname">module_by_type</tt><big>(</big><em>domain_kind</em><big>)</big><a class="reference internal" href="_modules/nimsdata/nimsdata.html#module_by_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.nimsdata.module_by_type" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve a module based on tuple(domain, kind).</p>
