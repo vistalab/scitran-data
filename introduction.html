@@ -100,15 +100,16 @@ instance to use them. E.g., you can run our image reconstruction pipeline.</p>
 <div class="section" id="installation-on-fresh-ubuntu-14-04">
 <h2>installation on fresh ubuntu 14.04<a class="headerlink" href="#installation-on-fresh-ubuntu-14-04" title="Permalink to this headline">¶</a></h2>
 <ul>
-<li><p class="first">install dependencies, <em>had to chmod o+w /var/local to allow regular user to write; not ideal</em></p>
-<blockquote>
-<div><ul class="simple">
+<li><dl class="first docutils">
+<dt>install dependencies, <strong>had to chmod o+w /var/local to allow regular user to write; not ideal</strong></dt>
+<dd><ul class="first last simple">
 <li><strong>python-dev</strong> is required to build numpy, and pillow.</li>
 <li><strong>python-virtualenv</strong> is required to make use of python virtual environment.</li>
 <li><strong>libjeg-dev</strong> is required for pillow JPEG support.  Pillow must be compiled with JPEG support.  See <a class="reference external" href="http://stackoverflow.com/questions/8915296/python-image-library-fails-with-message-decoder-jpeg-not-available-pil">this stack overflow question</a> for more information.</li>
 <li><strong>git</strong> is required to pip install from git repositories.</li>
 </ul>
-</div></blockquote>
+</dd>
+</dl>
 </li>
 </ul>
 <div class="code bash highlight-python"><div class="highlight"><pre>sudo apt-get update &amp;&amp; sudo apt-get upgrade
@@ -130,7 +131,7 @@ through pypi, these installation commands will change.  (subject to change)</li>
 <div class="code bash highlight-python"><div class="highlight"><pre>pip install numpy==1.9.0
 pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
 pip install git+https://github.com/nipy/nibabel.git
-pip install git+https://github.com/moloney/dcmstack.git
+pip install git+https://github.com/moloney/dcmstack
 pip install pillow
 pip install pymongo
 </pre></div>
@@ -138,7 +139,7 @@ pip install pymongo
 <ul class="simple">
 <li>clone nimsdata from github</li>
 </ul>
-<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github.com/scitran/nimsdata.git
+<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github.com/scitran/nimsdata.git nimsdata
 </pre></div>
 </div>
 <ul class="simple">
@@ -186,8 +187,13 @@ dcmstack (0.7.0dev) may not be compatible with future version of numpy.</p>
 git config filter.brancher.clean &quot;./git_branch_filter.py clean&quot;
 </pre></div>
 </div>
-<p>Combined with .gitattributes, the smudge and clean filters will
-replace &#8216;branch=__BRANCH__&#8217; to indicate the current branch.</p>
+<p>Combined with .gitattributes, the smudge and clean filters will replace &#8216;branch=__BRANCH__&#8217; to indicate
+the current branch.</p>
+<p>Testdata is not distributed with this package.  Downloading/cloning the testdata is necessary
+to run tests locally.  clone the <cite>nimsdata_testdata</cite> repository into <cite>nimsdata/test/nimsdata_testdata</cite>.</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github/com/scitran/nimsdata_testdata.git nimsdata/test/nimsdata_testdata
+</pre></div>
+</div>
 </div>
 </div>
 
