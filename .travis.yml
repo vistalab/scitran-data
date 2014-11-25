@@ -15,16 +15,16 @@ before_install:
     - sudo apt-get install -qq libjpeg-dev && sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 
 install:
-    - pip install webapp2 requests webob db-sqlite3 nose numpy pymongo pillow sphinx numpydoc
+    - pip install webapp2 requests webob db-sqlite3 nose numpy pymongo pillow sphinx numpydoc coverage
     - pip install git+https://github.com/nipy/nibabel.git
     - pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
     - pip install git+https://github.com/moloney/dcmstack.git
-
+    
 before_script:
     - git clone http://github.com/scitran/nimsdata_testdata ${TRAVIS_BUILD_DIR}/test/nimsdata_testdata
 
 script:
-    - nosetests
+    - nosetests --with-doctest --with-coverage --cover-package=nimsdata
 
 after_success:
     - cd docs && make html && mv _build/html /tmp/html
