@@ -31,7 +31,7 @@ class NIMSPNG(medimg.MedImgWriter):
     filetype = u'png'
 
     @classmethod
-    def write(cls, metadata, imagedata, outbase, voxel_order='LPS'):
+    def write(cls, metadata, imagedata, outbase, voxel_order=None):
         """
         Create png files for each image in a list of pixel data.
 
