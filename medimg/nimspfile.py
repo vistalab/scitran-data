@@ -947,7 +947,7 @@ class NIMSPFile(medimg.MedImgReader):
             log.debug('checking num_mux_cal_cycle: %d' % self.num_mux_cal_cycle)
             # matlab code checks for num_mux_cal_cycles, so why don't we check the same thing
             # even scans without num_mux_cal_cycles will still have ref/vrgf files that exceed 64 bytes
-            if not os.path.isfile(ref_file) or os.path.getsize(ref_file) < 64 or not os.path.isfile(vrgf_file) or os.path.getsize(vrgf_file) < 64:
+            if self.num_mux_cal_cycle < 2:
                 log.debug('num_mux_cal_cycle: %d. looking for calibration from a different acq.' % self.num_mux_cal_cycle)
                 if self.aux_file:
                     with tarfile.open(self.aux_file) as aux_archive:
