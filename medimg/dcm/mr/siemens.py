@@ -173,9 +173,9 @@ def parse_all(self):
 
     if self.total_num_slices < MAX_LOC_DCMS:
         ornts = list(set([tuple(d.get('ImageOrientationPatient', [0.]*6)) for d in self._dcm_list]))
-        final_ornts = [ornts[0],]
-        for x in range(1,len(ornts)):  # skip reference ornt
-            if not np.allclose(ornts[0], ornts[x]):
+        final_ornts = [ornts[0], ]
+        for x in range(1, len(ornts)):  # skip reference ornt
+            if not np.allclose(ornts[0], ornts[x], rtol=1e-4):
                 final_ornts.append(ornts[x])
         num_ornts = len(final_ornts)
         log.debug('num_ornts: %d' % num_ornts)
