@@ -589,6 +589,7 @@ class NIMSPFile(medimg.MedImgReader):
                 self.dwi_bvalue = 10.
             # The bvals/bvecs will get set later
             self.bvecs, self.bvals = (None, None)
+            self.diff_grad_scale = self._hdr.rec.user34
             self.image_rotation = dcm.mr.generic_mr.compute_rotation(row_cosines, col_cosines, slice_norm)
             self.qto_xyz = dcm.mr.generic_mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
             self.infer_psd_type()
@@ -600,7 +601,7 @@ class NIMSPFile(medimg.MedImgReader):
                 else:
                     log.warning('muxepi without own calibration. please provide an aux_file to load_data fxn.')
             self.full_parsed = True
-            self.metadata_statue = 'complete'
+            self.metadata_status = 'complete'
 
     @property
     def canonical_filename(self):
@@ -927,14 +928,18 @@ class NIMSPFile(medimg.MedImgReader):
         basename = os.path.basename(filepath)
         dirpath = os.path.dirname(filepath)
 
-        fermi_filt = 1
-        sense_recon = 0
-        if self.recon_type == None:
-            # set the recon type automatically, scans with mux>1, arc>1, caipi
+        if self.recon_type==None:
+            # set the recon type automatically
+            # Scans with mux>1, arc>1, caipi
             if self.is_dwi and self.num_bands>1 and self.phase_encode_undersample<1. and self.caipi:
-                sense_recon = 1
-        elif self.recon_type == 'sense':
-            sense_recon = 1
+                recon_type = 'sense'
+            else:
+                recon_type = '1dgrappa'
+        else:
+            recon_type = self.recon_type
+
+        fermi_filt = 1
+        homodyne = 1
 
         log.debug(self.aux_file)
         with tempfile.TemporaryDirectory(dir=tempdir) as temp_dirpath:
@@ -972,8 +977,8 @@ class NIMSPFile(medimg.MedImgReader):
                     raise NIMSPFileError('ref.dat/vrgf.dat not found')
 
             # run the actual recon, spawning subprocess until all slices have been spawned.
-            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (sense=%d, fermi=%d, notch=%f).'
-                    % (self.num_vcoils, filepath, temp_dirpath, self.num_jobs, sense_recon, fermi_filt, self.notch_thresh))
+            log.info('Running %d v-coil mux recon on %s in tempdir %s with %d jobs (recon=%s, fermi=%d, homodyne=%d, notch=%f).'
+                    % (self.num_vcoils, filepath, temp_dirpath, self.num_jobs, recon_type, fermi_filt, homodyne, self.notch_thresh))
             if cal_file!='':
                 log.info('Using calibration file: %s' % cal_file)
             recon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'mux_epi_recon'))
@@ -986,8 +991,8 @@ class NIMSPFile(medimg.MedImgReader):
                 if num_running_jobs < self.num_jobs:
                     # Recon each slice separately. Note the slice_num+1 to deal with matlab's 1-indexing.
                     # Use 'str' on timepoints so that an empty array will produce '[]'
-                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, %s, %s, %s);\''
-                        % (octave_bin, recon_path, filepath, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, str(sense_recon), str(fermi_filt), str(self.notch_thresh)))
+                    cmd = ('%s --no-window-system -p %s --eval \'mux_epi_main("%s", "%s_%03d.mat", "%s", %d, %s, %d, 0, "%s", %s, %s, %s);\''
+                        % (octave_bin, recon_path, filepath, outname, slice_num, cal_file, slice_num + 1, str(timepoints), self.num_vcoils, recon_type, str(fermi_filt), str(homodyne), str(self.notch_thresh)))
                     log.debug(cmd)
                     mux_recon_jobs.append(subprocess.Popen(args=shlex.split(cmd), stdout=open('/dev/null', 'w')))
                     slice_num += 1
