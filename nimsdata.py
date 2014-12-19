@@ -775,18 +775,24 @@ if __name__ == '__main__':
 
     outbase = args.outbase or os.path.basename(os.path.splitext(args.input.rstrip('/'))[0])
 
+    def cast_if_number(s):
+        try:
+            return float(s) if '.' in s else int(s)
+        except ValueError:
+            return s
+
     p_kwargs = {}
     if args.parser_kwarg:
         for item in args.parser_kwarg:
             kw, val = item.split('=')
-            p_kwargs[kw] = val
+            p_kwargs[kw] = cast_if_number(val)
     log.debug(p_kwargs)
 
     w_kwargs = {}
     if args.writer_kwarg:
         for item in args.writer_kwarg:
             kw, val = item.split('=')
-            w_kwargs[kw] = val
+            w_kwargs[kw] = cast_if_number(val)
     log.debug(w_kwargs)
 
     ds = nimsdata.parse(args.input, load_data=True, ignore_json=args.ignore_json, filetype=args.parser, **p_kwargs)
