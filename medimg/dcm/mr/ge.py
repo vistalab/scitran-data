@@ -186,8 +186,9 @@ def parse_all(self):
         trigger_times = np.array([self.getelem(d, 'TriggerTime', float) for d in self._dcm_list[0:self.num_slices]])
         if self.reverse_slice_order:
             trigger_times = trigger_times[::-1]
-        trigger_times_from_first_slice = trigger_times[0] - trigger_times
-        if self.num_slices > 2:
+        # if trigger_times is mixed float and None, then dtype = 'O'
+        if self.num_slices > 2 and len(trigger_times) > 2 and trigger_times.dtype == 'float64':
+            trigger_times_from_first_slice = trigger_times[0] - trigger_times
             self.slice_duration = float(min(abs(trigger_times_from_first_slice[1:]))) / 1000    # msec to sec
             if trigger_times_from_first_slice[1] < 0:
                 self.slice_order = generic_mr.SLICE_ORDER_SEQ_INC if trigger_times[2] > trigger_times[1] else generic_mr.SLICE_ORDER_ALT_INC
