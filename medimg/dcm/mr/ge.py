@@ -65,7 +65,9 @@ def infer_psd_type(self):
             self.psd_type = 'muxepi'
         elif 'epi' in self.psd_name:
             self.psd_type = 'epi'
-        elif self.psd_name in ['probe-mega', 'gaba_ss_cni', 'special_siam2']:
+        elif self.psd_name in ['probe-mega', 'gaba_ss_cni', 'gaba_special']:
+            self.psd_type = 'mrs'
+        elif self.psd_name.startswith('special_siam'):
             self.psd_type = 'mrs'
         elif self.psd_name == 'asl':
             self.psd_type = 'asl'
