@@ -303,7 +303,7 @@ class NIMSDicom(medimg.MedImgReader):
         self.operator = self.getelem(self._hdr, 'OperatorsName')
         self.phase_encode_direction = None  # FIXME: how do diff mfr's store phase_encode_direction??
 
-        self.nims_metadata_status = 'pending'
+        self.metadata_status = 'pending'
         self.parse_one()  # COMPOSED; parses mfr sop specific data
 
         if load_data:
@@ -360,7 +360,7 @@ class NIMSDicom(medimg.MedImgReader):
             log.debug('dicoms do not have InstanceNumber. cannot pre-sort')
 
         self.parse_all()  # COMPOSED; parses mfr sop specifics
-        self.nims_metadata_status = 'complete'  # if parse_all completes, metadata is assumed to be completed
+        self.metadata_status = 'complete'  # if parse_all completes, metadata is assumed to be completed
 
         try:
             self.convert()  # COMPOSED; converts mfr sop specific, may also do last round of metadata touch ups

@@ -588,6 +588,10 @@ class NIMSReader(object):
         pass
 
     @abc.abstractproperty
+    def nims_metadata_status(self):
+        pass
+
+    @abc.abstractproperty
     def nims_group_id(self):
         pass
 

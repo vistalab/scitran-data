@@ -26,7 +26,7 @@ def parse_one(self):
     if self.image_type in [GEMS_TYPE_SCREENSHOT, GEMS_TYPE_VXTL]:
         self.is_screenshot = True
         self.scan_type = 'screenshot'
-        self.nims_metadata_status = None
+        self.metadata_status = None
 
 def parse_all(self):
     pass
@@ -34,4 +34,4 @@ def parse_all(self):
 def convert(self):
     if self.is_screenshot:
         generic_sc.convert_screenshot(self)
-        self.nims_metadata_status = None
+        self.metadata_status = None

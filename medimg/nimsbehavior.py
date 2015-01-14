@@ -38,3 +38,7 @@ class NIMSBehavior(nimsdata.NIMSReader):
     def load_data(self):
         raise NIMSBehaviorError('NIMSBehavior Reader class not yet implemented')
         super(NIMSBehavior, self).__init__()
+
+    @property
+    def nims_metadata_status(self):
+        return self.metadata_status

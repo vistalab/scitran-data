@@ -53,10 +53,14 @@ class NIMSGEPhysio(nimsdata.NIMSReader):
         self.session = self._hdr['session']
         self.acquisition = self._hdr['acquisition']
         self.timestamp = self._hdr['timestamp']
-        self.nims_metadata_status = None
+        self.metadata_status = None
 
     def load_data(self):
         log.debug('nimsgephysio.load_data() has not been implemented yet. sorry!')
+
+    @property
+    def nims_metadata_status(self):
+        return self.metadata_status
 
     @property
     def nims_group_id(self):
