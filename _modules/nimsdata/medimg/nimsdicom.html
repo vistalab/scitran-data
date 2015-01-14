@@ -352,7 +352,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">operator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getelem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hdr</span><span class="p">,</span> <span class="s">&#39;OperatorsName&#39;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">phase_encode_direction</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c"># FIXME: how do diff mfr&#39;s store phase_encode_direction??</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">nims_metadata_status</span> <span class="o">=</span> <span class="s">&#39;pending&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_status</span> <span class="o">=</span> <span class="s">&#39;pending&#39;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parse_one</span><span class="p">()</span>  <span class="c"># COMPOSED; parses mfr sop specific data</span>
 
         <span class="k">if</span> <span class="n">load_data</span><span class="p">:</span>
@@ -409,7 +409,7 @@
             <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&#39;dicoms do not have InstanceNumber. cannot pre-sort&#39;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">parse_all</span><span class="p">()</span>  <span class="c"># COMPOSED; parses mfr sop specifics</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">nims_metadata_status</span> <span class="o">=</span> <span class="s">&#39;complete&#39;</span>  <span class="c"># if parse_all completes, metadata is assumed to be completed</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_status</span> <span class="o">=</span> <span class="s">&#39;complete&#39;</span>  <span class="c"># if parse_all completes, metadata is assumed to be completed</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">convert</span><span class="p">()</span>  <span class="c"># COMPOSED; converts mfr sop specific, may also do last round of metadata touch ups</span>
