@@ -74,6 +74,36 @@ def is_gzip(filepath):
     return compressed
 
 
+def uncompress(filepath, tempdir):
+    """
+    Uncompress a gzip file into the tempdir location.
+
+    Parameters
+    ----------
+    filepath : str
+        path to gzip file to unpack
+    tempdir : str
+        where to unzip the file to
+
+    Returns
+    -------
+    newpath : str
+        full path to uncompressed file
+
+    """
+    newpath = os.path.join(tempdir, os.path.basename(filepath)[:-3])
+    # the following with pigz is ~4x faster than in python
+    if os.path.isfile('/usr/bin/pigz'):
+        subprocess.call('pigz -d -c %s > %s' % (filepath, newpath), shell=True)
+    elif os.path.isfile('/usr/bin/gzip') or os.path.isfile('/bin/gzip'):
+        subprocess.call('gzip -d -c %s > %s' % (filepath, newpath), shell=True)
+    else:
+        with open(newpath, 'wb') as fd:
+            with gzip.open(filepath, 'rb') as gzfile:
+                fd.writelines(gzfile)
+    return newpath
+
+
 def get_version(filepath):
     """
     Determine the pfile version of the file at filepath.
@@ -370,7 +400,6 @@ class NIMSPFile(medimg.MedImgReader):
         if tarfile.is_tarfile(filepath):
             raise NIMSPFileError('_full_parse() expects a .7 or .7.gz')
         log.debug('_full_parse of %s' % filepath)
-
         try:
             pfile = getattr(__import__('pfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
         except ImportError:
@@ -755,10 +784,32 @@ class NIMSPFile(medimg.MedImgReader):
 
             log.debug('closing tempdir %s' % self.tempdir)
         else:
-            log.debug('loading data from .7 %s' % self.filepath)
             if not self.full_parsed:
                 self._full_parse()      # parse original input
-            self.do_recon(self.filepath, self.tempdir)
+
+            # muxepi recon REQUIRES both the primary and aux data to be uncompressed
+            if is_gzip(self.filepath) and self.psd_type == 'muxepi':
+                log.debug('loading data from .7.gz %s' % self.filepath)
+                with tempfile.TemporaryDirectory(dir=self.tempdir) as temp_dirpath:
+                    log.debug('now working in temp_dirpath=%s ' % temp_dirpath)
+                    aux_datadir = os.path.dirname(self.filepath)
+                    for f in os.listdir(aux_datadir):
+                        fname = os.path.join(aux_datadir, f)
+                        if is_gzip(fname):
+                            log.debug('uncompressing %s' % fname)
+                            newpath = uncompress(fname, temp_dirpath)
+                            if f.startswith('P'):
+                                fpath = newpath
+                        else:
+                            newpath = os.path.join(temp_dirpath, f)
+                            log.debug('creating symlink %s' % newpath)
+                            os.symlink(fname, newpath)
+                            if f.startswith('P'):
+                                fpath = newpath
+                    self.do_recon(fpath, self.tempdir)
+            else:
+                log.debug('loading data from .7 %s' % self.filepath)
+                self.do_recon(self.filepath, self.tempdir)
 
     def load_imagedata_from_file(self, filepath):
         """
@@ -947,32 +998,46 @@ class NIMSPFile(medimg.MedImgReader):
             # to allow extraction of the valid vrgf and ref within tempdir.
             # cal file must be either '', or dir/basename that is similar between ref.dat and vrgf.dat
             cal_file = ''  # XXX matlab/octave, base path determine names of ref.dat and vrgf.dat
-            ref_file = os.path.join(dirpath, basename + '_ref.dat')
-            vrgf_file = os.path.join(dirpath, basename + '_vrgf.dat')
             log.debug('checking num_mux_cal_cycle: %d' % self.num_mux_cal_cycle)
             # matlab code checks for num_mux_cal_cycles, so why don't we check the same thing
             # even scans without num_mux_cal_cycles will still have ref/vrgf files that exceed 64 bytes
             if self.num_mux_cal_cycle < 2:
                 log.debug('num_mux_cal_cycle: %d. looking for calibration from a different acq.' % self.num_mux_cal_cycle)
                 if self.aux_file:
-                    with tarfile.open(self.aux_file) as aux_archive:
-                        log.debug('inspecting aux file: %s' % self.aux_file)
-                        aux_archive.extractall(path=temp_dirpath)
-                    aux_subdir = os.listdir(temp_dirpath)[0]
-                    aux_datadir = os.path.join(temp_dirpath, aux_subdir)
-                    for f in os.listdir(aux_datadir):
-                        if f.endswith('_ref.dat'):
-                            cal_ref_file = os.path.join(aux_datadir, f)
-                            log.debug('_ref.dat found, %s' % cal_ref_file)
-                        elif f.endswith('_vrgf.dat'):
-                            cal_vrgf_file = os.path.join(aux_datadir, f)
-                            log.debug('_vrgf.dat found, %s' % cal_vrgf_file)
-                        else:
-                            pass
-                if cal_ref_file and cal_vrgf_file:
-                    if cal_ref_file.rsplit('_', 1)[0] == cal_vrgf_file.rsplit('_', 1)[0]:
-                        cal_file = cal_ref_file.rsplit('_', 1)[0]
-                    log.info('ref/vrgf.dat not found-- using calibration ref/vrgf from %s' % self.aux_file)
+                    if tarfile.is_tarfile(self.aux_file):
+                        with tarfile.open(self.aux_file) as aux_archive:
+                            log.debug('inspecting aux file: %s' % self.aux_file)
+                            aux_archive.extractall(path=temp_dirpath)
+                        aux_subdir = os.listdir(temp_dirpath)[0]
+                        aux_datadir = os.path.join(temp_dirpath, aux_subdir)
+                        for f in os.listdir(aux_datadir):
+                            if f.endswith('_ref.dat'):
+                                cal_ref_file = os.path.join(aux_datadir, f)
+                                log.debug('_ref.dat found, %s' % cal_ref_file)
+                            elif f.endswith('_vrgf.dat'):
+                                cal_vrgf_file = os.path.join(aux_datadir, f)
+                                log.debug('_vrgf.dat found, %s' % cal_vrgf_file)
+                        if cal_ref_file and cal_vrgf_file:
+                            if cal_ref_file.rsplit('_', 1)[0] == cal_vrgf_file.rsplit('_', 1)[0]:
+                                cal_file = cal_ref_file.rsplit('_', 1)[0]
+                    elif is_gzip(self.aux_file):
+                        for f in os.listdir(os.path.dirname(self.aux_file)):
+                            fname = os.path.join(os.path.dirname(self.aux_file), f)
+                            if is_gzip(fname):
+                                log.debug('uncompressing %s' % fname)
+                                newpath = uncompress(fname, temp_dirpath)
+                            if fname.endswith('_ref.dat'):
+                                cal_ref_file = os.path.join(temp_dirpath, f)
+                                os.symlink(fname, cal_ref_file)
+                                log.debug('_ref.dat found, %s' % cal_ref_file)
+                            elif fname.endswith('_vrgf.dat'):
+                                cal_vrgf_file = os.path.join(temp_dirpath, f)
+                                os.symlink(fname, cal_vrgf_file)
+                                log.debug('_vrgf.dat found, %s' % cal_vrgf_file)
+                        if cal_ref_file and cal_vrgf_file:
+                            cal_file = newpath
+                if cal_file != '':
+                    log.info('ref/vrgf.dat not found-- using calibration ref/vrgf from %s' % cal_file)
                 else:
                     raise NIMSPFileError('ref.dat/vrgf.dat not found')
 
