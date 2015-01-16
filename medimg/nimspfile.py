@@ -398,7 +398,16 @@ class NIMSPFile(medimg.MedImgReader):
         """
         filepath = filepath or self.filepath
         if tarfile.is_tarfile(filepath):
-            raise NIMSPFileError('_full_parse() expects a .7 or .7.gz')
+            log.warning('unpacking tgz to full_parse. this may take several minutes.')
+            with tempfile.TemporaryDirectory() as tempdir_path:
+                with tarfile.open(filepath) as archive:
+                    archive.extractall(path=tempdir_path)
+                subdir = os.listdir(tempdir_path)[0]
+                fpath = glob.glob(os.path.join(tempdir_path, subdir, 'P?????.7*'))[0]
+                self.version = get_version(fpath)
+                self._full_parse(fpath)
+                return
+
         log.debug('_full_parse of %s' % filepath)
         try:
             pfile = getattr(__import__('pfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
