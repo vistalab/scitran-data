@@ -1596,6 +1596,34 @@ case where there is primary and secondary data.</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="nimsdata.medimg.nimspfile.uncompress">
+<tt class="descclassname">nimsdata.medimg.nimspfile.</tt><tt class="descname">uncompress</tt><big>(</big><em>filepath</em>, <em>tempdir</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimspfile.html#uncompress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimspfile.uncompress" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uncompress a gzip file into the tempdir location.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>filepath</strong> : str</p>
+<blockquote>
+<div><p>path to gzip file to unpack</p>
+</div></blockquote>
+<p><strong>tempdir</strong> : str</p>
+<blockquote>
+<div><p>where to unzip the file to</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>newpath</strong> : str</p>
+<blockquote class="last">
+<div><p>full path to uncompressed file</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
 <dt id="nimsdata.medimg.nimspfile.unpack_uid">
 <tt class="descclassname">nimsdata.medimg.nimspfile.</tt><tt class="descname">unpack_uid</tt><big>(</big><em>uid</em><big>)</big><a class="reference internal" href="_modules/nimsdata/medimg/nimspfile.html#unpack_uid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimspfile.unpack_uid" title="Permalink to this definition">¶</a></dt>
 <dd><p>Convert packed PFile UID to standard DICOM UID.</p>
@@ -2057,6 +2085,11 @@ text or csv.  Currently, there is no such writer.</p>
 <dd></dd></dl>
 
 <dl class="attribute">
+<dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.nims_metadata_status">
+<tt class="descname">nims_metadata_status</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsbehavior.html#NIMSBehavior.nims_metadata_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.nims_metadata_status" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
 <dt id="nimsdata.medimg.nimsbehavior.NIMSBehavior.state">
 <tt class="descname">state</tt><em class="property"> = ['orig']</em><a class="headerlink" href="#nimsdata.medimg.nimsbehavior.NIMSBehavior.state" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2143,6 +2176,11 @@ to text or csv.  Currently, there is no such writer.</p>
 <dl class="attribute">
 <dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_group_id">
 <tt class="descname">nims_group_id</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_group_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_group_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_metadata_status">
+<tt class="descname">nims_metadata_status</tt><a class="reference internal" href="_modules/nimsdata/medimg/nimsgephysio.html#NIMSGEPhysio.nims_metadata_status"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#nimsdata.medimg.nimsgephysio.NIMSGEPhysio.nims_metadata_status" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
