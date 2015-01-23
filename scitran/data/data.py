@@ -283,8 +283,7 @@ def project_properties_by_type_list(type_list):
     return dict_merge([module_by_type(t).project_properties for t in type_list])
 
 
-# FIXME; make this more flexible to deal with various levels of nesting
-def get_handler(name, handlerdict):
+def get_handler(filetype, handlerdict):
     """
     Retrieve the class object of reader or writer from its string label.
 
@@ -307,54 +306,19 @@ def get_handler(name, handlerdict):
 
     """
     try:
-        # is there a more flexible way to do this? get nested attr?
-        container, mod, klass = map(str, handlerdict.get(name).split('.'))
-        handler = getattr(getattr(__import__(container, globals(), fromlist=[mod]), mod), klass)
+        mod, klass = map(str, handlerdict.get(filetype).rsplit('.', 1))
+        handler = getattr(__import__(mod, globals(), fromlist=[klass]), klass)
     except (ImportError, AttributeError):
-        raise DataError('no handler', log_level=logging.ERROR)  # XXX FAIL! unexpected no handler
+        raise DataError('no handler for filetype %s' % filetype, log_level=logging.ERROR)
     return handler
 
 
-def _parse_dataset(path, filetype, load_data, debug, **kwargs):
-    """
-    Implementation detail to reduce repeated code, called by parse().
+def get_reader(filetype):
+    return get_handler(filetype, READERS)
 
-    Main parse interface has two paths, one that inspects a json file
-    for filetype, and one that does not.
 
-    Parameters
-    ----------
-    path : str
-        path to input file
-    filetype : str
-        filetype
-    load_data : bool
-        whether or not to load all data
-    debug : bool
-        whether or not to mask exceptions
-    **kwargs : dict
-        passes **kwargs to filetype specific parsers
-
-    Returns
-    -------
-    ds : NIMSReader subclass
-        readers NIMSReader subclass of that data that could be parsed.
-    """
-    try:
-        parser = get_handler(filetype, READERS)
-        ds = parser(path, load_data, **kwargs)
-    except Exception as e:
-        if debug:
-            raise e
-        else:
-            raise DataError(e)
-    else:
-        ds.compressed = True  # v1 compat: inform scheduler to not compress
-        log.debug('parse end: %s' % str(datetime.datetime.now()))
-
-    if hasattr(ds, 'failure_reason') and ds.failure_reason:
-        log.warning('error during parsing: %s' % str(ds.failure_reason))
-    return ds
+def get_writer(filetype):
+    return get_handler(filetype, WRITERS)
 
 
 def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, **kwargs):
@@ -423,18 +387,18 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     log.debug('parse start: %s' % str(datetime.datetime.now()))
     if not os.path.exists(path):
         raise DataError('input path %s not found' % path, log_level=logging.ERROR)
-
-    if ignore_json:
-        log.debug('ignore_json = True')
-        if not filetype:
-            raise DataError('filetype must be specified if ignore_json=True', log_level=logging.ERROR)
+    if os.path.isdir(path):
+        raise DataError('directory input not implemented', log_level=logging.ERROR)
+    if os.path.isfile(path) and not tarfile.is_tarfile(path):
+        if path.endswith('.7.gz') or path.endswith('.7'):   # single P12345.7 or P12345.7.gz
+            filetype = 'pfile'
         else:
-            ds = _parse_dataset(path, filetype, load_data, debug, **kwargs)
-            return ds
+            raise DataError('non tar-files not implemented', log_level=logging.ERROR)
 
-    json_data = {}
-    if os.path.isfile(path) and tarfile.is_tarfile(path):
-        log.debug('inspecting tarfile %s for json' % path)
+    if ignore_json and not filetype:   # if ignore_json=True, filetype MUST be set
+        raise DataError('filetype must be specified if ignore_json=True')
+    if not ignore_json:  # if ignore_json=False, read json
+        log.debug('inspecting %s for json' % path)
         with tarfile.open(path) as archive:
             # TODO: explicit name check for Metadata.json or metadata.json
             # if ti.name.lower is metadata.json
@@ -445,27 +409,29 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
                     pass
                 else:
                     log.debug('json found, %s' % ti.name)
-                    if not filetype:
+                    if not filetype:  # if filetype not already specified, get from json, or raise exception
                         filetype = json_data.get('filetype')
                         log.debug('filetype from json: %s' % filetype)
                     break
             else:
-                raise DataError('expected json file that indicates filetype in tgz')
-    elif os.path.isdir(path):  # TODO: implement 'break-at-first-readable' json read for directory
-        raise DataError('directory input not implemented', log_level=logging.ERROR)
-    elif os.path.isfile(path):  # TODO: infer type
-        if path.endswith('.7.gz') or path.endswith('.7'):   # single P12345.7 or P12345.7.gz
-            filetype = 'pfile'
-        else:
-            raise DataError('non tar-files not implemented', log_level=logging.ERROR)
+                raise DataError('expected filetype to be indicated in json file')
 
-    ds = _parse_dataset(path, filetype, load_data, debug, **kwargs)
-    for key, value in json_data.get('overwrite', {}).iteritems():  # FIXME: handle NESTED information
-        setattr(ds, key, value)
+    parser = get_reader(filetype)  # at this point filetype is set, or an exception was raised
+    ds = parser(path, load_data, **kwargs)  # parser should try to always return a dataset
+    if ds.failure_reason:
+        if not debug:
+            log.warning('parse error: %s' % str(ds.failure_reason))
+        else:
+            raise ds.failure_reason
+
+    if not ignore_json:
+        for key, value in json_data.get('overwrite', {}).iteritems():  # FIXME: handle NESTED information
+            setattr(ds, key, value)
+
     return ds
 
 
-def write(metadata, imagedata, outbase, filetype, **kwargs):
+def write(metadata, data, outbase, filetype, debug=False, **kwargs):
     """
     Write the metadata, imagedata into ouput file named outbase.
 
@@ -510,16 +476,22 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
     if not filetype:
         raise DataError('filetype cannot be None')  # XXX FAIL! unexpected to get no filetype
 
+    output_list = []
     if metadata is None:
-        raise DataError('metadata cannot be None')
-    if imagedata is None:
-        raise DataError('imagedata cannot be None')
-
-    writer = get_handler(filetype, WRITERS)  # raises exception if no handler
-    output_list = writer.write(metadata, imagedata, outbase, **kwargs)  # writer checks if data is present
-
-    log.debug('write end: %s' % str(datetime.datetime.now()))
+        log.error('no metadata, cannot write')
+    elif data is None:
+        log.error('no data, cannot write')
+    else:
+        try:
+            writer = get_writer(filetype)  # raises exception if no handler
+            output_list = writer.write(metadata, data, outbase, **kwargs)  # writer checks if data is present
+        except Exception as e:
+            if not debug:
+                log.warning('WRITE ERR: %s could not be written to %s. %s' % (metadata.filepath, filetype, str(e)))
+            else:
+                raise e
     log.debug('generated: %s' % str(output_list))
+    log.debug('write end: %s' % str(datetime.datetime.now()))
     return output_list
 
 
@@ -719,7 +691,7 @@ class Writer(object):
     __metaclass__ = abc.ABCMeta
 
     @abstractclassmethod
-    def write(cls, metadata, imagedata, outbase, **kwargs):
+    def write(cls, metadata, data, outbase, **kwargs):
         """
         Write metadata and imagedata to output file outbase.
 
@@ -747,8 +719,13 @@ class Writer(object):
             metadata or data is None.
 
         """
-        if metadata is None or imagedata is None:
-            raise DataError('no metadata/data?')  # XXX FAIL! unexpected to get no data
+
+        if metadata is None:
+            log.error('no metadata, cannot write')
+            metadata.failure_reason = DataError('write error, no metadata')
+        if data is None:
+            log.error('no data, cannot write')
+            metadata.failure_reason = DataError('write error, no data')
 
 
 if __name__ == '__main__':

@@ -16,8 +16,9 @@ text or csv.  Currently, there is no such writer.
 
 """
 
+import logging
 from .. import data
-
+log = logging.getLogger(__name__)
 
 class BehaviorError(data.DataError):
     pass
@@ -31,13 +32,15 @@ class Behavior(data.Reader):
     filetype = u'behavior'
     state = ['orig']
 
-    def __init__(self, filepath):
-        raise BehaviorError('Behavior Reader class not yet implemented')
-        super(Behavior, self).__init__()
+    def __init__(self, filepath, load_data=False):
+        super(Behavior, self).__init__(filepath, load_data)
+        log.debug('behavior reader has not been implemented')
+        self.failure_reason = BehaviorError('behavior reader has not been implemented')
 
     def load_data(self):
-        raise BehaviorError('Behavior Reader class not yet implemented')
         super(Behavior, self).__init__()
+        log.debug('behavior reader has not been implemented')
+        self.failure_reason = BehaviorError('behavior reader has not been implemented')
 
     @property
     def nims_metadata_status(self):

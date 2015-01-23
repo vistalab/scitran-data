@@ -24,6 +24,8 @@ import data
 parse = data.parse
 write = data.write
 get_handler = data.get_handler
+get_reader = data.get_reader
+get_writer = data.get_writer
 dict_merge = data.dict_merge
 DataError = data.DataError
 acquisition_properties_by_type_list = data.acquisition_properties_by_type_list
