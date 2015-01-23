@@ -9,9 +9,9 @@ from numpy.testing.decorators import skipif
 import nibabel
 import dicom
 
-import data
+import scitran.data
 
-DATADIR = os.path.join(os.path.dirname(__file__), 'nimsdata_testdata')
+DATADIR = os.path.join(os.path.dirname(__file__), 'testdata')
 if not os.path.isdir(DATADIR):
     DATADIR = None
 

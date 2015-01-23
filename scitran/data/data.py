@@ -4,12 +4,12 @@
 #           Kevin S. Hahn
 
 """
-nimsdata.nimsdata
+scitran.data.data
 =================
 
-provides base classes for NIMS related exceptions and an abstract implementation of a NIMSData
-object. nimsdata.nimsdata module provides base classes for Exceptions, Readers and Writers.
-Also provides the nimsdata command line interface. The NIMSData object is meant to be subclassed
+provides base classes for scitran data related exceptions and an abstract implementation of a reader
+object. scitran.data.data module provides base classes for Exceptions, Readers and Writers.
+Also provides the scitran data command line interface. The Reader object is meant to be subclassed
 to create abstract classes for data domains (e.g. MRData) and concrete classes for domain specific
 data type (e.g. Dicom).
 
@@ -18,7 +18,7 @@ data types, such as MR Dicoms, MR Nifti, and MR PFiles, all may want to manipula
 same way.  In these cases, it may be more prudent to add an abstract base class for your data
 domain, and several seperate data type specific classes.
 
-see :doc:`extending_nimsdata` for more information on creating a new reader
+see :doc:`extending_data` for more information on creating a new reader
 subclass.
 
 """
@@ -170,7 +170,7 @@ def module_by_type(domain_kind):
 
     Raises
     ------
-    NIMSDataError
+    DataError
         Unable to import the module specified by (domain, kind) in modules.json.
 
     """
@@ -207,7 +207,7 @@ def dict_merge(a, b=None, in_place=False):
 
     Raises
     ------
-    NIMSDataError
+    DataError
         inputs were of unexpected types.  Inputs must be two dictionaries, or one list.
 
     """
@@ -297,12 +297,12 @@ def get_handler(name, handlerdict):
 
     Returns
     -------
-    handler : NIMSReader or NIMSWriter subclass
+    handler : Reader or Writer subclass
         Reader or Writer object.
 
     Raises
     ------
-    NIMSDataError
+    DataError
         The specified handler does not exist, or cannot be imported
 
     """
@@ -390,7 +390,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
         True, don't look for json file. therefore the parser cannot be read from the json, and a
         parser MUST be specfied if ignore_json is true. False, do look for json file.
     debug : bool [default False]
-        developer option, False masks all exceptions as NIMSDataError.  debug=True does not
+        developer option, False masks all exceptions as DataError.  debug=True does not
         mask exceptions.
     kwargs : dict
         keyword arguments passed to reader.
@@ -398,12 +398,12 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     Returns
     -------
     parser_class : obj
-        NIMSReader populated with data and metadata attributes. this NIMSReader object can be
+        Reader populated with data and metadata attributes. this Reader object can be
         passed to any compatible writer to complete the conversion process.
 
     Raises
     ------
-    NIMSDataError
+    DataError
         input file is of unacceptable type, or problem with combination of input parameters.
 
     Examples
@@ -412,10 +412,10 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
 
     .. code-block:: python
 
-        import nimsdata
-        ds = nimsdata.parse('dicoms.tgz', load_data=False, filetype='dicom')
+        import scitran.data as scidata
+        ds = scidata.parse('dicoms.tgz', load_data=False, filetype='dicom')
         ds.load_data()
-        nimsdata.write(ds, ds.data, outbase, filetype='nifti')
+        scidata.write(ds, ds.data, outbase, filetype='nifti')
 
     TODO: convert all in-line code EXAMPLES to using doc-string code.
 
@@ -474,7 +474,7 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
     Parameters
     ----------
     metadata : dataset object
-        dataset from nimsdata.parse.
+        dataset from scidata.parse.
     imagedata : dict
         dictionary of data with string labels as keys.
     outbase : string
@@ -491,7 +491,7 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
 
     Raises
     ------
-    NIMSDataError
+    DataError
         filetype parameters was not specified.
 
     Examples
@@ -500,10 +500,10 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
 
     .. code-block:: python
 
-        import nimsdata
-        ds = nimsdata.parse('dicoms.tgz', load_data=False, filetype='dicom')
+        import scitran.data as scidata
+        ds = scidata.parse('dicoms.tgz', load_data=False, filetype='dicom')
         ds.load_data()
-        nimsdata.write(ds, ds.data, outbase, filetype='nifti')
+        scidata.write(ds, ds.data, outbase, filetype='nifti')
 
     """
     log.debug('write start: %s' % str(datetime.datetime.now()))
@@ -526,7 +526,7 @@ def write(metadata, imagedata, outbase, filetype, **kwargs):
 class DataError(Exception):
 
     """
-    Base class for NIMS exceptions.
+    Base class for Scitran Data exceptions.
 
     Parameters
     ----------
@@ -539,7 +539,7 @@ class DataError(Exception):
     """
 
     def __init__(self, message, log_level=None):
-        """instantiate nimsdataerror exception class."""
+        """instantiate dataerror exception class."""
         super(DataError, self).__init__(message)
         if log_level is not None:
             message = '%s\n%s' % (message, traceback.format_exc())
@@ -551,8 +551,8 @@ class Reader(object):
     """
     Abstract base class that provides interfaces, and functions for readers.
 
-    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing
-    NIMSReader to create a new data reader.
+    Cannot be instantiated.  See :doc:`extending_data` for more information on subclassing
+    Reader to create a new data reader.
 
     Parameters
     ----------
@@ -711,8 +711,8 @@ class Writer(object):
     """
     Abstract base class that provides interfaces and functions for writers.
 
-    Cannot be instantiated.  See :doc:`extending_nimsdata` for more information on subclassing
-    NIMSReader to create a new data writer.
+    Cannot be instantiated.  See :doc:`extending_data` for more information on subclassing
+    Reader to create a new data writer.
 
     """
 
@@ -729,7 +729,7 @@ class Writer(object):
         Parameters
         ----------
         metadata : object
-            fully loaded instance of a NIMSReader.
+            fully loaded instance of a Reader.
         imagedata : dict
             dictionary of np.darrays. label suffix as keys, with np.darrays as values.
         outbase : str
@@ -743,7 +743,7 @@ class Writer(object):
 
         Raises
         ------
-        NIMSDataError
+        DataError
             metadata or data is None.
 
         """

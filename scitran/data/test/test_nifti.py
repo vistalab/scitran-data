@@ -10,9 +10,12 @@ from numpy.testing.decorators import skipif
 import dicom
 import nibabel
 
-testdat_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+import scitran.data as scidata
 
-import data
+
+DATADIR = os.path.join(os.path.dirname(__file__), 'testdata')
+if not os.path.isdir(DATADIR):
+    DATADIR = None
 
 
 class Test_Nifti(object):

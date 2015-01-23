@@ -1,12 +1,12 @@
 # @author:  Gunnar Schaefer
 
 """
-nimsdata.medimg.nimsgephysio
+scitran.data.medimg.gephysio
 ============================
 
 Parse and identify GE MR Physio files.
 
-nimsdata.medimg.nimsbehavior will need to be paired with a writer that is capable of outputting
+scitran.data.medimg.behavior will need to be paired with a writer that is capable of outputting
 to text or csv.  Currently, there is no such writer.
 
 """
@@ -56,7 +56,8 @@ class GEPhysio(data.Reader):
         self.metadata_status = None
 
     def load_data(self):
-        log.debug('nimsgephysio.load_data() has not been implemented yet. sorry!')
+        log.debug('gephysio.load_data() has not been implemented.')
+        self.failure_reason =-GEPhysioError('gephysio.load_data() has not been implemented.')
 
     @property
     def nims_metadata_status(self):

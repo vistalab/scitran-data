@@ -8,10 +8,11 @@ XXX
 from setuptools import setup, find_packages
 
 setup(
-    name='data',
+    name='scitran.data',
     version='0.0.1',
     packages=find_packages(),
     package_data={
-        '': ['./*.json'],
+        '': ['./scitran/data/*.json'],
     },
+    namespace_packages=['scitran'],
 )

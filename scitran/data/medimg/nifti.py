@@ -3,12 +3,12 @@
 #           Kevin S Hahn
 
 """
-nimsdata.medimg.nimsnifti
+scitran.data.medimg.nifti
 =========================
 
-NIMSNifti provide NIfti writing capabilities for MR datasets read by any subclass of NIMSMRReader.
+Nifti provide NIfti writing capabilities for MR datasets read by any subclass of MedImgReader.
 
-Provides nifti specifics, inherits from NIMSMRReader, NIMSMRWriter.
+Provides nifti specifics, inherits from MedImgReader, MedImgWriter.
 
 """
 
@@ -40,10 +40,10 @@ class NiftiError(medimg.MedImgError):
 class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
 
     """
-    Read elements of a NIMSData subclass.
+    Read elements of a MedImgReader subclass.
 
     Dataset must have a 'data' attribute that contains voxel data in a np.darray. Dataset must
-    also have contain metadata attributes to define nims required attributes.
+    also have contain metadata attributes to define required attributes.
 
     Parameters
     ----------
@@ -58,7 +58,7 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
 
     Raises
     ------
-    NIMSNiftiError
+    NiftiError
         TODO: explain plz.
 
     """
@@ -172,7 +172,7 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
         Parameters
         ----------
         metadata : object
-            fully loaded instance of a NIMSReader.
+            fully loaded instance of a MedImgReader.
         imagedata : dict
             dictionary of np.darrays. label suffix as keys, with np.darrays as values.
         outbase : str
@@ -187,7 +187,7 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
 
         Raises
         ------
-        NIMSDataError
+        DataError
             metadata or data is None.
 
         """
@@ -204,7 +204,7 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
 
             log.debug('creating nifti for %s' % data_label)
 
-            # TODO: nimsmrdata.adjust_bvecs to use affine from after reorient
+            # TODO: medimg.adjust_bvecs to use affine from after reorient
             if metadata.is_dwi and metadata.bvals is not None and metadata.bvecs is not None:
                 filepath = outbase + '.bval'
                 with open(filepath, 'w') as bvals_file:

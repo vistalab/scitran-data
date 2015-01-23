@@ -3,12 +3,12 @@
 #           Kevin S Hahn
 
 """
-nimsdata.medimg.nimsmontage
+scitran.data.medimg.montage
 ===========================
 
-NIMSMontage provides montage writing capabilities for MR datasets read by any subclass of NIMSMRReader.
+Montage provides montage writing capabilities for MR datasets read by any subclass of MedImgReader.
 
-Provides a NIMSMRWriter subclass for creating image pyramids.
+Provides a MedImgWriter subclass for creating image pyramids.
 
 """
 
@@ -251,7 +251,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
         Parameters
         ----------
         metadata : object
-            fully loaded instance of a NIMSReader.
+            fully loaded instance of a Reader.
         imagedata : dict
             dictionary of np.darrays. label suffix as keys, with np.darrays as values.
         outbase : str
@@ -272,7 +272,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
 
         Raises
         ------
-        NIMSDataError
+        DataError
             metadata or data is None.
 
         """

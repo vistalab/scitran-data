@@ -1,10 +1,10 @@
 # @author:  Kevin S. Hahn
 
 """
-nimsdata.medimg
-===============
+scitran.data.medimg
+===================
 
-The nimsdata.medimg module provides reading and writing capabilities for medical image file types.
+The sctran.data.medimg module provides reading and writing capabilities for medical image file types.
 Reading from dicoms and niftis(in-progress), and writing to niftis.
 
 Currently medimg module includes response data that is associated with medical images such as

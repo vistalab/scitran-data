@@ -8,11 +8,11 @@ from nose.plugins.attrib import attr
 from numpy.testing.decorators import skipif
 from nose.tools import ok_, eq_, raises, assert_raises
 
-import data
+import scitran.data as scidata
 
 # data is stored separately in nimsdata_testdata
 # located at the top level of the testing directory
-DATADIR = os.path.join(os.path.dirname(__file__), 'nimsdata_testdata')
+DATADIR = os.path.join(os.path.dirname(__file__), 'testdata')
 if not os.path.isdir(DATADIR):
     DATADIR = None
 
@@ -37,7 +37,7 @@ class Test_Dicom(object):
         # test 1 - keeps private tags
         # this test is rather indirect, nimsdicom uses the MetaExtractor
         # to set the dataset._hdr, testing it this way, allows re-using one of the test files
-        ds = data.parse(os.path.join(DATADIR, 'ge_dcm_mr_localizer.tgz'))
+        ds = scidata.parse(os.path.join(DATADIR, 'ge_dcm_mr_localizer.tgz'))
         ok_(ds._hdr.get('PrivateCreator_0X9_0X0'))  # try getting the first PrivateCreator, tag (0x0009,0x0000)
 
     @skipif(not DATADIR)

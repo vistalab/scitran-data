@@ -2,15 +2,15 @@
 #           Kevin S Hahn
 
 """
-nimsdata
-========
+scitran.data
+============
 
-The nimsdata package provides two main interfaces, nimsdata.parse() for reading an input file, and
-nimsdata.write() for writing to an output file.  Nimsdata can read dicoms, and GE P-files.
+The scitran data package provides two main interfaces, scitran.data.parse() for reading an input file, and
+scitran.data.write() for writing to an output file.  Scitran data can read dicoms, and GE P-files.
 Support for additional data domains and files types is being actively developed.
 
-NIMSdata provides read and write capabilities for scientific data.  It is implemented in Python,
-using pydicom, nibabel, PIL and dcmstack.  nimsdata is open source, released under the MIT License
+Scitran data provides read and write capabilities for scientific data.  It is implemented in Python,
+using pydicom, nibabel, PIL and dcmstack.  Scitran data is open source, released under the MIT License
 (see LICENSE.txt for details).
 
 Readers and Writers are associated with their labels in external json files, readers.json and

@@ -2,7 +2,7 @@
 #           Bob Dougherty
 
 """
-nimsdata.medimg.nimsbehavior
+scitran.data.medimg.behavior
 ============================
 
 Not implemented.
@@ -11,7 +11,7 @@ This will parse behavioral data that is related to medical imaging data.  This w
 parse outputs from stimulus presentation software that are commonly used in medical imaging. Such
 as outputs from Matlab, Eprime2 and PsychoPy.
 
-nimsdata.medimg.nimsbehavior will need to be paired with a writer that is capable of outputting to
+scitran.data.medimg.behavior will need to be paired with a writer that is capable of outputting to
 text or csv.  Currently, there is no such writer.
 
 """

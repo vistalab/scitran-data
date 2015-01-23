@@ -5,9 +5,9 @@ from nose.plugins.attrib import attr
 from numpy.testing.decorators import skipif
 from nose.tools import ok_, eq_, raises, assert_raises
 
-import data
+import scitran.data as scidata
 
-DATADIR = os.path.join(os.path.dirname(__file__), 'nimsdata_testdata')
+DATADIR = os.path.join(os.path.dirname(__file__), 'testdata')
 if not os.path.isdir(DATADIR):
     DATADIR = None
 

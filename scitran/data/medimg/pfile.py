@@ -4,7 +4,7 @@
 #           Kevin S Hahn
 
 """
-nimsdata.medimg.nimspfile
+scitran.data.medimg.pfile
 =========================
 
 This module provides functions, classes and errors for fully minimally parsing
@@ -31,7 +31,7 @@ import numpy as np
 
 import medimg
 import dcm.mr.ge
-import dcm.mr.generic_mr
+import dcm.mr.mr
 
 from .. import tempdir as tempfile
 
@@ -108,7 +108,7 @@ def get_version(filepath):
     """
     Determine the pfile version of the file at filepath.
 
-    An NIMSPFileError exception will be raised if the file is not a valid PFile.
+    An PFileError exception will be raised if the file is not a valid PFile.
 
     Parameters
     ----------
@@ -122,7 +122,7 @@ def get_version(filepath):
 
     Raises
     ------
-    NIMSPFileError : Exception
+    PFileError : Exception
         error if the file is not a valid PFile
 
     """
@@ -157,7 +157,7 @@ class PFile(medimg.MedImgReader):
 
     This class reads the data and/or header from a pfile, runs k-space reconstruction.
 
-    NIMSPFile object can handle several different input types
+    PFile object can handle several different input types
         - .tgz of directory containing Pfile, and supporting files such as ref.dat, vrgf.dat and tensor.dat.
         - a single pfile, either gz or uncompressed.
 
@@ -167,28 +167,28 @@ class PFile(medimg.MedImgReader):
 
     .. code:: python
 
-        import nimsdata
-        ds = nimsdata.parse('pfile.tgz', filetype='pfile', load_data=True)
+        import scitran.data as scidata
+        ds = scidata.parse('pfile.tgz', filetype='pfile', load_data=True)
         if not ds.failure_reason:
-            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
+            scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
     Some pfiles require calibration files from another scan.  This 'aux_file' can be provided
     during `__init__()`, or `load_data()`.
 
     .. code:: python
 
-        import nimsdata
-        ds = nimsdata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=True, aux_file='muxarcepi_cal.tgz')
+        import scitran.data as scidata
+        ds = scidata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=True, aux_file='muxarcepi_cal.tgz')
         if not ds.failure_reason:
-            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
+            scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
     .. code:: python
 
-        import nimsdata
-        ds = nimsdata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=False)
+        import scitran.data scidata
+        ds = scidata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=False)
         ds.load_data(aux_file='muxarcepi_cal.tgz')
         if no ds.failure_reason:
-            nimsdata.write(ds, ds.data, outbase='output_name', filetype='nifti')
+            scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
     """
 
@@ -304,14 +304,14 @@ class PFile(medimg.MedImgReader):
             sets self.scan_type
 
         """
-        dcm.mr.generic_mr.infer_scan_type(self)
+        dcm.mr.mr.infer_scan_type(self)
         log.debug('scan_type: %s' % self.scan_type)
 
     def _min_parse(self, filepath=None):
         """
         Parse the minimum sorting information from a pfile.7.
 
-        Does not work if input file is a tgz.  If NIMSPfile was init'd with a tgz input, the tgz can be
+        Does not work if input file is a tgz.  If Pfile was init'd with a tgz input, the tgz can be
         unpacked into a temporary directory, and then this function can parse the unpacked pfile.
 
         Parameters
@@ -387,7 +387,7 @@ class PFile(medimg.MedImgReader):
         Attempts to import pfile version specific parser from pfile submodule.  Full parse is
         not possible without access to the pfile submodule.
 
-        Does not work if input file is a tgz.  If NIMSPfile was init'd with a tgz input, the tgz can be
+        Does not work if input file is a tgz.  If Pfile was init'd with a tgz input, the tgz can be
         unpacked into a temporary directory, and then this function can parse the unpacked pfile.
 
         Parameters
@@ -575,12 +575,12 @@ class PFile(medimg.MedImgReader):
             else:
                 row_cosines = np.array([1., 0, 0])
                 col_cosines = np.array([0, -1., 0])
-            self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_UNKNOWN
+            self.slice_order = dcm.mr.mr.SLICE_ORDER_UNKNOWN
             # FIXME: check that this is correct.
             if self._hdr.series.se_sortorder == 0:
-                self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_SEQ_INC
+                self.slice_order = dcm.mr.mr.SLICE_ORDER_SEQ_INC
             elif self._hdr.series.se_sortorder == 1:
-                self.slice_order = dcm.mr.generic_mr.SLICE_ORDER_ALT_INC
+                self.slice_order = dcm.mr.mr.SLICE_ORDER_ALT_INC
             # header geometry is LPS, but we need RAS, so negate R and A.
             slice_norm = np.array([-self._hdr.image.norm_R, -self._hdr.image.norm_A, self._hdr.image.norm_S])
 
@@ -628,8 +628,8 @@ class PFile(medimg.MedImgReader):
             # The bvals/bvecs will get set later
             self.bvecs, self.bvals = (None, None)
             self.diff_grad_scale = self._hdr.rec.user34
-            self.image_rotation = dcm.mr.generic_mr.compute_rotation(row_cosines, col_cosines, slice_norm)
-            self.qto_xyz = dcm.mr.generic_mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
+            self.image_rotation = dcm.mr.mr.compute_rotation(row_cosines, col_cosines, slice_norm)
+            self.qto_xyz = dcm.mr.mr.build_affine(self.image_rotation, self.mm_per_vox, origin)
             self.infer_psd_type()
             self.infer_scan_type()
             log.debug((self.psd_name, self.psd_type, self.scan_type))
@@ -694,7 +694,7 @@ class PFile(medimg.MedImgReader):
                 num_nondwi = self.num_timepoints_available - self.dwi_numdirs
                 bvals = np.concatenate((np.zeros(num_nondwi, dtype=float), np.tile(self.dwi_bvalue, self.dwi_numdirs)))
                 bvecs = np.hstack((np.zeros((3, num_nondwi), dtype=float), bvecs.reshape(self.dwi_numdirs, 3).T))
-                self.bvecs, self.bvals = dcm.mr.generic_mr.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
+                self.bvecs, self.bvals = dcm.mr.mr.adjust_bvecs(bvecs, bvals, self.scanner_type, self.image_rotation)
 
     @property
     def recon_func(self):

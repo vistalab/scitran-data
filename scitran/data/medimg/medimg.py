@@ -1,8 +1,8 @@
 # @author:  Kevin S. Hahn
 
 """
-nimsdata.medimg.medimg
-======================
+scitran.data.medimg.medimg
+==========================
 
 Contains generally useful functions to parse information from a medical image, such as dicom,
 pfile, siemens raw, or nifti. Which allows all such medical images to use the same fxns to
@@ -449,7 +449,7 @@ class MedImgReader(data.Reader):
     """
     Base MR data reader class.
 
-    A NIMSMRReader object will have a few special attributes that must be defined in order
+    A MedImgReader object will have a few special attributes that must be defined in order
     to proceed to writing.
     ds.data = {'imagedata': None'}      # must have at least this, which contains the primary imagedata
 
@@ -459,7 +459,7 @@ class MedImgReader(data.Reader):
     for example, a scan that has both imagedata and fieldmap_data would define ds.data as
     `ds.data = {'imagedata': voxeldata, 'fieldmap_data': fm_voxeldata}`
 
-    NIMSMRReaders assume that multiple data values have the same metadata; the metadata applies to
+    MedImgReaders assume that multiple data values have the same metadata; the metadata applies to
     all of the included voxel arrays in ds.data.
 
     This is especially useful in cases like multicoil data, images with included B0 (fieldmap).
