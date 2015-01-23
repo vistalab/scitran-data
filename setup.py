@@ -5,10 +5,13 @@ XXX
 
 """
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
-setup(name='nimsdata',
-      packages = ['nimsdata', 'nimsdata.pfile'],
-      package_dir = {'nimsdata':'.', 'nimsdata.pfile': './pfile'},
-      package_data={'nimsdata': ['./*.py'],
-                    'nimsdata.pfile':[ './pfile/*.py']})
+setup(
+    name='data',
+    version='0.0.1',
+    packages=find_packages(),
+    package_data={
+        '': ['./*.json'],
+    },
+)

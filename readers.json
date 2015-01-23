@@ -1,7 +1,0 @@
-{
-    "dicom": "medimg.nimsdicom.NIMSDicom",
-    "gephysio": "medimg.nimsgephysio.NIMSGEPhysio",
-    "nifti": "medimg.nimsnifti.NIMSNifti",
-    "behavior": "medimg.nimsbehavior.NIMSBehavior",
-    "pfile": "medimg.nimspfile.NIMSPFile"
-}
