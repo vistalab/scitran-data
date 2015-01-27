@@ -120,11 +120,11 @@ class test_write(object):
 
     @skipif(not DATADIR)
     def test_empty_meta(self):
-        assert_raises(scidata.DataError, scidata.write, None, self.ds.data, filetype='nifti', outbase='trashme')
+        eq_(scidata.write(None, self.ds.data, filetype='nifti', outbase='trashme'), [])
 
     @skipif(not DATADIR)
     def test_empty_data(self):
-        assert_raises(scidata.DataError, scidata.write, self.ds, None, filetype='nifti', outbase='trashme')
+        eq_(scidata.write(self.ds, None, filetype='nifti', outbase='trashme'), [])
 
 # how to write tests for the abstract classes NIMSReader and NIMSWriter
 # they are non instantiable, and have no class methods that can be tested

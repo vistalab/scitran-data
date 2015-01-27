@@ -1,1 +1,2 @@
-nosetests -v --with-coverage --cover-package=nimsdata --cover-min-percentage=75
+nosetests -v --with-coverage --cover-package=scitran.data
+# --cover-min-percentage=75

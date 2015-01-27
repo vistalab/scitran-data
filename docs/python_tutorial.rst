@@ -10,35 +10,35 @@ convert dcm to nifti, do not reorient voxels
 
 .. code-block:: python
 
-    ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
+    ds = data.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     # ds, the dataset contains metadata, such as affine info
     # ds.data contains a dictionary of np arrays of pixel data
-    nimsdata.write(ds, ds.data, outpath, filetype='nifti')
+    data.write(ds, ds.data, outpath, filetype='nifti')
 
 
 convert dcm to nifti, reorient voxels to 'LAS'
 
 .. code-block:: python
 
-    ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
-    nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LAS')
+    ds = data.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
+    data.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LAS')
 
 
-convert dcm to nifti, backward compatible with nimsdata v1 (reorient to 'LPS')
+convert dcm to nifti, backward compatible with data v1 (reorient to 'LPS')
 
 .. code-block:: python
 
-    ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
-    nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+    ds = data.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
+    data.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
 
 
 convert pfile to nifti, where there is primary data, and secondary field map data
 
 .. code-block:: python
 
-    ds = nimsdata.parse(pfile_tgz, load_data=True, ignore_json=False, filetype='pfile')
+    ds = data.parse(pfile_tgz, load_data=True, ignore_json=False, filetype='pfile')
     # ds.data is {'': primary_data_array, 'fieldmap': secondary_data_array}
-    nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+    data.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
     # creates outpath.nii.gz and outpath_fieldmap.nii.gz
 
 
@@ -50,27 +50,27 @@ conditional writing
 
 .. code-block:: python
 
-    ds = nimsdata.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
+    ds = data.parse(input_tgz, load_data=True, ignore_json=False, filetype='dicom')
     if ds.is_screenshot:
         # PNG default voxel_order=LPS
-        nimsdata.write(ds, ds.data, outpath, filetype='png')
+        data.write(ds, ds.data, outpath, filetype='png')
     else:
         # Montage default voxel_order=LPS
-        nimsdata.write(ds, ds.data, outpath, filetype='montage')
+        data.write(ds, ds.data, outpath, filetype='montage')
         # Nifti default voxel_order=None
-        nimsdata.write(ds, ds.data, outpath, filetype='nifti')
+        data.write(ds, ds.data, outpath, filetype='nifti')
 
 
 .. code-block:: python
 
-    import nimsdata
+    import data
 
-    ds = nimsdata.nimsdicom.NIMSDicom(input_tgz, load_data=True)
+    ds = data.dcm.Dicom(input_tgz, load_data=True)
     if ds.is_screenshot:
         # PNG default voxel_order=LPS
-        nimsdata.write(ds, ds.data, outpath, filetype='png')
+        data.write(ds, ds.data, outpath, filetype='png')
     else:
         # Montage default voxel_order=LPS
-        nimsdata.write(ds, ds.data, outpath, filetype='montage')
+        data.write(ds, ds.data, outpath, filetype='montage')
         # Nifti default voxel_order=None
-        nimsdata.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')
+        data.write(ds, ds.data, outpath, filetype='nifti', voxel_order='LPS')

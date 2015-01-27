@@ -1,96 +1,90 @@
-nimsdata package
-----------------
+data package
+------------
 
-.. automodule:: nimsdata
+.. automodule:: scitran.data
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.nimsdata
+.. automodule:: scitran.data.data
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg
+.. automodule:: scitran.data.medimg
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.medimg
+.. automodule:: scitran.data.medimg.medimg
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.nimsdicom
+.. automodule:: scitran.data.medimg.dcm
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.dcm
+.. automodule:: scitran.data.medimg.dcm.mr
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.dcm.mr
+.. automodule:: scitran.data.medimg.dcm.sc
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.dcm.sc
+.. automodule:: scitran.data.medimg.dcm.enhanced_sr
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.dcm.enhanced_sr
+.. automodule:: scitran.data.medimg.dcm.syngo_csa
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.dcm.syngo_csa
+.. automodule:: scitran.data.medimg.pfile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+.. automodule:: scitran.data.medimg.nifti
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.nimspfile
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: nimsdata.medimg.nimsnifti
+.. automodule:: scitran.data.medimg.png
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.nimspng
+.. automodule:: scitran.data.medimg.montage
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.nimsmontage
+.. automodule:: scitran.data.medimg.behavior
     :members:
     :undoc-members:
     :show-inheritance:
 
 
-.. automodule:: nimsdata.medimg.nimsbehavior
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-.. automodule:: nimsdata.medimg.nimsgephysio
+.. automodule:: scitran.data.medimg.gephysio
     :members:
     :undoc-members:
     :show-inheritance:
