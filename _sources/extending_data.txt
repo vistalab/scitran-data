@@ -1,15 +1,15 @@
-Extending NIMSData
-==================
+Extending Data
+==============
 
 Support for additional varieties of data can be added by creating additional parsers and writers.  New parsers and
-writers can be subclassed from the base nimsdata.NIMSReader and nimsdata.NIMSWriter, or from domain specific
-base classes, such as nimsdata.medimg.MedImgReader and nimsdata.medimg.MedImgWriter.
+writers can be subclassed from the base data.Reader and data.Writer, or from domain specific
+base classes, such as data.medimg.MedImgReader and data.medimg.MedImgWriter.
 
 
-NIMSdata input file format
---------------------------
+data input file format
+----------------------
 
-The standard NIMSdata format is a .tar.gz/.tgz file.  The input .tar.gz/.tgz should contain metadata.json, and a
+The standard data format is a .tar.gz/.tgz file.  The input .tar.gz/.tgz should contain metadata.json, and a
 dataset. The json file, metadata.json, should be the first regular file in the archive. The metadata.json file should contain
 at least one section sections, 'filetype', and may contain two additional sections, 'header' and 'overwrite'. Filetype
 will be used to match the input file to it's parser. The header section is used to define any metadata that is not naturally
@@ -34,12 +34,12 @@ overwrite any metadata that is contained in the data, or in the header section o
     }
 
 
-Creating a new NIMSReader
-----------------------------
+Creating a new Reader
+---------------------
 
-The nimsdata.NIMSReader base class can be subclassed to created additional data readers.
+The data.Reader base class can be subclassed to created additional data readers.
 
-A subclass of nimsdata.NIMSReader must implement the following:
+A subclass of data.Reader must implement the following:
 
     - __init__ method:
 
@@ -49,7 +49,7 @@ A subclass of nimsdata.NIMSReader must implement the following:
       inputs have been read in.  __init__ should implement opening the tar archive, and streaming the first file into
       a StringIO/ByteIO/cStringIO file like object in self._hdr.  __init__ should also parse necessary sorting
       information.  __init__ should also be capable of assigning an unique ID to the file, some files may already have
-      unique IDs that can be used as the nims unique ID.
+      unique IDs that can be used as the unique ID.
 
       __init__ should invoke the parent class's __init__.
 
@@ -78,14 +78,14 @@ A subclass of nimsdata.NIMSReader must implement the following:
 
 
 
-Creating a custom NIMSWriter
-----------------------------
-The nimsdata.NIMSWriter base class can be subclasses to create additional data readers.  New writer classes
+Creating a custom Writer
+------------------------
+The data.Writer base class can be subclasses to create additional data readers.  New writer classes
 should inherit from an abstract class whose implementation of write does not write to a file.  This is to
 avoid accidentally writing a file by using `super`. Thus if you need to create multiple writers that share
 a common setup, it is recommended to create an abstract base class to inherit from.
 
-A subclass of nimsdata.NIMSWriter must implement the following:
+A subclass of data.Writer must implement the following:
 
     - write classmethod:
 
@@ -93,7 +93,7 @@ A subclass of nimsdata.NIMSWriter must implement the following:
 
 Other considerations:
 
-    - NIMSWriter appends its own file extension.  It should accept a basename, without extention.
+    - Writer appends its own file extension.  It should accept a basename, without extention.
 
 
 Creating a data domain
@@ -103,9 +103,8 @@ Readers and Writers can be grouped together based on their data domain.  A domai
 neuro-imaging or genetics.  Readers and writers in the same domain should have an intermediate format that allows "mix-and-matching"
 of readers and writers within a domain.
 
-Creating a new data domain involves sublcasses NIMSReader and NIMSWriter into new abstract base classes that define
+Creating a new data domain involves sublcasses Reader and Writer into new abstract base classes that define
 additional properties, metadata and methods that will be shared within that data domain.
 
-see nimsdata.medimg.medimg for an example of defining a data domain (domain is medical images).
-See nimsdata.medimg.nimsdicom for an example of creating a specific reader for a daomain (read dicoms, within medical image domain).
-
+see data.medimg.medimg for an example of defining a data domain (domain is medical images).
+See data.medimg.dicom for an example of creating a specific reader for a daomain (read dicoms, within medical image domain).

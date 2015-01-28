@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>NIMSData &mdash; NIMSData  documentation</title>
+    <title>Scitran Data &mdash; Scitran Data alpha documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '',
+        VERSION:     'alpha',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,9 +23,9 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="NIMSData  documentation" href="index.html" />
+    <link rel="top" title="Scitran Data alpha documentation" href="index.html" />
     <link rel="next" title="CLI Tutorial" href="cli_tutorial.html" />
-    <link rel="prev" title="Welcome to NIMSData documentation!" href="index.html" /> 
+    <link rel="prev" title="Welcome to Scitran Data documentation!" href="index.html" /> 
   </head>
   <body>
     <div class="related">
@@ -35,15 +35,12 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
           <a href="cli_tutorial.html" title="CLI Tutorial"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Welcome to NIMSData documentation!"
+          <a href="index.html" title="Welcome to Scitran Data documentation!"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+        <li><a href="index.html">Scitran Data alpha documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -52,8 +49,10 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="nimsdata-travis-badge">
-<h1>NIMSData <a class="reference external" href="https://travis-ci.org/scitran/nimsdata"><img alt="travis_badge" src="https://travis-ci.org/scitran/nimsdata.svg?branch=master" /></a><a class="headerlink" href="#nimsdata-travis-badge" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="scitran-data-travis-badge">
+<h1>Scitran Data <a class="reference external" href="https://travis-ci.org/scitran/data"><img alt="travis_badge" src="https://travis-ci.org/scitran/data.svg?branch=ksh-dataio" /></a><a class="headerlink" href="#scitran-data-travis-badge" title="Permalink to this headline">¶</a></h1>
+<p><strong>TODO</strong> put some sort of warning that upgrading from this package BREAKS WORLDS, and does
+not replace nimsdata, rather scitran.data will install along side.</p>
 <p>Data handling utilities.</p>
 <p>Provides class and functions for parsing, identifying and writing scientific datasets. Currently,
 medical images (such as various flavors of MRI, dicoms, niftis, and some raw-files) are supported.</p>
@@ -63,7 +62,7 @@ instance to use them. E.g., you can run our image reconstruction pipeline.</p>
 <div class="section" id="how-to-use-the-documentation">
 <h2>How to use the documentation<a class="headerlink" href="#how-to-use-the-documentation" title="Permalink to this headline">¶</a></h2>
 <p>Documentation is available as docstrings provided within the code, and
-<a class="reference external" href="https://scitran.github.io/nimsdata">additional narrative documentation</a>.</p>
+<a class="reference external" href="https://scitran.github.io/data">additional narrative documentation</a>.</p>
 </div>
 <div class="section" id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
@@ -120,8 +119,8 @@ sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 <ul class="simple">
 <li>create and activate virtualenv</li>
 </ul>
-<div class="code bash highlight-python"><div class="highlight"><pre>virtualenv nimsdata_env
-source nimsdata_env/bin/bin/activate
+<div class="code bash highlight-python"><div class="highlight"><pre>virtualenv data_env
+source data_env/bin/bin/activate
 </pre></div>
 </div>
 <ul class="simple">
@@ -137,43 +136,44 @@ pip install pymongo
 </pre></div>
 </div>
 <ul class="simple">
-<li>clone nimsdata from github</li>
+<li>install scitran data from github</li>
 </ul>
-<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github.com/scitran/nimsdata.git nimsdata
-</pre></div>
-</div>
-<ul class="simple">
-<li>add the directory containing the nimsdata repository to the front of the PYTHONPATH, this can be done
-by hacking the virtualenv easy-install.pth, or setting the PYTHONPATH bash environment variable. (TODO:
-create <cite>setup.py</cite>).  If nimsdata is cloned into <cite>/var/local</cite>, then <cite>export PYTHONPATH=/var/local</cite>.</li>
-</ul>
-<div class="code bash highlight-python"><div class="highlight"><pre>export PYTHONPATH=/directory/above_nimsdata/
+<div class="code bash highlight-python"><div class="highlight"><pre>pip install git+https://github.com/scitran/data.git
 </pre></div>
 </div>
 </div>
 <div class="section" id="basic-conversion">
 <h2>Basic Conversion<a class="headerlink" href="#basic-conversion" title="Permalink to this headline">¶</a></h2>
-<p>The software consists of the python package, <em>nimsdata</em>, with a single command line interface
-<cite>nimsdata.py</cite>.</p>
+<p>The software consists of the python package, <em>scitran.data</em>, with a single command line interface
+<cite>data.py</cite>.</p>
 <p>NIMSData has a semi-standard input filetype, a tgz, that contains raw data and a json that
 indicates the raw data filetype, header data, and metadata corrections.</p>
-<p><cite>nimsdata.py</cite> expects at least 3 options, <em>&lt;input.tgz&gt;</em>, <em>&#8211;parser &lt;filetype&gt;</em>, <em>&#8211;writer &lt;filetype&gt;</em>.</p>
+<p><cite>data.py</cite> expects at least 3 options, <em>&lt;input.tgz&gt;</em>, <em>&#8211;parser &lt;filetype&gt;</em>, <em>&#8211;writer &lt;filetype&gt;</em>.</p>
 <p>The following shell command will take the <em>dicom</em> input <em>input.tgz</em> and convert it to nifti, <em>outprefix.nii.gz</em>.</p>
-<div class="highlight-sh"><div class="highlight"><pre>nimsdata.py -p dicom input.tgz -w nifti outprefix.nii.gz
+<div class="highlight-sh"><div class="highlight"><pre>data.py -p dicom input.tgz -w nifti outprefix.nii.gz
 </pre></div>
 </div>
 <p>And the equivelant command in python.</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">nimsdata</span>
-<span class="n">ds</span> <span class="o">=</span> <span class="n">nimsdata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;/path/to/input.gz&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">scitran.data</span> <span class="kn">as</span> <span class="nn">scidata</span>
+<span class="n">ds</span> <span class="o">=</span> <span class="n">scidata</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s">&#39;/path/to/input.gz&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;dicom&#39;</span><span class="p">)</span>
 <span class="n">ds</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
-<span class="n">nimsdata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">&#39;outprefix&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
+<span class="n">scidata</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s">&#39;outprefix&#39;</span><span class="p">,</span> <span class="n">filetype</span><span class="o">=</span><span class="s">&#39;nifti&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>For more information on using NIMSData in bash, see <a class="reference external" href="https://scitran.github.io/cli_tutorial.html">CLI tutorial</a>.</p>
-<p>For more information on using NIMSData in python see <a class="reference external" href="https://scitran.github.io/nimsdata/python_tutorial.html">Python tutorial</a>.</p>
+<p>For more information on using Scitran Data in bash, see <a class="reference external" href="https://scitran.github.io/cli_tutorial.html">CLI tutorial</a>.</p>
+<p>For more information on using Scitran Data in python see <a class="reference external" href="https://scitran.github.io/nimsdata/python_tutorial.html">Python tutorial</a>.</p>
 </div>
 <div class="section" id="developer-notes">
 <h2>Developer Notes<a class="headerlink" href="#developer-notes" title="Permalink to this headline">¶</a></h2>
+<p>To install scitran data from github in &#8216;editable mode&#8217;, in a directory of your choosing, provide the <cite>-e</cite> and
+<cite>&#8211;src &lt;destination&gt;</cite> arguments.</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>pip install -e git+https://github.com/scitran/data.git#egg=scitran.data --src ./
+</pre></div>
+</div>
+<p>to run tests locally, you will need coverage and nose</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>pip install coverage nose
+</pre></div>
+</div>
 <p>To generate the docs locally, you will need sphinx, and numpydoc.</p>
 <div class="code bash highlight-python"><div class="highlight"><pre>pip install sphinx numpydoc
 </pre></div>
@@ -190,8 +190,8 @@ git config filter.brancher.clean &quot;./git_branch_filter.py clean&quot;
 <p>Combined with .gitattributes, the smudge and clean filters will replace &#8216;branch=__BRANCH__&#8217; to indicate
 the current branch.</p>
 <p>Testdata is not distributed with this package.  Downloading/cloning the testdata is necessary
-to run tests locally.  clone the <cite>nimsdata_testdata</cite> repository into <cite>nimsdata/test/nimsdata_testdata</cite>.</p>
-<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github/com/scitran/nimsdata_testdata.git nimsdata/test/nimsdata_testdata
+to run tests locally.  clone the <cite>testdata</cite> repository into <cite>scitran/data/test/testdata</cite>.</p>
+<div class="code bash highlight-python"><div class="highlight"><pre>git clone https://github/com/scitran/testdata.git &lt;path to clone of scitran-data&gt;/scitran/data/test/testdata
 </pre></div>
 </div>
 </div>
@@ -205,7 +205,7 @@ to run tests locally.  clone the <cite>nimsdata_testdata</cite> repository into 
         <div class="sphinxsidebarwrapper">
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">NIMSData </a><ul>
+<li><a class="reference internal" href="#">Scitran Data </a><ul>
 <li><a class="reference internal" href="#how-to-use-the-documentation">How to use the documentation</a></li>
 <li><a class="reference internal" href="#dependencies">Dependencies</a></li>
 <li><a class="reference internal" href="#installation-on-fresh-ubuntu-14-04">installation on fresh ubuntu 14.04</a></li>
@@ -217,7 +217,7 @@ to run tests locally.  clone the <cite>nimsdata_testdata</cite> repository into 
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="index.html"
-                        title="previous chapter">Welcome to NIMSData documentation!</a></p>
+                        title="previous chapter">Welcome to Scitran Data documentation!</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="cli_tutorial.html"
                         title="next chapter">CLI Tutorial</a></p>
@@ -250,19 +250,16 @@ to run tests locally.  clone the <cite>nimsdata_testdata</cite> repository into 
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li class="right" >
           <a href="cli_tutorial.html" title="CLI Tutorial"
              >next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Welcome to NIMSData documentation!"
+          <a href="index.html" title="Welcome to Scitran Data documentation!"
              >previous</a> |</li>
-        <li><a href="index.html">NIMSData  documentation</a> &raquo;</li> 
+        <li><a href="index.html">Scitran Data alpha documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
-        &copy; Copyright 2014, Author.
+        &copy; Copyright 2014, The Board of Trustees of the Leland Stanford Junior University.
       Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
   </body>

@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to NIMSData documentation!
-==================================
+Welcome to Scitran Data documentation!
+======================================
 
 Contents:
 
@@ -15,7 +15,7 @@ Contents:
    cli_tutorial
    python_tutorial
    api_documentation
-   extending_nimsdata
+   extending_data
 
 
 Indices and tables
