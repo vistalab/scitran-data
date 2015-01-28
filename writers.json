@@ -1,5 +1,0 @@
-{
-    "montage": "medimg.nimsmontage.NIMSMontage",
-    "png": "medimg.nimspng.NIMSPNG",
-    "nifti": "medimg.nimsnifti.NIMSNifti"
-}

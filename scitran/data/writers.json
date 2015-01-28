@@ -1,0 +1,5 @@
+{
+    "montage": "medimg.montage.Montage",
+    "png": "medimg.png.PNG",
+    "nifti": "medimg.nifti.Nifti"
+}

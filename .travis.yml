@@ -19,12 +19,12 @@ install:
     - pip install git+https://github.com/nipy/nibabel.git
     - pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
     - pip install git+https://github.com/moloney/dcmstack.git
-    
+
 before_script:
-    - git clone http://github.com/scitran/nimsdata_testdata ${TRAVIS_BUILD_DIR}/test/nimsdata_testdata
+    - git clone http://github.com/scitran/testdata ${TRAVIS_BUILD_DIR}/test/testdata
 
 script:
-    - nosetests --with-doctest --with-coverage --cover-package=nimsdata
+    - nosetests --with-doctest --with-coverage --cover-package=scitran.data
 
 after_success:
     - cd docs && make html && mv _build/html /tmp/html

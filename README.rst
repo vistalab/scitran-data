@@ -1,8 +1,11 @@
-NIMSData |travis_badge|
-=======================
+Scitran Data |travis_badge|
+===========================
 
-.. |travis_badge| image:: https://travis-ci.org/scitran/nimsdata.svg?branch=master
-    :target: https://travis-ci.org/scitran/nimsdata
+.. |travis_badge| image:: https://travis-ci.org/scitran/data.svg?branch=ksh-dataio
+    :target: https://travis-ci.org/scitran/data
+
+**TODO** put some sort of warning that upgrading from this package BREAKS WORLDS, and does
+not replace nimsdata, rather scitran.data will install along side.
 
 Data handling utilities.
 
@@ -18,7 +21,7 @@ instance to use them. E.g., you can run our image reconstruction pipeline.
 How to use the documentation
 ----------------------------
 Documentation is available as docstrings provided within the code, and
-`additional narrative documentation <https://scitran.github.io/nimsdata>`_.
+`additional narrative documentation <https://scitran.github.io/data>`_.
 
 
 Dependencies
@@ -56,8 +59,8 @@ installation on fresh ubuntu 14.04
 
 .. code:: bash
 
-    virtualenv nimsdata_env
-    source nimsdata_env/bin/bin/activate
+    virtualenv data_env
+    source data_env/bin/bin/activate
 
 - install dependencies, these are VERY specific version. once these versions are available
   through pypi, these installation commands will change.  (subject to change)
@@ -71,55 +74,60 @@ installation on fresh ubuntu 14.04
     pip install pillow
     pip install pymongo
 
-- clone nimsdata from github
+- install scitran data from github
 
 .. code:: bash
 
-    git clone https://github.com/scitran/nimsdata.git nimsdata
-
-- add the directory containing the nimsdata repository to the front of the PYTHONPATH, this can be done
-  by hacking the virtualenv easy-install.pth, or setting the PYTHONPATH bash environment variable. (TODO:
-  create `setup.py`).  If nimsdata is cloned into `/var/local`, then `export PYTHONPATH=/var/local`.
-
-.. code:: bash
-
-    export PYTHONPATH=/directory/above_nimsdata/
+    pip install git+https://github.com/scitran/data.git
 
 
 Basic Conversion
 ----------------
-The software consists of the python package, *nimsdata*, with a single command line interface
-`nimsdata.py`.
+The software consists of the python package, *scitran.data*, with a single command line interface
+`data.py`.
 
 NIMSData has a semi-standard input filetype, a tgz, that contains raw data and a json that
 indicates the raw data filetype, header data, and metadata corrections.
 
-`nimsdata.py` expects at least 3 options, *<input.tgz>*, *--parser <filetype>*, *--writer <filetype>*.
+`data.py` expects at least 3 options, *<input.tgz>*, *--parser <filetype>*, *--writer <filetype>*.
 
 The following shell command will take the *dicom* input *input.tgz* and convert it to nifti, *outprefix.nii.gz*.
 
 .. code-block:: sh
 
-    nimsdata.py -p dicom input.tgz -w nifti outprefix.nii.gz
+    data.py -p dicom input.tgz -w nifti outprefix.nii.gz
 
 
 And the equivelant command in python.
 
 .. code-block:: python
 
-    import nimsdata
-    ds = nimsdata.parse('/path/to/input.gz', filetype='dicom')
+    import scitran.data as scidata
+    ds = scidata.parse('/path/to/input.gz', filetype='dicom')
     ds.load_data()
-    nimsdata.write(ds, ds.data, 'outprefix', filetype='nifti')
+    scidata.write(ds, ds.data, 'outprefix', filetype='nifti')
 
 
-For more information on using NIMSData in bash, see `CLI tutorial <https://scitran.github.io/cli_tutorial.html>`_.
+For more information on using Scitran Data in bash, see `CLI tutorial <https://scitran.github.io/cli_tutorial.html>`_.
 
-For more information on using NIMSData in python see `Python tutorial <https://scitran.github.io/nimsdata/python_tutorial.html>`_.
+For more information on using Scitran Data in python see `Python tutorial <https://scitran.github.io/nimsdata/python_tutorial.html>`_.
 
 
 Developer Notes
 ---------------
+
+To install scitran data from github in 'editable mode', in a directory of your choosing, provide the `-e` and
+`--src <destination>` arguments.
+
+.. code:: bash
+
+    pip install -e git+https://github.com/scitran/data.git#egg=scitran.data --src ./
+
+to run tests locally, you will need coverage and nose
+
+.. code:: bash
+
+    pip install coverage nose
 
 To generate the docs locally, you will need sphinx, and numpydoc.
 
@@ -145,8 +153,8 @@ the current branch.
 
 
 Testdata is not distributed with this package.  Downloading/cloning the testdata is necessary
-to run tests locally.  clone the `nimsdata_testdata` repository into `nimsdata/test/nimsdata_testdata`.
+to run tests locally.  clone the `testdata` repository into `scitran/data/test/testdata`.
 
 .. code:: bash
 
-    git clone https://github/com/scitran/nimsdata_testdata.git nimsdata/test/nimsdata_testdata
+    git clone https://github/com/scitran/testdata.git <path to clone of scitran-data>/scitran/data/test/testdata
