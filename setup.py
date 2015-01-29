@@ -12,7 +12,7 @@ setup(
     version='0.0.1',
     packages=find_packages(),
     package_data={
-        '': ['./scitran/data/*.json'],
+        'scitran': ['data/*.json'],
     },
     namespace_packages=['scitran'],
 )
