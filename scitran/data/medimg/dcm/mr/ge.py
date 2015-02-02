@@ -172,14 +172,21 @@ def parse_all(self):
         self.bvals = np.array([float(self.getelem(d, TAG_BVALUE)[0]) for d in self._dcm_list[0::self.num_slices]])
         self.bvecs = np.array([[self.getelem(d, TAG_BVEC[i], float) for i in range(3)] for d in self._dcm_list[0::self.num_slices]]).transpose()
 
+    # TODO separatation of concern; identification vs dicom grouping
     recon_mode_flag = np.unique([self.getelem(d, TAG_RECON_FLAG, int, 0) for d in self._dcm_list])
-    log.debug('recon mode flag word: %s' % (recon_mode_flag))
     if recon_mode_flag == [1] and self.psd_type not in ['fieldmap']:
-        log.debug('attempting to guess multicoil groupings')
-        self.is_multicoil = True
-        self.num_receivers = (self.total_num_slices / self.num_slices) - 1   # actual #recv = -1 of num volumes
-        self._dcm_groups = [self._dcm_list[x::self.num_receivers + 1] for x in xrange(0, self.num_receivers + 1)]
-        log.debug('groups: %3d; %3d coils + 1 combined' % (len(self._dcm_groups), self.num_receivers))
+        log.debug('recon_mode: 1, might be multicoil')
+        vol_counter = 0
+        ref_position = self.getelem(self._hdr, 'ImagePositionPatient')
+        for d in self._dcm_list:
+            if np.allclose(self.getelem(d, 'ImagePositionPatient'), ref_position):
+                vol_counter += 1
+        log.debug('found %d volumes; expected %d' % (vol_counter, (self.num_timepoints or 1) * (self.num_echos or 1)))
+        if vol_counter > (self.num_timepoints or 1) * (self.num_echos or 1):
+            self.is_multicoil = True
+            self.num_receivers = (self.total_num_slices / self.num_slices) - 1   # actual #recv = -1 of num volumes
+            self._dcm_groups = [self._dcm_list[x::self.num_receivers + 1] for x in xrange(0, self.num_receivers + 1)]
+            log.debug('groups: %3d; %3d coils + 1 combined' % (len(self._dcm_groups), self.num_receivers))
 
     # attempt to calculate trigger times and slice duration, if the first dicom reports trigger time
     self.slice_duration = None
