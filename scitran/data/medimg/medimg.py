@@ -541,7 +541,7 @@ class MedImgReader(data.Reader):
     @property
     def nims_file_name(self):
         if self.acquisition_id:  # as in pfile json header
-            return self.acquisition_id
+            return self.acquisition_id + '_' + self.filetype
         return self.series_uid + ('_' + str(self.acq_no) if self.acq_no is not None else '') + '_' + self.filetype
 
     @property
