@@ -262,6 +262,8 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
                 nii_header['descrip'] = str(nii_header['descrip']) + 'rs=%.1f' % (1. / slice_encode_undersample)
             if metadata.phase_encode_direction != None:
                 nii_header['descrip'] = str(nii_header['descrip']) + 'pe=%d' % (metadata.phase_encode_direction)
+            if metadata.is_fastcard:
+                nii_header['descrip'] = str(nii_header['descrip']) + 've=%f' % (metadata.velocity_encode_scale) or 0.
 
             nii_header['pixdim'][4] = metadata.tr   # XXX pixdim[4] = TR, even when non-timeseries. not nifti compliant
 

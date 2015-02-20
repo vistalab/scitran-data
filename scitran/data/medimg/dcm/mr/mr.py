@@ -312,6 +312,8 @@ def parse_standard_mr_tags(self):
     self.is_multiecho = None  # GE only, for now
     self.is_multicoil = None  # GE only
     self.is_non_image = None                            # does this ever still happen?
+    self.is_fastcard = None   # GE only?
+    self.velocity_encode_scale = None  # only used if fastcard
     self.mt_offset_hz = None                            # XXX: expected by nimsnifti from ALL mr dicoms. is GE specific
 
 

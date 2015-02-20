@@ -207,8 +207,44 @@ def parse_all(self):
             self.slice_duration = trigger_times[0]
             self.slice_order = mr.SLICE_ORDER_SEQ_INC
 
+    # identify fastcard by looking at number of cardiac images as timepoints, with 5 dicoms per slice
+    cardiac_images = self.getelem(self._hdr, 'CardiacNumberOfImages', int, 0)
+    if self.total_num_slices == (cardiac_images * self.num_slices * 5):  # fastcard: 5 value per temporal X spatial location
+        self.num_timepoints = cardiac_images
+        self.is_fastcard = True
+        self.velocity_encode_scale = self.getelem(self._hdr, 'VelocityEncodeScale', float)
+
     log.debug(self.psd_name)
     log.debug(self.psd_type)
+
+def fastcard_convert(self):
+    """GE fast card conversion."""
+    log.debug('fast card')
+    stacks = []
+    group_id = 0
+    def _split_list(l, size):
+        return [l[i:i+size] for i in range(0, len(l), size)]
+    dcm_groups = _split_list(self._dcm_list, self.total_num_slices / 5)
+
+    for group in dcm_groups:
+        group_id += 1
+        num_positions = len(set([d.SliceLocation for d in group]))
+        if num_positions != self.num_slices:
+            raise DicomError('volume %s has %s unique positions; expected %s' % (group_id, num_positions, self.num_slices))
+        stack = dcmstack.DicomStack()
+        for d in group:
+            meta = MetaExtractor(d)
+            stack.add_dcm(d, meta)
+        nii_wrp = stack.to_nifti_wrapper()
+        stacks.append(nii_wrp)
+    try:
+        nii_wrp = dcmstack.dcmmeta.NiftiWrapper.from_sequence(stacks)
+    except dcmstack.InvalidStackError as e:
+        raise DicomError('cannot reconstruct %s: %s' % (self.filepath, str(e)))
+    nii = nii_wrp.nii_img
+    self.data = {'': nii.get_data()}
+    self.qto_xyz = nii.get_affine()
+    mr.post_convert(self)
 
 def multicoil_convert(self):
     """GE specific multicoil converesion. requires partial volume and missing slices check."""
@@ -255,5 +291,7 @@ def convert(self):
         mr.localizer_convert(self)
     elif self.is_multicoil:
         multicoil_convert(self)
+    elif self.is_fastcard:
+        fastcard_convert(self)
     else:
         mr.standard_convert(self)
