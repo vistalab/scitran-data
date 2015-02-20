@@ -556,6 +556,7 @@ class Reader(object):
         self.filepath = os.path.abspath(path)
         self.data = None
         self.metadata_status = 'empty'
+        self.failure_reason = None
 
     @abc.abstractmethod
     def load_data(self):

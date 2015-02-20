@@ -27,3 +27,7 @@ Dicom = dcm.Dicom
 DicomError = dcm.DicomError
 MAX_LOC_DCMS = dcm.MAX_LOC_DCMS
 MetaExtractor = dcm.MetaExtractor
+timestamp = dcm.timestamp
+parse_patient_name = dcm.parse_patient_name
+parse_patient_id = dcm.parse_patient_id
+parse_patient_dob = dcm.parse_patient_dob

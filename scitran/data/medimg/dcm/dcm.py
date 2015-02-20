@@ -23,8 +23,14 @@ import dcmstack.extract
 import nibabel.nicom.csareader
 
 from .. import medimg
+parse_patient_name = medimg.parse_patient_name
+parse_patient_id = medimg.parse_patient_id
+parse_patient_dob = medimg.parse_patient_dob
 
 log = logging.getLogger(__name__)
+
+def timestamp(date, time):
+    return date and time and datetime.datetime.strptime(date + time[:6], '%Y%m%d%H%M%S')
 
 
 dicom.config.auto_convert_VR_mismatch = True
@@ -278,17 +284,17 @@ class Dicom(medimg.MedImgReader):
         self.series_no = self.getelem(self._hdr, 'SeriesNumber', int)
         self.series_desc = self.getelem(self._hdr, 'SeriesDescription')
         self.series_uid = self.getelem(self._hdr, 'SeriesInstanceUID')
-        self.subj_code, self.group_name, self.project_name = medimg.parse_patient_id(self.patient_id, 'ex' + self.exam_no)
+        self.subj_code, self.group_name, self.project_name = parse_patient_id(self.patient_id, 'ex' + self.exam_no)
         self.acq_no = self.getelem(self._hdr, 'AcquisitionNumber', int, 1)  # wrong for siemens dicom, until load_data
         self.study_date = self.getelem(self._hdr, 'StudyDate')
         self.study_time = self.getelem(self._hdr, 'StudyTime')
         self.acq_date = self.getelem(self._hdr, 'AcquisitionDate')
         self.acq_time = self.getelem(self._hdr, 'AcquisitionTime')
-        self.study_datetime = self.study_date and self.study_time and datetime.datetime.strptime(self.study_date + self.study_time[:6], '%Y%m%d%H%M%S')
-        self.acq_datetime = self.acq_date and self.acq_time and datetime.datetime.strptime(self.acq_date + self.acq_time[:6], '%Y%m%d%H%M%S')
+        self.study_datetime = timestamp(self.study_date, self.study_time)
+        self.acq_datetime = timestamp(self.acq_date, self.acq_time)
         self.timestamp = self.acq_datetime or self.study_datetime
-        self.subj_firstname, self.subj_lastname = medimg.parse_patient_name(self.getelem(self._hdr, 'PatientName'))
-        self.subj_dob = medimg.parse_patient_dob(self.getelem(self._hdr, 'PatientBirthDate', str))
+        self.subj_firstname, self.subj_lastname = parse_patient_name(self.getelem(self._hdr, 'PatientName', default=''))
+        self.subj_dob = parse_patient_dob(self.getelem(self._hdr, 'PatientBirthDate', str))
         self.subj_sex = {'M': 'male', 'F': 'female'}.get(self.getelem(self._hdr, 'PatientSex'))
         self.scanner_name = '%s %s'.strip() % (
                 self.getelem(self._hdr, 'InstitutionName', None, ''),

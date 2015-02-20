@@ -397,20 +397,11 @@ def parse_patient_name(name):
         last name parsed from name
 
     """
-    firstname = lastname = None
-    if name:
-        name = name.strip()
-        if '^' in name:
-            lastname, firstname = name.split('^', 1)
-        elif ' ' in name:
-            firstname, lastname = name.rsplit(None, 1)
-        else:
-            firstname, lastname = ('', name)
-        firstname = firstname.title()
-        lastname = lastname.title()
-
-    log.debug([firstname, lastname])
-    return firstname, lastname
+    if '^' in name:
+        lastname, _, firstname = name.partition('^')
+    else:
+        firstname, _, lastname = name.rpartition(' ')
+    return firstname.strip().title(), lastname.strip().title()
 
 
 def parse_patient_dob(dob):
