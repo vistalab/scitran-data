@@ -213,6 +213,7 @@ def parse_all(self):
         self.num_timepoints = cardiac_images
         self.is_fastcard = True
         self.velocity_encode_scale = self.getelem(self._hdr, 'VelocityEncodeScale', float)
+        self.velocity_encoding = self.getelem(self._hdr, 'VelocityEncoding', int)
 
     log.debug(self.psd_name)
     log.debug(self.psd_type)
