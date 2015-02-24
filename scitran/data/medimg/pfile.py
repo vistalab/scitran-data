@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# @author:  Gunnar Schaefer
+# @author:  Bob Dougherty
+#           Gunnar Schaefer
 #           Kevin S Hahn
 
 """
