@@ -32,13 +32,13 @@ import tarfile
 import warnings
 import datetime
 import traceback
-import bson.json_util
+
+import util
 
 
 log = logging.getLogger(__name__)
 warnings.simplefilter('ignore', FutureWarning)
 
-# note: readers/writers.json will never contain datetime, or objects that require bson.json_util
 READERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readers.json')))
 WRITERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'writers.json')))
 MODULES = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'modules.json')))
@@ -404,7 +404,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
             # if ti.name.lower is metadata.json
             for ti in archive:
                 try:
-                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=bson.json_util.object_hook)
+                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=util.datetime_decoder)
                 except (TypeError, KeyError, AttributeError, ValueError):
                     pass
                 else:

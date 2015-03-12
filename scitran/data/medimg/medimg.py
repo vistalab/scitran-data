@@ -17,7 +17,6 @@ located here.  MR fxns are contained with dcm.mr.generic_mr
 """
 
 import abc
-import bson
 import string
 import logging
 import datetime
@@ -25,7 +24,7 @@ import dcmstack
 import numpy as np
 
 from .. import data
-
+from .. import util
 
 log = logging.getLogger(__name__)
 
@@ -561,7 +560,7 @@ class MedImgReader(data.Reader):
 
     @property
     def nims_timestamp(self):
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7 * 60, 'pacific')) if self.timestamp else None # FIXME: use pytz
+        return self.timestamp
 
     @property
     def nims_timezone(self):

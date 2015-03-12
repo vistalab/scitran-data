@@ -15,7 +15,6 @@ full parsing of pfiles, spiral reconstruction, and mux_epi reconstruction.
 """
 
 import os
-import bson
 import glob
 import gzip
 import json
@@ -26,7 +25,6 @@ import logging
 import tarfile
 import datetime
 import subprocess
-import bson.json_util
 
 import numpy as np
 
@@ -34,6 +32,7 @@ import medimg
 import dcm.mr.ge
 import dcm.mr.mr
 
+from .. import util
 from .. import tempdir as tempfile
 
 log = logging.getLogger(__name__)
@@ -252,7 +251,7 @@ class PFile(medimg.MedImgReader):
                     if not ti.isreg():
                         continue
                     try:
-                        _hdr = json.load(archive.extractfile(ti), object_hook=bson.json_util.object_hook)['header']
+                        _hdr = json.load(archive.extractfile(ti), object_hook=util.datetime_decoder)['header']
                     except ValueError as e:  # json file does not exist
                         log.debug('%s; not a json file' % e)
                     except KeyError as e:  # header section does not exist

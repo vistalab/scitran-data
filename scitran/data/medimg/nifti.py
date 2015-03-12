@@ -13,13 +13,14 @@ Provides nifti specifics, inherits from MedImgReader, MedImgWriter.
 """
 
 import os
-import bson
 import logging
 import nibabel
 
 import numpy as np
 
 import medimg
+
+from .. import util
 
 log = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
 
     @property
     def nims_timestamp(self):  # FIXME: should return UTC time and timezone
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7 * 60, 'pacific'))  # FIXME: use pytz
+        return self.timestamp
 
     @property
     def nims_timezone(self):
