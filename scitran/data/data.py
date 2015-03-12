@@ -631,7 +631,7 @@ class Reader(object):
     @abc.abstractproperty
     def nims_timestamp(self):
         if self.timestamp and self.timezone:
-            return pytz.timezone(self.timezone).localize(self.timestamp).astimezone(pytz.timezone('UTC'))
+            return pytz.timezone(self.timezone).localize(self.timestamp).astimezone(pytz.timezone('UTC')).replace(tzinfo=None)
         return self.timestamp
 
     @abc.abstractproperty
