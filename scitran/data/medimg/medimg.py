@@ -469,8 +469,8 @@ class MedImgReader(data.Reader):
     acquisition_properties = acquisition_properties
 
     @abc.abstractmethod
-    def __init__(self, path, load_data=False):
-        super(MedImgReader, self).__init__(path, load_data)
+    def __init__(self, path, load_data=False, timezone=None):
+        super(MedImgReader, self).__init__(path, load_data, timezone)
         self.is_screenshot = False
         self.acquisition_id = None
         self.study_datetime = None
@@ -560,11 +560,11 @@ class MedImgReader(data.Reader):
 
     @property
     def nims_timestamp(self):
-        return self.timestamp
+        return super(MedImgReader, self).nims_timestamp
 
     @property
     def nims_timezone(self):
-        pass  # FIXME
+        return super(MedImgReader, self).nims_timezone
 
     def _get_mm_per_vox(self):
         return (self.mm_per_vox_x, self.mm_per_vox_y, self.mm_per_vox_z)

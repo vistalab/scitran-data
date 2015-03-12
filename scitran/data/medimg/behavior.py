@@ -32,8 +32,8 @@ class Behavior(data.Reader):
     filetype = u'behavior'
     state = ['orig']
 
-    def __init__(self, filepath, load_data=False):
-        super(Behavior, self).__init__(filepath, load_data)
+    def __init__(self, filepath, load_data=False, timzone=None):
+        super(Behavior, self).__init__(filepath, load_data, timezone)
         log.debug('behavior reader has not been implemented')
         self.failure_reason = BehaviorError('behavior reader has not been implemented')
 

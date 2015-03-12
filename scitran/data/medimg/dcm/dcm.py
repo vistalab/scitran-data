@@ -224,7 +224,7 @@ class Dicom(medimg.MedImgReader):
     parse_priority = 9
     state = ['orig']
 
-    def __init__(self, path, load_data=False):
+    def __init__(self, path, load_data=False, timezone=None):
         """
         Parse a single file from the input.
 
@@ -233,7 +233,7 @@ class Dicom(medimg.MedImgReader):
         calls mfr sop specific parse_one method
 
         """
-        super(Dicom, self).__init__(path, load_data)
+        super(Dicom, self).__init__(path, load_data, timezone)
         with tarfile.open(path) as archive:
             for ti in archive:
                 try:

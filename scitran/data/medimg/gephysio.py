@@ -34,8 +34,8 @@ class GEPhysio(data.Reader):
     filetype = u'gephysio'
     state = ['orig']
 
-    def __init__(self, path, load_data=False):
-        super(GEPhysio, self).__init__(path, load_data)
+    def __init__(self, path, load_data=False, timezone=None):
+        super(GEPhysio, self).__init__(path, load_data, timezone)
         with tarfile.open(path) as archive:
             for ti in archive:
                 if not ti.isreg():
@@ -121,8 +121,8 @@ class GEPhysio(data.Reader):
 
     @property
     def nims_timestamp(self): # FIXME: should return UTC time and timezone
-        return self.timestamp
+        return super(GEPhysio, self).nims_timestamp
 
     @property
     def nims_timezone(self):
-        return None
+        return super(GEPhysio, self).nims_timezone
