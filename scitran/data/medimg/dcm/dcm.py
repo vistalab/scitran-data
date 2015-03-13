@@ -266,7 +266,6 @@ class Dicom(medimg.MedImgReader):
         mfr = SUPPORTED_MFR.get(self.manufacturer)
         sop = SUPPORTED_SOP.get(self.sop_class_uid)
         composer = '%s.%s' % (sop, mfr)
-        _temp = __import__(composer, globals(), fromlist=['parse_one', 'parse_all', 'convert'])
         try:
             _temp = __import__(composer, globals(), fromlist=['parse_one', 'parse_all', 'convert'])
         except (ImportError, AttributeError):
