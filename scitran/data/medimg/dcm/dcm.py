@@ -283,7 +283,7 @@ class Dicom(medimg.MedImgReader):
         self.series_no = self.getelem(self._hdr, 'SeriesNumber', int)
         self.series_desc = self.getelem(self._hdr, 'SeriesDescription')
         self.series_uid = self.getelem(self._hdr, 'SeriesInstanceUID')
-        self.subj_code, self.group_name, self.project_name = parse_patient_id(self.patient_id, 'ex' + self.exam_no)
+        self.subj_code, self.group_name, self.project_name = parse_patient_id(self.patient_id, 'ex' + (self.exam_no or ''))
         self.acq_no = self.getelem(self._hdr, 'AcquisitionNumber', int, 1)  # wrong for siemens dicom, until load_data
         self.study_date = self.getelem(self._hdr, 'StudyDate')
         self.study_time = self.getelem(self._hdr, 'StudyTime')
