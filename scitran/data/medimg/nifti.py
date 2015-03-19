@@ -13,13 +13,14 @@ Provides nifti specifics, inherits from MedImgReader, MedImgWriter.
 """
 
 import os
-import bson
 import logging
 import nibabel
 
 import numpy as np
 
 import medimg
+
+from .. import util
 
 log = logging.getLogger(__name__)
 
@@ -67,8 +68,8 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
     filetype = u'nifti'
     state = ['orig']
 
-    def __init__(self, path, load_data=False):
-        super(Nifti, self).__init__(path, load_data)
+    def __init__(self, path, load_data=False, timezone=None):
+        super(Nifti, self).__init__(path, load_data, timezone)
         try:
             # TODO: load header only, unless load_data = True
             self.nifti = nibabel.load(path)
@@ -152,14 +153,6 @@ class Nifti(medimg.MedImgReader, medimg.MedImgWriter):
     @property
     def nims_file_state(self):
         return self.state
-
-    @property
-    def nims_timestamp(self):  # FIXME: should return UTC time and timezone
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7 * 60, 'pacific'))  # FIXME: use pytz
-
-    @property
-    def nims_timezone(self):
-        return None
 
     @classmethod
     def write(cls, metadata, imagedata, outbase, voxel_order=None):

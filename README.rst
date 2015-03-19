@@ -72,7 +72,7 @@ installation on fresh ubuntu 14.04
     pip install git+https://github.com/nipy/nibabel.git
     pip install git+https://github.com/moloney/dcmstack
     pip install pillow
-    pip install pymongo
+    pip install pytz
 
 - install scitran data from github
 

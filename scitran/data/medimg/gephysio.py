@@ -11,12 +11,12 @@ to text or csv.  Currently, there is no such writer.
 
 """
 
-import bson
 import json
 import logging
 import tarfile
 
 from .. import data
+from .. import util
 
 log = logging.getLogger(__name__)
 
@@ -34,14 +34,14 @@ class GEPhysio(data.Reader):
     filetype = u'gephysio'
     state = ['orig']
 
-    def __init__(self, path, load_data=False):
-        super(GEPhysio, self).__init__(path, load_data)
+    def __init__(self, path, load_data=False, timezone=None):
+        super(GEPhysio, self).__init__(path, load_data, timezone)
         with tarfile.open(path) as archive:
             for ti in archive:
                 if not ti.isreg():
                     continue
                 try:
-                    self._hdr = json.loads(archive.extractfile(ti).read(), object_hook=bson.json_util.object_hook)['header']
+                    self._hdr = json.loads(archive.extractfile(ti).read(), object_hook=util.datetime_decoder)['header']
                 except (KeyError, ValueError):
                     pass
                 else:
@@ -121,8 +121,8 @@ class GEPhysio(data.Reader):
 
     @property
     def nims_timestamp(self): # FIXME: should return UTC time and timezone
-        return self.timestamp.replace(tzinfo=bson.tz_util.FixedOffset(-7*60, 'pacific')) #FIXME: use pytz
+        return super(GEPhysio, self).nims_timestamp
 
     @property
     def nims_timezone(self):
-        return None
+        return super(GEPhysio, self).nims_timezone

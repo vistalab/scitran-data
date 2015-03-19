@@ -27,18 +27,19 @@ import os
 import abc
 import copy
 import json
+import pytz
 import logging
 import tarfile
 import warnings
 import datetime
 import traceback
-import bson.json_util
+
+import util
 
 
 log = logging.getLogger(__name__)
 warnings.simplefilter('ignore', FutureWarning)
 
-# note: readers/writers.json will never contain datetime, or objects that require bson.json_util
 READERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readers.json')))
 WRITERS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'writers.json')))
 MODULES = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'modules.json')))
@@ -397,6 +398,8 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
 
     if ignore_json and not filetype:   # if ignore_json=True, filetype MUST be set
         raise DataError('filetype must be specified if ignore_json=True')
+
+    timezone = None
     if not ignore_json:  # if ignore_json=False, read json
         log.debug('inspecting %s for json' % path)
         with tarfile.open(path) as archive:
@@ -404,11 +407,12 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
             # if ti.name.lower is metadata.json
             for ti in archive:
                 try:
-                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=bson.json_util.object_hook)
+                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=util.datetime_decoder)
                 except (TypeError, KeyError, AttributeError, ValueError):
                     pass
                 else:
                     log.debug('json found, %s' % ti.name)
+                    timezone = json_data.get('timezone')
                     if not filetype:  # if filetype not already specified, get from json, or raise exception
                         filetype = json_data.get('filetype')
                         log.debug('filetype from json: %s' % filetype)
@@ -417,7 +421,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
                 raise DataError('expected filetype to be indicated in json file')
 
     parser = get_reader(filetype)  # at this point filetype is set, or an exception was raised
-    ds = parser(path, load_data, **kwargs)  # parser should try to always return a dataset
+    ds = parser(path, load_data, timezone, **kwargs)  # parser should try to always return a dataset
     if ds.failure_reason:
         if not debug:
             log.warning('parse error: %s' % str(ds.failure_reason))
@@ -549,11 +553,13 @@ class Reader(object):
                 setattr(self, v, None)
 
     @abc.abstractmethod
-    def __init__(self, path, load_data=False):
+    def __init__(self, path, load_data=False, timezone=None):
         self._schema_init(self.project_properties)
         self._schema_init(self.session_properties)
         self._schema_init(self.acquisition_properties)
         self.filepath = os.path.abspath(path)
+        self.timezone = timezone
+        self.timestamp = None
         self.data = None
         self.metadata_status = 'empty'
         self.failure_reason = None
@@ -624,11 +630,13 @@ class Reader(object):
 
     @abc.abstractproperty
     def nims_timestamp(self):
-        pass
+        if self.timestamp and self.timezone:
+            return pytz.timezone(self.timezone).localize(self.timestamp).astimezone(pytz.timezone('UTC')).replace(tzinfo=None)
+        return self.timestamp
 
     @abc.abstractproperty
     def nims_timezone(self):
-        pass
+        return self.timezone
 
     def __str__(self):  # TODO: tighten this up. or just get rid of it completely
         properties = []

@@ -15,7 +15,6 @@ full parsing of pfiles, spiral reconstruction, and mux_epi reconstruction.
 """
 
 import os
-import bson
 import glob
 import gzip
 import json
@@ -26,7 +25,6 @@ import logging
 import tarfile
 import datetime
 import subprocess
-import bson.json_util
 
 import numpy as np
 
@@ -34,6 +32,7 @@ import medimg
 import dcm.mr.ge
 import dcm.mr.mr
 
+from .. import util
 from .. import tempdir as tempfile
 
 log = logging.getLogger(__name__)
@@ -198,7 +197,7 @@ class PFile(medimg.MedImgReader):
     parse_priority = 5
     state = ['orig']
 
-    def __init__(self, filepath, load_data=False, full_parse=False, tempdir=None, aux_file=None, num_jobs=4, num_virtual_coils=16, notch_thresh=0, recon_type=None):
+    def __init__(self, filepath, load_data=False, timezone=None, full_parse=False, tempdir=None, aux_file=None, num_jobs=4, num_virtual_coils=16, notch_thresh=0, recon_type=None):
         """
         Read basic sorting information.
 
@@ -227,7 +226,7 @@ class PFile(medimg.MedImgReader):
             path to pfile.tgz that contains valid vrgf.dat and ref.dat files
 
         """
-        super(PFile, self).__init__(filepath)       # sets self.filepath
+        super(PFile, self).__init__(filepath, load_data, timezone)       # sets self.filepath
         self.full_parsed = False                        # indicates if fully parsed
         self.dirpath = os.path.dirname(self.filepath)   # what contains the input file
         self.basename = os.path.basename(self.filepath)
@@ -252,7 +251,7 @@ class PFile(medimg.MedImgReader):
                     if not ti.isreg():
                         continue
                     try:
-                        _hdr = json.load(archive.extractfile(ti), object_hook=bson.json_util.object_hook)['header']
+                        _hdr = json.load(archive.extractfile(ti), object_hook=util.datetime_decoder)['header']
                     except ValueError as e:  # json file does not exist
                         log.debug('%s; not a json file' % e)
                     except KeyError as e:  # header section does not exist
