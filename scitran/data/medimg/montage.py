@@ -17,6 +17,7 @@ import math
 import logging
 import sqlite3
 import cStringIO
+import subprocess
 import numpy as np
 from PIL import Image
 
@@ -25,27 +26,27 @@ import medimg
 log = logging.getLogger(__name__)
 
 
-def get_tile(dbfile, z, x, y):
-    """Get a specific image tile from an sqlite db."""
-    con = sqlite3.connect(dbfile)
-    with con:
-        cur = con.cursor()
-        cur.execute('SELECT image FROM tiles where z=? AND x=? AND y=?', (z, x, y))
-        image = cur.fetchone()[0]
-    return str(image)
+def get_tile(tiff, z, x, y):
+    with Image.open(tiff) as i:
+        i.seek(z)
+        tiff_tags = i.ifd.named()
+        tsize = tiff_tags.get('TileWidth') + tiff_tags.get('TileLength')
+        rows = i.size[0] / tsize[0]
+        columns = i.size[1] / tsize[1]
+        # TODO: make sure x and y are within rows and columns
+        index = (y * columns) + x
+        crop_param = i.tile[index][1]
+        i.tile = [i.tile[index]]
+        cropped = i.crop(crop_param)
+        return cropped.tostring()
 
-
-def get_info(dbfile):
-    """Return the tile_size, x_size, and y_size from the sqlite pyramid db."""
-    try:
-        con = sqlite3.connect(dbfile)
-        with con:
-            cur = con.cursor()
-            cur.execute('SELECT * FROM info')
-            tile_size, x_size, y_size = cur.fetchone()
-    except MontageError as e:
-        log.warning(e.message)
-    return tile_size, x_size, y_size
+def get_info(tiff):
+    with open(tiff) as i:
+        zoom_levels = ''
+        tiff_tags = i.ifd.named()
+        size = tiff_tags.get('TileWidth') + tiff_tags.get('TileLength')
+        rows = i.shape[0] / size[0]
+        columns = i.shape[1] / size[1]
 
 
 def generate_montage(imagedata, timepoints=[], bits16=False):
@@ -100,108 +101,6 @@ def generate_montage(imagedata, timepoints=[], bits16=False):
     return montage
 
 
-def generate_pyramid(montage, tile_size):
-    """
-    Slice up a NIfTI file into a multi-res pyramid of tiles.
-
-    We use the file name convention suitable for PanoJS (http://www.dimin.net/software/panojs/):
-    The zoom level (z) is an integer between 1 and n, where 0 is fully zoomed in and n is zoomed out.
-    E.g., z=n is for 1 tile covering the whole world, z=n-1 is for 2x2=4 tiles, ... z=0 is the original resolution.
-
-    """
-    montage_image = Image.fromarray(montage, 'L')
-    montage_image = montage_image.crop(montage_image.getbbox())  # crop away edges that contain only zeros
-    sx, sy = montage_image.size
-    if sx * sy < 1:
-        raise MontageError('degenerate image size (%d, %d): no tiles will be created' % (sx, sy))
-    if sx < tile_size and sy < tile_size:  # Panojs chokes if the lowest res image is smaller than the tile size.
-        tile_size = max(sx, sy)
-
-    pyramid = {}
-    divs = max(1, int(np.ceil(np.log2(float(max(sx, sy))/tile_size))) + 1)
-    for z in range(divs):
-        ysize = int(round(float(sy)/pow(2, z)))
-        xsize = int(round(float(ysize)/sy*sx))
-        xpieces = int(math.ceil(float(xsize)/tile_size))
-        ypieces = int(math.ceil(float(ysize)/tile_size))
-        log.debug('level %s, size %dx%d, splits %d,%d' % (z, xsize, ysize, xpieces, ypieces))
-        # TODO: we don't need to use 'thumbnail' here. This function always returns a square
-        # image of the requested size, padding and scaling as needed. Instead, we should resize
-        # and chop the image up, with no padding, ever. panojs can handle non-square images
-        # at the edges, so the padding is unnecessary and, in fact, a little wrong.
-        im = montage_image.copy()
-        im.thumbnail([xsize, ysize], Image.ANTIALIAS)
-        im = im.convert('L')    # convert to grayscale
-        for x in range(xpieces):
-            for y in range(ypieces):
-                tile = im.copy().crop((x*tile_size, y*tile_size, min((x+1)*tile_size, xsize), min((y+1)*tile_size, ysize)))
-                buf = cStringIO.StringIO()
-                tile.save(buf, 'JPEG', quality=85)
-                pyramid[(z, x, y)] = buf
-    return pyramid, montage_image.size
-
-
-def generate_sqlite_pyr(imagedata, outbase, tile_size=512):
-    """Generate a multi-resolution image pyramid and store the resulting jpeg files in an sqlite db."""
-    montage = generate_montage(imagedata)
-    pyramid, pyramid_size = generate_pyramid(montage, tile_size)
-    if os.path.exists(outbase):
-        os.remove(outbase)
-    con = sqlite3.connect(outbase)
-    with con:
-        cur = con.cursor()
-        cur.execute('CREATE TABLE info(tile_size INT, x_size INT, y_size INT)')
-        cur.execute('CREATE TABLE tiles(z INT, x INT, y INT, image BLOB)')
-        cur.execute('INSERT INTO info(tile_size,x_size,y_size) VALUES (?,?,?)', (tile_size,) + pyramid_size)
-        for idx, tile_buf in pyramid.iteritems():
-            cur.execute('INSERT INTO tiles(z,x,y,image) VALUES (?,?,?,?)', idx + (sqlite3.Binary(tile_buf.getvalue()),))
-
-    if not os.path.exists(outbase):
-        raise MontageError('montage (sqlite pyramid) not generated')
-    else:
-        log.debug('generated %s' % os.path.basename(outbase))
-        return outbase
-
-
-# FIXME panojs_url should be a configurable
-def generate_dir_pyr(imagedata, outbase, tile_size=256, panojs_url='https://cni.stanford.edu/nims/javascript/panojs/'):
-    """Generate a panojs image pyramid directory."""
-    montage = generate_montage(imagedata)
-    pyramid, pyramid_size = generate_pyramid(montage, tile_size)
-
-    # write directory pyramid
-    image_path = os.path.join(outbase, 'images')
-    if not os.path.exists(image_path):
-        os.makedirs(image_path)
-        for idx, tile_buf in pyramid.iteritems():
-            with open(os.path.join(image_path, ('%03d_%03d_%03d.jpg' % idx)), 'wb') as fp:
-                fp.write(tile_buf.getvalue())
-        with open(os.path.join(outbase, 'pyramid.html'), 'w') as f:
-            f.write('<html>\n<head>\n<meta http-equiv="imagetoolbar" content="no"/>\n')
-            f.write('<style type="text/css">@import url(' + panojs_url + 'styles/panojs.css);</style>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'extjs/ext-core.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/utils.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/PanoJS.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/controls.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/pyramid_imgcnv.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/control_thumbnail.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/control_info.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'panojs/control_svg.js"></script>\n')
-            f.write('<script type="text/javascript" src="' + panojs_url + 'viewer.js"></script>\n')
-            f.write('<style type="text/css">body { font-family: sans-serif; margin: 0; padding: 10px; color: #000000; background-color: #FFFFFF; font-size: 0.7em; } </style>\n')
-            f.write('<script type="text/javascript">\nvar viewer = null;Ext.onReady(function () { createViewer( viewer, "viewer", "./images", "", %d, %d, %d ) } );\n</script>\n' % ((tile_size,) + pyramid_size))
-            f.write('</head>\n<body>\n')
-            f.write('<div style="width: 100%; height: 100%;"><div id="viewer" class="viewer" style="width: 100%; height: 100%;" ></div></div>\n')
-            f.write('</body>\n</html>\n')
-
-    # check for one image, pyramid file
-    if not (os.path.exists(os.path.join(outbase, 'pyramid.html')) and os.path.exists(os.path.join(outbase, 'images', '000_000_000.jpg'))):
-        raise MontageError('montage (flat png) not generated')
-    else:
-        log.debug('generated %s' % outbase)
-        return outbase
-
-
 def generate_flat(imagedata, filepath):
     """Generate a flat png montage."""
     montage = generate_montage(imagedata)
@@ -244,7 +143,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
         get_info(self.filepath)
 
     @classmethod
-    def write(cls, metadata, imagedata, outbase, voxel_order=None, mtype='sqlite', tilesize=512, multi=False):
+    def write(cls, metadata, imagedata, outbase, voxel_order=None, multi=False):
         """
         Write the metadata and imagedata to image montage pyramid.
 
@@ -258,10 +157,6 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
             output name prefix.
         voxel_order : str [default None]
             three character string indicating the voxel order, ex. 'LPS'.
-        mtype : str [default 'sqlite']
-            type of montage to create. can be 'sqlite', 'dir', or 'png'.
-        tilesize : int [default 512]
-            tilesize for generated sqlite or directory pyramid. Has no affect on mtype 'png'.
         multi : bool [default False]
             True indicates to write multiple files. False only writes primary data in imagedata['']
 
@@ -290,17 +185,16 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
 
             if voxel_order:
                 data, _ = cls.reorder_voxels(data, metadata.qto_xyz, voxel_order)
-            if mtype == 'sqlite':
-                log.debug('type: sqlite')
-                result = generate_sqlite_pyr(data, outname + '.pyrdb', tilesize)
-            elif mtype == 'dir':
-                log.debug('type: directory')
-                result = generate_dir_pyr(data, outname, tilesize)
-            elif mtype == 'png':
-                log.debug('type: flat png')
-                result = generate_flat(data, outname + '.png')
-            else:
-                raise MontageError('montage mtype must be sqlite, dir or png. not %s' % mtype)
+
+            log.debug('type: flat png')
+            png_result = generate_flat(data, outname + '.png')
+            tiff_result = outname + '.tiff'
+            x, y = data.shape[:2]
+            convert_cmd = 'convert %s -compress LZW -define tiff:tile-geometry=%dx%d ptif:%s' % (png_result, x, y, tiff_result)
+            log.info(convert_cmd)
+            subprocess.check_call(convert_cmd.split())
+            if os.path.exists(tiff_result):
+                result = tiff_result
 
             results.append(result)
         return results
