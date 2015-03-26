@@ -195,6 +195,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
             subprocess.check_call(convert_cmd.split())
             if os.path.exists(tiff_result):
                 result = tiff_result
+            os.remove(png_result)  # remove the intermediate png
 
             results.append(result)
         return results
