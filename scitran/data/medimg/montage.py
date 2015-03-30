@@ -15,7 +15,6 @@ Provides a MedImgWriter subclass for creating image pyramids.
 import os
 import math
 import logging
-import sqlite3
 import cStringIO
 import subprocess
 import numpy as np
@@ -26,28 +25,55 @@ import medimg
 log = logging.getLogger(__name__)
 
 
-def get_tile(tiff, z, x, y):
+def get_tile(tiff, z, x, y, size=256):
+    """
+    Return an image tile as string from PNG.
+
+    If the requested tile does not exist, return an empty (blacked out) tile.
+    """
+    def null_tile(size=256):
+        """Create a blacked out tile."""
+        tile = cStringIO.StringIO()
+        img = Image.fromarray(np.ones((size, size), dtype=np.int8), mode='L')
+        img.save(tile, 'png')
+        tile.seek(0)
+        return tile.read()
+
+    # figure out which tile to get
+    tiff_info = get_info(tiff)
+    z = (len(tiff_info) - (z + 2))  # er. what?
+    rows, cols = tiff_info.get(z)
+    if x > rows or y > cols:
+        return null_tile()
+
+    # fetch the tile
     with Image.open(tiff) as i:
         i.seek(z)
-        tiff_tags = i.ifd.named()
-        tsize = tiff_tags.get('TileWidth') + tiff_tags.get('TileLength')
-        rows = i.size[0] / tsize[0]
-        columns = i.size[1] / tsize[1]
-        # TODO: make sure x and y are within rows and columns
-        index = (y * columns) + x
+        index = (y * (rows+1)) + x
+        fd = cStringIO.StringIO()
         crop_param = i.tile[index][1]
         i.tile = [i.tile[index]]
         cropped = i.crop(crop_param)
-        return cropped.tostring()
+        resized = cropped.resize((size, size))
+        resized.save(fd, 'png')
+        fd.seek(0)
+        return fd.read()
 
 def get_info(tiff):
-    with open(tiff) as i:
-        zoom_levels = ''
-        tiff_tags = i.ifd.named()
-        size = tiff_tags.get('TileWidth') + tiff_tags.get('TileLength')
-        rows = i.shape[0] / size[0]
-        columns = i.shape[1] / size[1]
-
+    tiff_info = {}
+    with Image.open(tiff) as i:
+        for page in range(i.ifd.named().get('PageNumber')[1]):
+            log.info('parsing page %d' % page)
+            try:
+                i.seek(page)
+            except Image.EOFError:
+                break  # no more zoom levels
+            tags = i.ifd.named()
+            tsize = tags.get('TileWidth') + tags.get('TileLength')
+            rows = i.size[0] / tsize[0]
+            cols = i.size[1] / tsize[1]
+            tiff_info[page] = (rows, cols)
+    return tiff_info
 
 def generate_montage(imagedata, timepoints=[], bits16=False):
     """Generate a montage."""
