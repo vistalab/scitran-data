@@ -60,6 +60,13 @@ def get_tile(tiff, z, x, y, size=256):
         return fd.read()
 
 def get_info(tiff):
+    """
+    Return info about the pyramidal tiff.
+
+    Returns a dictionary of zoom level keys, with their max tile coordinates as values.
+    """
+    # TODO: reverse zoom level order, 0 = fully zoomed out, n = fully zoomed ini
+    # to be consistent with how d3tiles requests zoom levels
     tiff_info = {}
     with Image.open(tiff) as i:
         for page in range(i.ifd.named().get('PageNumber')[1]):
@@ -87,6 +94,8 @@ def generate_montage(imagedata, timepoints=[], bits16=False):
 
     # This transpose (usually) makes the resulting images come out in a more standard orientation.
     # TODO: we could look at the qto_xyz to infer the optimal transpose for any dataset.
+    # TODO: every tile should be a square.  resize array as necessary.
+    # possibly: data.resize((np.max(data.shape[:2]), np.max(data.shape[:2])), data.shape[2]) ??
     data = imagedata.transpose(np.concatenate(([1, 0], range(2, imagedata.ndim))))
     num_images = np.prod(data.shape[2:])
 
@@ -125,7 +134,6 @@ def generate_montage(imagedata, timepoints=[], bits16=False):
         else:
             montage = np.cast['uint8'](np.round(montage/(clip_vals[1]-clip_vals[0])*255.0))
     return montage
-
 
 def generate_flat(imagedata, filepath):
     """Generate a flat png montage."""
@@ -217,7 +225,6 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
             tiff_result = outname + '.tiff'
             x, y = data.shape[:2]
             convert_cmd = 'convert %s -compress LZW -define tiff:tile-geometry=%dx%d ptif:%s' % (png_result, x, y, tiff_result)
-            log.info(convert_cmd)
             subprocess.check_call(convert_cmd.split())
             if os.path.exists(tiff_result):
                 result = tiff_result
