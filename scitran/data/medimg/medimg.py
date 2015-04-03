@@ -60,19 +60,17 @@ _session_properties = {
     'subject': {
         'type': 'object',
         'properties': {
-            'firstname': {
+            'firstname_hash': {
                 'field': 'subj_firstname',
-                'title': 'First Name',
                 'type': 'string',
             },
-            'lastname': {
+            'lastname_hash': {
                 'field': 'subj_lastname',
-                'title': 'Last Name',
                 'type': 'string',
             },
-            'dob': {
-                'field': 'subj_dob',
-                'title': 'Date of Birth',
+            'age': {
+                'field': 'subj_age',
+                'title': 'Age',
                 'type': 'string',
                 'format': 'date',
             },
@@ -428,6 +426,21 @@ def parse_patient_dob(dob):
 
     log.debug(dob)
     return dob
+
+def parse_patient_age(age):
+    """
+    Parse patient age from string.
+    convert from 70d, 10w, 2m, 1y to datetime.timedelta object.
+    """
+    conversion = {  # conversion to days
+        'Y': 365,
+        'M': 30,
+        'W': 7,
+        'D': 1,
+    }
+    scale = age[-1:]
+    value = age[:-1]
+    return datetime.timedelta(int(value) * conversion.get(scale))
 
 
 class MedImgError(data.DataError):

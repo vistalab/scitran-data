@@ -26,6 +26,7 @@ from .. import medimg
 parse_patient_name = medimg.parse_patient_name
 parse_patient_id = medimg.parse_patient_id
 parse_patient_dob = medimg.parse_patient_dob
+parse_patient_age = medimg.parse_patient_age
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +295,7 @@ class Dicom(medimg.MedImgReader):
         self.timestamp = self.acq_datetime or self.study_datetime
         self.subj_firstname, self.subj_lastname = parse_patient_name(self.getelem(self._hdr, 'PatientName', default=''))
         self.subj_dob = parse_patient_dob(self.getelem(self._hdr, 'PatientBirthDate', str))
+        self.subj_age = parse_patient_age(self.getelem(self._hdr, 'PatientAge', str))
         self.subj_sex = {'M': 'male', 'F': 'female'}.get(self.getelem(self._hdr, 'PatientSex'))
         self.scanner_name = '%s %s'.strip() % (
                 self.getelem(self._hdr, 'InstitutionName', None, ''),
