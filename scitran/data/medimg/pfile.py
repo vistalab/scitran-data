@@ -259,7 +259,10 @@ class PFile(medimg.MedImgReader):
                     else:
                         log.debug('_min_parse_tgz')
                         self.exam_uid = _hdr.get('session')
+                        self.series_no = _hdr.get('session_no')
+                        self.series_desc = _hdr.get('session_desc')
                         self.acquisition_id = _hdr.get('acquisition')
+                        self.acq_no = _hdr.get('acquisition_no')
                         self.timestamp = _hdr.get('timestamp')
                         self.group_name = _hdr.get('group')
                         self.project_name = _hdr.get('project')
