@@ -538,7 +538,12 @@ class MedImgReader(data.Reader):
 
     @property
     def nims_acquisition_label(self):
-        return '%d.%d' % (self.series_no, self.acq_no) if self.acq_no is not None else str(self.series_no)
+        if self.series_no is None:
+            return None
+        elif self.acq_no is None:
+            return str(self.series_no)
+        else:
+            return '%d.%d' % (self.series_no, self.acq_no)
 
     @property
     def nims_acquisition_description(self):
