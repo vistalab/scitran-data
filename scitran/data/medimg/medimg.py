@@ -442,7 +442,7 @@ def parse_patient_age(age):
     }
     scale = age[-1:]
     value = age[:-1]
-    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds  # is days best unit for this?
+    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds()  # is days best unit for this?
 
 
 class MedImgError(data.DataError):
