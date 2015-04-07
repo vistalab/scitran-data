@@ -431,6 +431,8 @@ def parse_patient_age(age):
     """
     Parse patient age from string.
     convert from 70d, 10w, 2m, 1y to datetime.timedelta object.
+
+    Returns age as duration in seconds.
     """
     conversion = {  # conversion to days
         'Y': 365,
@@ -440,7 +442,7 @@ def parse_patient_age(age):
     }
     scale = age[-1:]
     value = age[:-1]
-    return datetime.timedelta(int(value) * conversion.get(scale))
+    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds  # is days best unit for this?
 
 
 class MedImgError(data.DataError):
