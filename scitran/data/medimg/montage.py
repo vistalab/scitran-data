@@ -188,6 +188,10 @@ def generate_zip_pyr(imagedata, outbase, tile_size=256):
     with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_STORED) as zf:
         metaname = os.path.join(os.path.basename(outbase), 'tileinfo.json')
         zf.writestr(metaname, json.dumps(pyramid_meta))
+        montage_jpeg = os.path.join(os.path.basename(outbase), 'montage.jpeg')
+        buf = cStringIO.StringIO()
+        Image.fromarray(montage).convert('L').save(buf, format='JPEG', optimize=True)
+        zf.writestr(montage_jpeg, buf.getvalue())
         for idx, tile_buf in pyramid.iteritems():
             tilename = 'z%03d/x%03d_y%03d.jpg' % idx
             arcname = os.path.join(os.path.basename(outbase), tilename)
