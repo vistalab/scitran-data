@@ -16,7 +16,6 @@ import os
 import json
 import math
 import logging
-import sqlite3
 import zipfile
 import cStringIO
 import numpy as np
@@ -34,12 +33,16 @@ def get_tile(montagezip, z, x, y):
             for tile in zf.namelist():
                 if tile.endswith('z%03d/x%03d_y%03d.jpg' % (z, x, y)):
                     return zf.open(tile).read()
+                    break
             else:
                 raise IndexError
     except zipfile.BadZipfile:
         log.error('bad zip file')
     except IndexError:
-        log.error('tile does not exist')
+        tile_size, _ = get_info(montagezip)
+        null_ = cStringIO.StringIO()
+        Image.new('RGB', (tile_size, tile_size), 'white').save(null_, format='JPEG', quality=85)
+        return null_.getvalue()
 
 
 def get_info(montagezip):
