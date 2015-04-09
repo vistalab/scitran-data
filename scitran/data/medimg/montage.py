@@ -240,7 +240,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
         get_info(self.filepath)
 
     @classmethod
-    def write(cls, metadata, imagedata, outbase, voxel_order=None, mtype='zip', tilesize=512, multi=False):
+    def write(cls, metadata, imagedata, outbase, voxel_order='LPS', mtype='zip', tilesize=256, multi=False):
         """
         Write the metadata and imagedata to image montage pyramid.
 
