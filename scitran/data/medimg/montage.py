@@ -148,6 +148,12 @@ def generate_pyramid(montage, tile_size):
         for x in range(xpieces):
             for y in range(ypieces):
                 tile = im.copy().crop((x*tile_size, y*tile_size, min((x+1)*tile_size, xsize), min((y+1)*tile_size, ysize)))
+                log.debug(tile.size)
+                if tile.size != (tile_size, tile_size):
+                    log.debug('tile is not square...padding')
+                    background = Image.new('L', size=(tile_size, tile_size))  # what to pad with? default black
+                    background.paste(tile, (0, 0))
+                    tile = background
                 buf = cStringIO.StringIO()
                 tile.save(buf, 'JPEG', quality=85)
                 pyramid[(level, x, y)] = buf
