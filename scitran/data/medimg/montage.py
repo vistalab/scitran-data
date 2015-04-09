@@ -13,10 +13,11 @@ Provides a MedImgWriter subclass for creating image pyramids.
 """
 
 import os
+import json
 import math
 import logging
+import zipfile
 import cStringIO
-import subprocess
 import numpy as np
 from PIL import Image
 
@@ -25,62 +26,36 @@ import medimg
 log = logging.getLogger(__name__)
 
 
-def get_tile(tiff, z, x, y, size=256):
-    """
-    Return an image tile as string from PNG.
+def get_tile(montagezip, z, x, y):
+    """Get a specific image tile from an sqlite db."""
+    try:
+        with zipfile.ZipFile(montagezip, 'r') as zf:
+            for tile in zf.namelist():
+                if tile.endswith('z%03d/x%03d_y%03d.jpg' % (z, x, y)):
+                    return zf.open(tile).read()
+                    break
+            else:
+                raise IndexError
+    except zipfile.BadZipfile:
+        log.error('bad zip file')
+    except IndexError:
+        tile_size, _ = get_info(montagezip)
+        null_ = cStringIO.StringIO()
+        Image.new('RGB', (tile_size, tile_size), 'white').save(null_, format='JPEG', quality=85)
+        return null_.getvalue()
 
-    If the requested tile does not exist, return an empty (blacked out) tile.
-    """
-    def null_tile(size=256):
-        """Create a blacked out tile."""
-        tile = cStringIO.StringIO()
-        img = Image.fromarray(np.ones((size, size), dtype=np.int8), mode='L')
-        img.save(tile, 'png')
-        tile.seek(0)
-        return tile.read()
 
-    # figure out which tile to get
-    tiff_info = get_info(tiff)
-    z = (len(tiff_info) - (z + 2))  # er. what?
-    rows, cols = tiff_info.get(z)
-    if x > rows or y > cols:
-        return null_tile()
+def get_info(montagezip):
+    """Return the tile_size, x_size, and y_size from the sqlite pyramid db."""
+    try:
+        with zipfile.ZipFile(montagezip, 'r') as zf:
+            info = json.loads(zf.open(zf.namelist()[0]).read())
+    except zipfile.BadZipfile:
+        log.error('bad zip file')
+    except ValueError:
+        log.error('tileinfo.json could not be found')
+    return info['tile_size'], info['zoom_levels']
 
-    # fetch the tile
-    with Image.open(tiff) as i:
-        i.seek(z)
-        index = (y * (rows+1)) + x
-        fd = cStringIO.StringIO()
-        crop_param = i.tile[index][1]
-        i.tile = [i.tile[index]]
-        cropped = i.crop(crop_param)
-        resized = cropped.resize((size, size))
-        resized.save(fd, 'png')
-        fd.seek(0)
-        return fd.read()
-
-def get_info(tiff):
-    """
-    Return info about the pyramidal tiff.
-
-    Returns a dictionary of zoom level keys, with their max tile coordinates as values.
-    """
-    # TODO: reverse zoom level order, 0 = fully zoomed out, n = fully zoomed ini
-    # to be consistent with how d3tiles requests zoom levels
-    tiff_info = {}
-    with Image.open(tiff) as i:
-        for page in range(i.ifd.named().get('PageNumber')[1]):
-            log.info('parsing page %d' % page)
-            try:
-                i.seek(page)
-            except Image.EOFError:
-                break  # no more zoom levels
-            tags = i.ifd.named()
-            tsize = tags.get('TileWidth') + tags.get('TileLength')
-            rows = i.size[0] / tsize[0]
-            cols = i.size[1] / tsize[1]
-            tiff_info[page] = (rows, cols)
-    return tiff_info
 
 def generate_montage(imagedata, timepoints=[], bits16=False):
     """Generate a montage."""
@@ -94,8 +69,6 @@ def generate_montage(imagedata, timepoints=[], bits16=False):
 
     # This transpose (usually) makes the resulting images come out in a more standard orientation.
     # TODO: we could look at the qto_xyz to infer the optimal transpose for any dataset.
-    # TODO: every tile should be a square.  resize array as necessary.
-    # possibly: data.resize((np.max(data.shape[:2]), np.max(data.shape[:2])), data.shape[2]) ??
     data = imagedata.transpose(np.concatenate(([1, 0], range(2, imagedata.ndim))))
     num_images = np.prod(data.shape[2:])
 
@@ -134,6 +107,99 @@ def generate_montage(imagedata, timepoints=[], bits16=False):
         else:
             montage = np.cast['uint8'](np.round(montage/(clip_vals[1]-clip_vals[0])*255.0))
     return montage
+
+
+def generate_pyramid(montage, tile_size):
+    """
+    Slice up a NIfTI file into a multi-res pyramid of tiles.
+
+    We use the file name convention suitable for d3tiles
+    The zoom level (z) is an integer between 0 and n, where 0 is fully zoomed out and n is zoomed in.
+    E.g., z=0 is for 1 tile covering the whole world, z=1 is for 2x2=4 tiles, ... z=n is the original resolution.
+
+    """
+    montage_image = Image.fromarray(montage, 'L')
+    montage_image = montage_image.crop(montage_image.getbbox())  # crop away edges that contain only zeros
+    sx, sy = montage_image.size
+    if sx * sy < 1:
+        raise MontageError('degenerate image size (%d, %d): no tiles will be created' % (sx, sy))
+    if sx < tile_size and sy < tile_size:  # Panojs chokes if the lowest res image is smaller than the tile size.
+        tile_size = max(sx, sy)
+
+    pyramid = {}
+    pyramid_meta = {
+        'tile_size': tile_size,
+        'mimetype': 'image/jpeg',
+        'zoom_levels': {},
+    }
+    divs = max(1, int(np.ceil(np.log2(float(max(sx, sy))/tile_size))) + 1)
+    for z in range(divs):
+        # flip the z label to be d3 friendly
+        level = (divs - 1) - z
+        ysize = int(round(float(sy)/pow(2, z)))
+        xsize = int(round(float(ysize)/sy*sx))
+        xpieces = int(math.ceil(float(xsize)/tile_size))
+        ypieces = int(math.ceil(float(ysize)/tile_size))
+        log.debug('level %s, size %dx%d, splits %d,%d' % (level, xsize, ysize, xpieces, ypieces))
+        # TODO: we don't need to use 'thumbnail' here. This function always returns a square
+        # image of the requested size, padding and scaling as needed. Instead, we should resize
+        # and chop the image up, with no padding, ever. panojs can handle non-square images
+        # at the edges, so the padding is unnecessary and, in fact, a little wrong.
+        im = montage_image.copy()
+        im.thumbnail([xsize, ysize], Image.ANTIALIAS)
+        im = im.convert('L')    # convert to grayscale
+        for x in range(xpieces):
+            for y in range(ypieces):
+                tile = im.copy().crop((x*tile_size, y*tile_size, min((x+1)*tile_size, xsize), min((y+1)*tile_size, ysize)))
+                log.debug(tile.size)
+                if tile.size != (tile_size, tile_size):
+                    log.debug('tile is not square...padding')
+                    background = Image.new('L', size=(tile_size, tile_size))  # what to pad with? default black
+                    background.paste(tile, (0, 0))
+                    tile = background
+                buf = cStringIO.StringIO()
+                tile.save(buf, 'JPEG', quality=85)
+                pyramid[(level, x, y)] = buf
+        pyramid_meta['zoom_levels'][level] = (xpieces, ypieces)
+    return pyramid, montage_image.size, pyramid_meta
+
+
+def generate_dir_pyr(imagedata, outbase, tile_size=256):
+    """Generate a panojs image pyramid directory."""
+    montage = generate_montage(imagedata)
+    pyramid, pyramid_size, pyramid_meta = generate_pyramid(montage, tile_size)
+
+    # write directory pyramid
+    image_path = os.path.join(outbase, 'images')
+    if not os.path.exists(image_path):
+        os.makedirs(image_path)
+        for idx, tile_buf in pyramid.iteritems():
+            with open(os.path.join(image_path, ('%03d_%03d_%03d.jpg' % idx)), 'wb') as fp:
+                fp.write(tile_buf.getvalue())
+
+    # check for one image, pyramid file
+    if not os.path.exists(os.path.join(outbase, 'images', '000_000_000.jpg')):
+        raise MontageError('montage (flat png) not generated')
+    else:
+        log.debug('generated %s' % outbase)
+        return outbase
+
+def generate_zip_pyr(imagedata, outbase, tile_size=256):
+    montage = generate_montage(imagedata)
+    pyramid, pyramid_size, pyramid_meta = generate_pyramid(montage, tile_size)
+    zip_name = outbase + '.zip'
+    with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_STORED) as zf:
+        metaname = os.path.join(os.path.basename(outbase), 'tileinfo.json')
+        zf.writestr(metaname, json.dumps(pyramid_meta))
+        montage_jpeg = os.path.join(os.path.basename(outbase), 'montage.jpeg')
+        buf = cStringIO.StringIO()
+        Image.fromarray(montage).convert('L').save(buf, format='JPEG', optimize=True)
+        zf.writestr(montage_jpeg, buf.getvalue())
+        for idx, tile_buf in pyramid.iteritems():
+            tilename = 'z%03d/x%03d_y%03d.jpg' % idx
+            arcname = os.path.join(os.path.basename(outbase), tilename)
+            zf.writestr(arcname, tile_buf.getvalue())
+    return zip_name
 
 def generate_flat(imagedata, filepath):
     """Generate a flat png montage."""
@@ -177,7 +243,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
         get_info(self.filepath)
 
     @classmethod
-    def write(cls, metadata, imagedata, outbase, voxel_order=None, multi=False):
+    def write(cls, metadata, imagedata, outbase, voxel_order='LPS', mtype='zip', tilesize=256, multi=False):
         """
         Write the metadata and imagedata to image montage pyramid.
 
@@ -191,6 +257,10 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
             output name prefix.
         voxel_order : str [default None]
             three character string indicating the voxel order, ex. 'LPS'.
+        mtype : str [default 'sqlite']
+            type of montage to create. can be 'sqlite', 'dir', or 'png'.
+        tilesize : int [default 512]
+            tilesize for generated sqlite or directory pyramid. Has no affect on mtype 'png'.
         multi : bool [default False]
             True indicates to write multiple files. False only writes primary data in imagedata['']
 
@@ -219,16 +289,17 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
 
             if voxel_order:
                 data, _ = cls.reorder_voxels(data, metadata.qto_xyz, voxel_order)
-
-            log.debug('type: flat png')
-            png_result = generate_flat(data, outname + '.png')
-            tiff_result = outname + '.tiff'
-            x, y = data.shape[:2]
-            convert_cmd = 'convert %s -compress LZW -define tiff:tile-geometry=%dx%d ptif:%s' % (png_result, x, y, tiff_result)
-            subprocess.check_call(convert_cmd.split())
-            if os.path.exists(tiff_result):
-                result = tiff_result
-            os.remove(png_result)  # remove the intermediate png
+            if mtype == 'png':
+                log.debug('type: flat png')
+                result = generate_flat(data, outname + '.png')
+            elif mtype == 'dir':
+                log.debug('type: directory')
+                result = generate_dir_pyr(data, outname, tilesize)
+            elif mtype == 'zip':
+                log.debug('type: zip of tiles')
+                result = generate_zip_pyr(data, outname, tilesize)
+            else:
+                raise MontageError('montage mtype must be sqlite, dir or png. not %s' % mtype)
 
             results.append(result)
         return results
