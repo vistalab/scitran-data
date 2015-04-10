@@ -13,9 +13,10 @@ env:
 before_install:
     - sudo apt-get update -qq
     - sudo apt-get install -qq libjpeg-dev && sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
+    - sudo apt-get install python-scipy
 
 install:
-    - pip install webapp2 requests webob db-sqlite3 nose numpy pytz pillow sphinx numpydoc coverage
+    - pip install webapp2 requests webob db-sqlite3 nose numpy pytz pillow sphinx numpydoc coverage mne
     - pip install git+https://github.com/nipy/nibabel.git
     - pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
     - pip install git+https://github.com/moloney/dcmstack.git

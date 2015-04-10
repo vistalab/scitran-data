@@ -38,6 +38,8 @@ nibabel          1.4.0dev
 pydicom          0.9.9
 dcmstack         0.7.0dev
 pytz             2014.10
+mne              0.8.6
+scipy            0.15.1
 ================ ====================
 
 
@@ -74,6 +76,8 @@ installation on fresh ubuntu 14.04
     pip install git+https://github.com/moloney/dcmstack
     pip install pillow
     pip install pytz
+    pip install mne
+    pip install scipy
 
 - install scitran data from github
 
