@@ -6,8 +6,11 @@ duh-docs duh-docs duh-docs duh-docs-docs-docs. plz. kthnxbai.
 
 """
 
+import os
 import logging
 import tarfile
+import warnings
+warnings.simplefilter("ignore", RuntimeWarning)  # whats with all the RunTimeWarnings from mne?
 from bson.tz_util import FixedOffset
 
 from mne.io.meas_info import read_meas_info
@@ -310,13 +313,49 @@ class MEEGReader(data.Reader):
     filetype = u'FIF'   # filetype within meeg domain
     state = ['orig']             # usually an 'orig' raw file gets 'reaped'
 
-    def __init__(self, path, load_data=False):
+    def __init__(self, path, load_data=False, timezone=None):
         super(MEEGReader, self).__init__(path, load_data)
         with tarfile.open(path) as tar:
             for member in tar.getmembers():
-                fid, tree = fiff_open(tar.extractfile(member))[:2]
-                info = read_meas_info(fid, tree)[0]
-                print(info)
+                fn = os.path.basename(member.name)
+                if fn.endswith('.fif') and not fn.startswith('.'):
+                    fid, tree = fiff_open(tar.extractfile(member))[:2]
+                    self._hdr = read_meas_info(fid, tree)[0]
+                    break
+            else:
+                log.error('no fif file found within tar')
+        # now that header is loaded, let's assign some metadata!
+        # TODO: which of these is "data" to be loaded?
+        # TODO: which of these are metadata that needs to be parsed further?
+        self.acq_stim = self._hdr.get('acq_stim')
+        self.lowpass = self._hdr.get('lowpass')
+        self.dev_ctf_t = self._hdr.get('dev_ctf_t')
+        self.projs = self._hdr.get('projs')
+        self.measure_date = self._hdr.get('meas_date')
+        self.measure_id = self._hdr.get('meas_id')
+        self.subject_info = self._hdr.get('subject_info')
+        self.sfreq = self._hdr.get('sfreq')
+        self.chs = self._hdr.get('chs')
+        self.dev_head_t = self._hdr.get('dev_head_t')
+        self.line_freq = self._hdr.get('line_freq')
+        self.project_id = self._hdr.get('proj_id')
+        self.description = self._hdr.get('description')
+        self.highpass = self._hdr.get('highpass')
+        self.comps = self._hdr.get('comps')
+        self.experimenter = self._hdr.get('experimenter')
+        self.file_id = self._hdr.get('file_id')
+        self.proj_name = self._hdr.get('proj_name')
+        self.acq_pars = self._hdr.get('acq_pars')
+        self.nchan = self._hdr.get('nchan')
+        self.bads = self._hdr.get('bads')
+        self.dig = self._hdr.get('dig')
+        self.ctf_head_t = self._hdr.get('ctf_head_t')
+        self.orig_blocks = self._hdr.get('orig_blocks')
+        self.ch_name = self._hdr.get('ch_names')
+
+        # are we certain that metadata is correct at this point? can we call metadata complete?
+        # or is there more information that can get calculated during a 'load_phase'?
+        self.metadata_status = 'pending'
 
     def load_data(self):
         super(MEEGReader, self).load_data()
@@ -368,7 +407,7 @@ class MEEGReader(data.Reader):
 
     @property
     def nims_file_ext(self):
-        return '.tgz'
+        return '.tgz'  # input file should be a tar gz
 
     @property
     def nims_file_domain(self):
