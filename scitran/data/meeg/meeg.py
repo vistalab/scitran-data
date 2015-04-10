@@ -11,7 +11,6 @@ import logging
 import tarfile
 import warnings
 warnings.simplefilter("ignore", RuntimeWarning)  # whats with all the RunTimeWarnings from mne?
-from bson.tz_util import FixedOffset
 
 from mne.io.meas_info import read_meas_info
 from mne.io.open import fiff_open
@@ -431,12 +430,11 @@ class MEEGReader(data.Reader):
 
     @property
     def nims_timestamp(self):
-        return (self.timestamp.replace(tzinfo=FixedOffset(-7 * 60, 'pacific'))
-                if self.timestamp else None)  # FIXME: use pytz
+        return super(MEEGReader, self).nims_timestamp
 
     @property
     def nims_timezone(self):
-        pass  # FIXME
+        return super(MEEGReader, self).nims_timezone
 
 
 class MEEGWriter(data.Writer):
