@@ -172,14 +172,9 @@ def parse_all(self):
     self.num_receivers = len([self._hdr[key] for key in self._hdr if key.endswith('sCoilElementID.tCoilID')])
 
     if self.total_num_slices < MAX_LOC_DCMS:
-        ornts = list(set([tuple(d.get('ImageOrientationPatient', [0.]*6)) for d in self._dcm_list]))
-        final_ornts = [ornts[0], ]
-        for x in range(1, len(ornts)):  # skip reference ornt
-            if not np.allclose(ornts[0], ornts[x], rtol=1e-4):
-                final_ornts.append(ornts[x])
-        num_ornts = len(final_ornts)
-        log.debug('num_ornts: %d' % num_ornts)
-        self.is_localizer = bool(num_ornts > 1)
+        slice_norms = [np.cross(np.matrix(d.get('ImageOrientationPatient')[0:3]), np.matrix(d.get('ImageOrientationPatient')[3:6]))[0] for d in self._dcm_list]
+        norm_diff = [np.abs(np.dot(slice_norms[0], n)).round(2) for n in slice_norms]
+        self.is_localizer = bool(len(set(norm_diff)) > 1)
 
     if self.is_dwi:
         self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[0:self.num_slices]])
