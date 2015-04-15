@@ -180,6 +180,7 @@ def parse_all(self):
         self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[0:self.num_slices]])
         self.bvecs = np.array([MetaExtractor(d).get(TAG_BVEC, [0., 0., 0.]) for d in self._dcm_list[0:self.num_slices]]).transpose()
 
+    mr.infer_scan_type(self)  # infer scan type again after determining all info
 
 def convert(self):
     """
