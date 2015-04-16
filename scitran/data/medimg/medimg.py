@@ -60,19 +60,34 @@ _session_properties = {
     'subject': {
         'type': 'object',
         'properties': {
-            'firstname_hash': {
+            'firstname': {
                 'field': 'subj_firstname',
+                'title': 'First Name',
+                'type': 'string',
+            },
+            'firstname_hash': {
+                'field': 'firstname_hash',
+                'type': 'string',
+            },
+            'lastname': {
+                'field': 'subj_lastname',
+                'title': 'Last Name',
                 'type': 'string',
             },
             'lastname_hash': {
-                'field': 'subj_lastname',
+                'field': 'lastname_hash',
                 'type': 'string',
+            },
+            'dob': {
+                'field': 'subj_dob',
+                'title': 'Date of Birth',
+                'type': 'string',
+                'format': 'date',
             },
             'age': {
                 'field': 'subj_age',
                 'title': 'Age',
-                'type': 'string',
-                'format': 'date',
+                'type': 'integer',
             },
             'sex': {
                 'field': 'subj_sex',
@@ -427,6 +442,7 @@ def parse_patient_dob(dob):
     log.debug(dob)
     return dob
 
+
 def parse_patient_age(age):
     """
     Parse patient age from string.
@@ -442,7 +458,7 @@ def parse_patient_age(age):
     }
     scale = age[-1:]
     value = age[:-1]
-    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds()  # is days best unit for this?
+    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds() or None
 
 
 class MedImgError(data.DataError):
