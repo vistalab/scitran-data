@@ -295,7 +295,10 @@ class Dicom(medimg.MedImgReader):
         self.timestamp = self.acq_datetime or self.study_datetime
         self.subj_firstname, self.subj_lastname = parse_patient_name(self.getelem(self._hdr, 'PatientName', default=''))
         self.subj_dob = parse_patient_dob(self.getelem(self._hdr, 'PatientBirthDate', str))
-        self.subj_age = parse_patient_age(self.getelem(self._hdr, 'PatientAge', str))
+        if self.subj_dob is None:
+            self.subj_age = parse_patient_age(self.getelem(self._hdr, 'PatientAge', str))
+        else:
+            self.subj_age = (self.study_datetime - self.subj_dob).total_seconds()
         self.subj_sex = {'M': 'male', 'F': 'female'}.get(self.getelem(self._hdr, 'PatientSex'))
         self.scanner_name = '%s %s'.strip() % (
                 self.getelem(self._hdr, 'InstitutionName', None, ''),
