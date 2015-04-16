@@ -56,29 +56,31 @@ def infer_psd_type(self):
     if not self.psd_name:
         self.psd_type = 'unknown'
     else:
-        if self.psd_name == 'siemensseq%\tse_vfl':
+        if self.psd_name == r'siemensseq%\tse_vfl':
             self.psd_type = 'tse'
-        elif self.psd_name == 'siemensseq%\ep2d_diff':
+        elif self.psd_name == r'siemensseq%\ep2d_diff':
             self.psd_type =  'epi'
-        elif self.psd_name == 'siemensseq%\ep2d_bold':
+        elif 'ep2d_bold' in self.psd_name:
             self.psd_type =  'epi'
-        elif self.psd_name == 'siemensseq%\ep2d_asl':
+        elif self.psd_name == r'siemensseq%\ep2d_pace':  # online motion corrected EPI
+            self.psd_type =  'epi'
+        elif self.psd_name.startswith(r'siemensseq%\ep2d_asl') or self.psd_name.startswith(r'siemensseq%\ep2d_pasl'):
             self.psd_type =  'asl'
-        elif self.psd_name == 'siemensseq%\gre':
+        elif self.psd_name == r'siemensseq%\gre':
             self.psd_type =  'gre'
-        elif self.psd_name == 'siemensseq%\tfl':
+        elif self.psd_name == r'siemensseq%\tfl':
             self.psd_type =  'tfl'
-        elif self.psd_name == 'siemensseq%\gre_field_mapping':
-            self.psd_type =  'gre'
-        elif self.psd_name == 'serviceseq%\rf_noise':
+        elif self.psd_name == r'siemensseq%\tse':
+            self.psd_type =  'fse'  # Siemens Turbo Spin Echo ~~ GE SSFSE
+        elif self.psd_name == r'siemensseq%\gre_field_mapping':
+            self.psd_type =  'fieldmap'
+        elif self.psd_name == r'serviceseq%\rf_noise':
             self.psd_type =  'service'
-        elif self.psd_name.startswith('customerseq%\ep2d_pasl'):
-            self.psd_type = 'asl'
-        elif self.psd_name.startswith('customerseq%\ep2d_diff'):
+        elif self.psd_name.startswith(r'customerseq%\ep2d_diff'):
             self.psd_type = 'epi'
-        elif self.psd_name.startswith('customerseq%\ep2d'):
+        elif self.psd_name.startswith(r'customerseq%\ep2d'):
             self.psd_type = 'epi'
-        elif self.psd_name == 'customerseq%\wip711_moco\tfl_multiecho_epinav_711':
+        elif self.psd_name == r'customerseq%\wip711_moco\tfl_multiecho_epinav_711':
             self.psd_type = 'tfl'
         else:
             self.psd_type = 'unknown'

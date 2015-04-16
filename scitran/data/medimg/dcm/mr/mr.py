@@ -249,9 +249,11 @@ def infer_scan_type(self):
         scan_type = scan_types.perfusion
     elif psd_type == 'hoshim':
         scan_type = scan_types.shim
+    elif psd_type == 'fieldmap':
+        scan_type = scan_types.fieldmap
     elif psd_type == 'spiral' and num_timepoints == 2 and te < .05:
         scan_type = scan_types.fieldmap
-    elif 'epi' in psd_type and te > 0.02 and te < 0.05 and num_timepoints > 2:
+    elif 'epi' in psd_type and te > 0.02 and te < 0.05 and num_timepoints > 1:
         scan_type = scan_types.functional
     elif (psd_type == 'gre' or psd_type == 'fse') and fov[0] >= 240. and fov[1] >= 240. and mm_per_vox[2] >= 4.5:
         # Could be a low-res calibration scan (e.g., ASSET cal).
