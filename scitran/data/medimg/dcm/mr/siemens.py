@@ -107,6 +107,11 @@ def parse_one(self):
     self.duration = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.lTotalScanTimeSec')         # FIXME: not guaranteed
     self.acq_no = None      # siemens acq # indicates the brain volume instance. varies within one scan.
 
+    # this is not an ideal solution, as it assumes that EPI timeserise are always stored in mosaic
+    # for mosaics, lReps = prescribed timepoints.  non-mosaics and non-timeseries will not have this tag
+    lRep = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.lRepetitions', int)
+    self.num_timepoints = (lRep + 1) if lRep else None
+
     self.dwi_dirs = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.sDiffusion.lDiffDirections', int, None)
     if (self.dwi_dirs or 0) > 1:
         self.is_dwi = True
