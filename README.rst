@@ -69,7 +69,7 @@ installation on fresh ubuntu 14.04
 .. code:: bash
 
     pip install numpy==1.9.0
-    pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
+    pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch
     pip install git+https://github.com/nipy/nibabel.git
     pip install git+https://github.com/moloney/dcmstack
     pip install pillow
