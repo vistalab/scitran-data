@@ -39,7 +39,8 @@ def get_tile(montagezip, z, x, y):
     except zipfile.BadZipfile:
         log.error('bad zip file')
     except IndexError:
-        tile_size, _ = get_info(montagezip)
+        tile_info = get_info(montagezip)
+        tile_size = tile_info['tile_size']
         null_ = cStringIO.StringIO()
         Image.new('RGB', (tile_size, tile_size), 'white').save(null_, format='JPEG', quality=85)
         return null_.getvalue()
@@ -54,7 +55,7 @@ def get_info(montagezip):
         log.error('bad zip file')
     except ValueError:
         log.error('tileinfo.json could not be found')
-    return info['tile_size'], info['zoom_levels']
+    return info
 
 
 def generate_montage(imagedata, timepoints=[], bits16=False):
