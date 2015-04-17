@@ -56,29 +56,31 @@ def infer_psd_type(self):
     if not self.psd_name:
         self.psd_type = 'unknown'
     else:
-        if self.psd_name == 'siemensseq%\tse_vfl':
+        if self.psd_name == r'siemensseq%\tse_vfl':
             self.psd_type = 'tse'
-        elif self.psd_name == 'siemensseq%\ep2d_diff':
+        elif self.psd_name == r'siemensseq%\ep2d_diff':
             self.psd_type =  'epi'
-        elif self.psd_name == 'siemensseq%\ep2d_bold':
+        elif 'ep2d_bold' in self.psd_name:
             self.psd_type =  'epi'
-        elif self.psd_name == 'siemensseq%\ep2d_asl':
+        elif self.psd_name == r'siemensseq%\ep2d_pace':  # online motion corrected EPI
+            self.psd_type =  'epi'
+        elif self.psd_name.startswith(r'siemensseq%\ep2d_asl') or self.psd_name.startswith(r'siemensseq%\ep2d_pasl'):
             self.psd_type =  'asl'
-        elif self.psd_name == 'siemensseq%\gre':
+        elif self.psd_name == r'siemensseq%\gre':
             self.psd_type =  'gre'
-        elif self.psd_name == 'siemensseq%\tfl':
+        elif self.psd_name == r'siemensseq%\tfl':
             self.psd_type =  'tfl'
-        elif self.psd_name == 'siemensseq%\gre_field_mapping':
-            self.psd_type =  'gre'
-        elif self.psd_name == 'serviceseq%\rf_noise':
+        elif self.psd_name == r'siemensseq%\tse':
+            self.psd_type =  'fse'  # Siemens Turbo Spin Echo ~~ GE SSFSE
+        elif self.psd_name == r'siemensseq%\gre_field_mapping':
+            self.psd_type =  'fieldmap'
+        elif self.psd_name == r'serviceseq%\rf_noise':
             self.psd_type =  'service'
-        elif self.psd_name.startswith('customerseq%\ep2d_pasl'):
-            self.psd_type = 'asl'
-        elif self.psd_name.startswith('customerseq%\ep2d_diff'):
+        elif self.psd_name.startswith(r'customerseq%\ep2d_diff'):
             self.psd_type = 'epi'
-        elif self.psd_name.startswith('customerseq%\ep2d'):
+        elif self.psd_name.startswith(r'customerseq%\ep2d'):
             self.psd_type = 'epi'
-        elif self.psd_name == 'customerseq%\wip711_moco\tfl_multiecho_epinav_711':
+        elif self.psd_name == r'customerseq%\wip711_moco\tfl_multiecho_epinav_711':
             self.psd_type = 'tfl'
         else:
             self.psd_type = 'unknown'
@@ -104,6 +106,11 @@ def parse_one(self):
     self.prescribed_duration = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.lScanTimeSec')   # FIXME
     self.duration = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.lTotalScanTimeSec')         # FIXME: not guaranteed
     self.acq_no = None      # siemens acq # indicates the brain volume instance. varies within one scan.
+
+    # this is not an ideal solution, as it assumes that EPI timeserise are always stored in mosaic
+    # for mosaics, lReps = prescribed timepoints.  non-mosaics and non-timeseries will not have this tag
+    lRep = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.lRepetitions', int)
+    self.num_timepoints = (lRep + 1) if lRep else None
 
     self.dwi_dirs = self.getelem(self._hdr, 'CsaSeries.MrPhoenixProtocol.sDiffusion.lDiffDirections', int, None)
     if (self.dwi_dirs or 0) > 1:
@@ -180,6 +187,7 @@ def parse_all(self):
         self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[0:self.num_slices]])
         self.bvecs = np.array([MetaExtractor(d).get(TAG_BVEC, [0., 0., 0.]) for d in self._dcm_list[0:self.num_slices]]).transpose()
 
+    mr.infer_scan_type(self)  # infer scan type again after determining all info
 
 def convert(self):
     """
