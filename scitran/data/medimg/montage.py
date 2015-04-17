@@ -130,6 +130,7 @@ def generate_pyramid(montage, tile_size):
     pyramid_meta = {
         'tile_size': tile_size,
         'mimetype': 'image/jpeg',
+        'real_size': montage_image.size,
         'zoom_levels': {},
     }
     divs = max(1, int(np.ceil(np.log2(float(max(sx, sy))/tile_size))) + 1)
@@ -154,7 +155,7 @@ def generate_pyramid(montage, tile_size):
                 log.debug(tile.size)
                 if tile.size != (tile_size, tile_size):
                     log.debug('tile is not square...padding')
-                    background = Image.new('L', size=(tile_size, tile_size))  # what to pad with? default black
+                    background = Image.new('L', (tile_size, tile_size), 'white')  # what to pad with? default black
                     background.paste(tile, (0, 0))
                     tile = background
                 buf = cStringIO.StringIO()
