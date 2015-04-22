@@ -71,7 +71,7 @@ installation on fresh ubuntu 14.04
     pip install numpy==1.9.0
     pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch
     pip install git+https://github.com/nipy/nibabel.git
-    pip install git+https://github.com/moloney/dcmstack
+    pip install git+https://github.com/moloney/dcmstack.git@6d49fe01235c08ae63c76fa2f3943b49c9b9832d
     pip install pillow
     pip install pytz
 
