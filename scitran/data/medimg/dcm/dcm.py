@@ -182,7 +182,7 @@ _csa_image_trans = dcmstack.extract.Translator(
         _csa_image_trans_func)
 
 MetaExtractor = Extractor(
-        ignore_rules=[dcmstack.extract.ignore_non_text_bytes],
+        ignore_rules=[dcmstack.extract.ignore_non_ascii_bytes],
         translators=[_csa_image_trans, _csa_series_trans]
         )
 
