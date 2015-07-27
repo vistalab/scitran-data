@@ -450,6 +450,9 @@ def parse_patient_age(age):
 
     Returns age as duration in seconds.
     """
+    if age == 'None':
+        return None
+
     conversion = {  # conversion to days
         'Y': 365,
         'M': 30,
@@ -458,7 +461,7 @@ def parse_patient_age(age):
     }
     scale = age[-1:]
     value = age[:-1]
-    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds() or None
+    return datetime.timedelta(int(value) * conversion.get(scale)).total_seconds()
 
 
 class MedImgError(data.DataError):
