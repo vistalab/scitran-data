@@ -13,7 +13,7 @@ to text or csv.  Currently, there is no such writer.
 
 import json
 import logging
-import tarfile
+import zipfile
 
 from .. import data
 from .. import util
@@ -36,18 +36,10 @@ class GEPhysio(data.Reader):
 
     def __init__(self, path, load_data=False, timezone=None):
         super(GEPhysio, self).__init__(path, load_data, timezone)
-        with tarfile.open(path) as archive:
-            for ti in archive:
-                if not ti.isreg():
-                    continue
-                try:
-                    self._hdr = json.loads(archive.extractfile(ti).read(), object_hook=util.datetime_decoder)['header']
-                except (KeyError, ValueError):
-                    pass
-                else:
-                    break
-            else:
-                raise GEPhysioError('no header found')
+        zip_gephysio = zipfile.ZipFile(path)
+        self._hdr = json.loads(zip_gephysio.comment, object_hook=util.datetime_decoder).get('header')
+        if self._hdr is None:
+            raise GEPhysioError('no header found')
         self.group = self._hdr['group']
         self.project = self._hdr['project']
         self.session = self._hdr['session']

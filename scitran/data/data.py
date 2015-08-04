@@ -29,7 +29,7 @@ import copy
 import json
 import pytz
 import logging
-import tarfile
+import zipfile
 import warnings
 import datetime
 import traceback
@@ -326,9 +326,8 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     """
     Parse the file at path with a filetype-specific parser.
 
-    The parse function expects a tgz that contains input file(s) and a metadata.json.  The json
-    should be the first item in the tar achive, and the json should declare the filetype, and any
-    metadata that should be overwritten.
+    The parse function expects a zip file with a comment containing the metadata.json.
+    The json should declare the filetype, and any metadata that should be overwritten.
 
     This function will pass the input file to the appropriate handler,
     if available.
@@ -390,11 +389,11 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
         raise DataError('input path %s not found' % path, log_level=logging.ERROR)
     if os.path.isdir(path):
         raise DataError('directory input not implemented', log_level=logging.ERROR)
-    if os.path.isfile(path) and not tarfile.is_tarfile(path):
+    if os.path.isfile(path) and not zipfile.is_zipfile(path):
         if path.endswith('.7.gz') or path.endswith('.7'):   # single P12345.7 or P12345.7.gz
             filetype = 'pfile'
         else:
-            raise DataError('non tar-files not implemented', log_level=logging.ERROR)
+            raise DataError('non zip-files not implemented', log_level=logging.ERROR)
 
     if ignore_json and not filetype:   # if ignore_json=True, filetype MUST be set
         raise DataError('filetype must be specified if ignore_json=True')
@@ -402,23 +401,12 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     timezone = None
     if not ignore_json:  # if ignore_json=False, read json
         log.debug('inspecting %s for json' % path)
-        with tarfile.open(path) as archive:
-            # TODO: explicit name check for Metadata.json or metadata.json
-            # if ti.name.lower is metadata.json
-            for ti in archive:
-                try:
-                    json_data = json.loads(archive.extractfile(ti).read(), object_hook=util.datetime_decoder)
-                except (TypeError, KeyError, AttributeError, ValueError):
-                    pass
-                else:
-                    log.debug('json found, %s' % ti.name)
-                    timezone = json_data.get('timezone')
-                    if not filetype:  # if filetype not already specified, get from json, or raise exception
-                        filetype = json_data.get('filetype')
-                        log.debug('filetype from json: %s' % filetype)
-                    break
-            else:
-                raise DataError('expected filetype to be indicated in json file')
+        json_data = json.loads(zipfile.ZipFile(path).comment)
+        filetype = json_data.get('filetype')
+        timezone = json_data.get('timezone')
+        if filetype is None:
+            raise DataError('expected filetype to be indicated in json file')
+
 
     parser = get_reader(filetype)  # at this point filetype is set, or an exception was raised
     ds = parser(path, load_data, timezone, **kwargs)  # parser should try to always return a dataset
