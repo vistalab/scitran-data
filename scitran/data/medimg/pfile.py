@@ -248,7 +248,7 @@ class PFile(medimg.MedImgReader):
             with zipfile.ZipFile(self.filepath) as zip_pfile:
                 try:
                     _hdr = json.loads(zip_pfile.comment, object_hook=util.datetime_decoder)['header']
-                except ValueError as e:  # json file does not exist
+                except (TypeError, ValueError) as e:  # json file does not exist
                     log.debug('%s; not a json file' % e)
                 except KeyError as e:  # header section does not exist
                     log.debug('%s; header section does not exist' % e)
@@ -406,19 +406,13 @@ class PFile(medimg.MedImgReader):
 
         log.debug('_full_parse of %s' % filepath)
         try:
-            print os.path.abspath(os.curdir)
             pfile = getattr(__import__('gepfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
         except ImportError:
-            try:
-                import gepfile
-            except ImportError:
-                raise ImportError("""
-                gepfile module not found.
-                gepfile should be installed cloning the PRIVATE repo pfile in the folder scitran/data/medimg/gepfile
+            raise ImportError("""
+                No pfile parser for v%d.
+                Pfile data loading requires the proprietary gepfile module to be installed from the scitran.data root folder.
 
-                from scitran.data root folder exec the following:
-
-                git clone https://github.com/cni/pfile.git && mv pfile scitran/data/medimg/gepfile
+                git clone https://github.com/cni/pfile.git scitran/data/medimg/gepfile
                 """)
             raise ImportError('no pfile parser for v%d' % self.version)
 

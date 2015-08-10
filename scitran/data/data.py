@@ -326,7 +326,7 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     """
     Parse the file at path with a filetype-specific parser.
 
-    The parse function expects a zip file with a comment containing the metadata.json.
+    The parse function expects a zip file with a comment containing json metadata.
     The json should declare the filetype, and any metadata that should be overwritten.
 
     This function will pass the input file to the appropriate handler,
@@ -401,7 +401,11 @@ def parse(path, filetype=None, load_data=False, ignore_json=False, debug=False, 
     timezone = None
     if not ignore_json:  # if ignore_json=False, read json
         log.debug('inspecting %s for json' % path)
-        json_data = json.loads(zipfile.ZipFile(path).comment)
+        with zipfile.ZipFile(path) as archive:
+            try:
+                json_data = json.loads(archive.comment, object_hook=util.datetime_decoder)
+            except (TypeError, ValueError):
+                raise DataError('expected filetype to be indicated in json file')
         filetype = json_data.get('filetype')
         timezone = json_data.get('timezone')
         if filetype is None:

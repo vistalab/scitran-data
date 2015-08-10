@@ -36,10 +36,11 @@ class GEPhysio(data.Reader):
 
     def __init__(self, path, load_data=False, timezone=None):
         super(GEPhysio, self).__init__(path, load_data, timezone)
-        zip_gephysio = zipfile.ZipFile(path)
-        self._hdr = json.loads(zip_gephysio.comment, object_hook=util.datetime_decoder).get('header')
-        if self._hdr is None:
-            raise GEPhysioError('no header found')
+        with zipfile.ZipFile(path) as zip_gephysio:
+            try:
+                self._hdr = json.loads(zip_gephysio.comment, object_hook=util.datetime_decoder)['header']
+            except (ValueError, TypeError, KeyError):
+                raise GEPhysioError('no header found')
         self.group = self._hdr['group']
         self.project = self._hdr['project']
         self.session = self._hdr['session']
