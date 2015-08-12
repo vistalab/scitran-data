@@ -15,10 +15,10 @@ before_install:
     - sudo apt-get install -qq libjpeg-dev && sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 
 install:
-    - pip install webapp2 requests webob db-sqlite3 nose numpy pytz pillow sphinx numpydoc coverage
+    - pip install webapp2 requests webob db-sqlite3 nose numpy==1.9.0 pytz pillow sphinx numpydoc coverage
     - pip install git+https://github.com/nipy/nibabel.git
-    - pip install git+https://github.com/scitran/pydicom.gitmirror.git@value_mismatch
-    - pip install git+https://github.com/moloney/dcmstack.git
+    - pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch
+    - pip install git+https://github.com/moloney/dcmstack.git@6d49fe01235c08ae63c76fa2f3943b49c9b9832d
 
 before_script:
     - git clone http://github.com/scitran/testdata ${TRAVIS_BUILD_DIR}/test/testdata
