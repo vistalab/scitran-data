@@ -576,7 +576,7 @@ class MedImgReader(data.Reader):
 
     @property
     def nims_file_ext(self):
-        return '.tgz'
+        return '.zip'
 
     @property
     def nims_file_domain(self):
