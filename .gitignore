@@ -5,3 +5,4 @@
 docs/_*
 test/*_testdata
 .coverage
+**/medimg/gepfile

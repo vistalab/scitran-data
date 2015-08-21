@@ -14,7 +14,7 @@ the input data.
 import dicom
 import types
 import logging
-import tarfile
+import zipfile
 import datetime
 import dcmstack
 import cStringIO
@@ -235,20 +235,20 @@ class Dicom(medimg.MedImgReader):
 
         """
         super(Dicom, self).__init__(path, load_data, timezone)
-        with tarfile.open(path) as archive:
-            for ti in archive:
-                try:
-                    self._hdr = MetaExtractor(dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read()), stop_before_pixels=True))
-                except (dicom.filereader.InvalidDicomError, AttributeError, ValueError):
-                    # dicom.filereader.InvalidDicomError, not a dicom
-                    # AttributeError,
-                    # ValueError, dcmstack.extract, tag value not parseable with declared VR
-                    pass
-                else:
-                    break
+        with zipfile.ZipFile(path) as zip_dicom:
+            for filename in zip_dicom.namelist():
+                with zip_dicom.open(filename) as zip_content:
+                    try:
+                        self._hdr = MetaExtractor(dicom.read_file(cStringIO.StringIO(zip_content.read()), stop_before_pixels=True))
+                    except (dicom.filereader.InvalidDicomError, AttributeError, ValueError):
+                        # dicom.filereader.InvalidDicomError, not a dicom
+                        # AttributeError,
+                        # ValueError, dcmstack.extract, tag value not parseable with declared VR
+                        pass
+                    else:
+                        break
             else:
                 raise DicomError('no header could be extracted')  # XXX FAIL! unexpected to not extract header
-        del ti, archive
 
         self.image_type = self.getelem(self._hdr, 'ImageType', None, [])
         self.manufacturer = self.getelem(self._hdr, 'Manufacturer')
@@ -350,17 +350,17 @@ class Dicom(medimg.MedImgReader):
         """
         super(Dicom, self).load_data()
         self._dcm_list = []
-        with tarfile.open(self.filepath) as archive:
-            for ti in archive:
-                try:
-                    dcm = dicom.read_file(cStringIO.StringIO(archive.extractfile(ti).read()), stop_before_pixels=False)
-                    if self.getelem(dcm, 'SOPClassUID') != self.sop_class_uid:  # mismatch SOP, do not attempt recon
-                        log.error('dicoms have inconsistent SOP Class UIDs')  # XXX expected error
-                        self.is_non_image = True
-                    self._dcm_list.append(dcm)
-                except (dicom.filereader.InvalidDicomError, AttributeError):
-                    pass
-        del ti, archive
+        with zipfile.ZipFile(self.filepath) as zip_dicom:
+            for filename in zip_dicom.namelist():
+                with zip_dicom.open(filename) as zip_content:
+                    try:
+                        dcm = dicom.read_file(cStringIO.StringIO(zip_content.read()), stop_before_pixels=False)
+                        if self.getelem(dcm, 'SOPClassUID') != self.sop_class_uid:  # mismatch SOP, do not attempt recon
+                            log.error('dicoms have inconsistent SOP Class UIDs')  # XXX expected error
+                            self.is_non_image = True
+                        self._dcm_list.append(dcm)
+                    except (dicom.filereader.InvalidDicomError, AttributeError):
+                        pass
 
         if self._dcm_list == []:
             raise DicomError('no dicoms loaded?')  # XXX FAIL! unexpected for no dicoms to be loaded

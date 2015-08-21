@@ -25,39 +25,6 @@ import medimg
 
 log = logging.getLogger(__name__)
 
-
-def get_tile(montagezip, z, x, y):
-    """Get a specific image tile from an sqlite db."""
-    try:
-        with zipfile.ZipFile(montagezip, 'r') as zf:
-            for tile in zf.namelist():
-                if tile.endswith('z%03d/x%03d_y%03d.jpg' % (z, x, y)):
-                    return zf.open(tile).read()
-                    break
-            else:
-                raise IndexError
-    except zipfile.BadZipfile:
-        log.error('bad zip file')
-    except IndexError:
-        tile_info = get_info(montagezip)
-        tile_size = tile_info['tile_size']
-        null_ = cStringIO.StringIO()
-        Image.new('RGB', (tile_size, tile_size), 'white').save(null_, format='JPEG', quality=85)
-        return null_.getvalue()
-
-
-def get_info(montagezip):
-    """Return the tile_size, x_size, and y_size from the sqlite pyramid db."""
-    try:
-        with zipfile.ZipFile(montagezip, 'r') as zf:
-            info = json.loads(zf.open(zf.namelist()[0]).read())
-    except zipfile.BadZipfile:
-        log.error('bad zip file')
-    except ValueError:
-        log.error('tileinfo.json could not be found')
-    return info
-
-
 def generate_montage(imagedata, timepoints=[], bits16=False):
     """Generate a montage."""
     # Figure out the image dimensions and make an appropriate montage.
@@ -191,8 +158,8 @@ def generate_zip_pyr(imagedata, outbase, tile_size=256):
     pyramid, pyramid_size, pyramid_meta = generate_pyramid(montage, tile_size)
     zip_name = outbase + '.zip'
     with zipfile.ZipFile(zip_name, 'w', compression=zipfile.ZIP_STORED) as zf:
-        metaname = os.path.join(os.path.basename(outbase), 'tileinfo.json')
-        zf.writestr(metaname, json.dumps(pyramid_meta))
+        pyramid_meta['dirname'] = outbase
+        zf.comment = json.dumps(pyramid_meta)
         montage_jpeg = os.path.join(os.path.basename(outbase), 'montage.jpeg')
         buf = cStringIO.StringIO()
         Image.fromarray(montage).convert('L').save(buf, format='JPEG', optimize=True)
@@ -201,6 +168,7 @@ def generate_zip_pyr(imagedata, outbase, tile_size=256):
             tilename = 'z%03d/x%03d_y%03d.jpg' % idx
             arcname = os.path.join(os.path.basename(outbase), tilename)
             zf.writestr(arcname, tile_buf.getvalue())
+
     return zip_name
 
 def generate_flat(imagedata, filepath):
@@ -226,7 +194,7 @@ class Montage(medimg.MedImgReader, medimg.MedImgWriter):
     state = ['orig']
 
     def __init__(self, filepath, load_data=False):
-        super(Montage, self).__init__(load_data=load_data)
+        super(Montage, self).__init__(filepath, load_data=load_data)
         self.data = None        # contains montage
         if load_data:
             self.load_data(preloaded=True)

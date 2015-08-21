@@ -22,10 +22,9 @@ import time
 import shlex
 import struct
 import logging
-import tarfile
+import zipfile
 import datetime
 import subprocess
-
 import numpy as np
 
 import medimg
@@ -158,17 +157,17 @@ class PFile(medimg.MedImgReader):
     This class reads the data and/or header from a pfile, runs k-space reconstruction.
 
     PFile object can handle several different input types
-        - .tgz of directory containing Pfile, and supporting files such as ref.dat, vrgf.dat and tensor.dat.
+        - .zip of directory containing Pfile, and supporting files such as ref.dat, vrgf.dat and tensor.dat.
         - a single pfile, either gz or uncompressed.
 
-    tgz cannot be "full parsed".  setting full_parse=True, with an input tgz, will raise an exception.
-    nims2 input tgz format
+    zip cannot be "full parsed".  setting full_parse=True, with an input zip, will raise an exception.
+    nims2 input zip format
     Pfile.7, Pfile.7ref.dat, Pfile.7vrgf.dat Pfile.7ref
 
     .. code:: python
 
         import scitran.data as scidata
-        ds = scidata.parse('pfile.tgz', filetype='pfile', load_data=True)
+        ds = scidata.parse('pfile.zip', filetype='pfile', load_data=True)
         if not ds.failure_reason:
             scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
@@ -178,15 +177,15 @@ class PFile(medimg.MedImgReader):
     .. code:: python
 
         import scitran.data as scidata
-        ds = scidata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=True, aux_file='muxarcepi_cal.tgz')
+        ds = scidata.parse('muxarcepi_nocal.zip', filetype='pfile', load_data=True, aux_file='muxarcepi_cal.zip')
         if not ds.failure_reason:
             scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
     .. code:: python
 
         import scitran.data scidata
-        ds = scidata.parse('muxarcepi_nocal.tgz', filetype='pfile', load_data=False)
-        ds.load_data(aux_file='muxarcepi_cal.tgz')
+        ds = scidata.parse('muxarcepi_nocal.zip', filetype='pfile', load_data=False)
+        ds.load_data(aux_file='muxarcepi_cal.zip')
         if no ds.failure_reason:
             scidata.write(ds, ds.data, outbase='output_name', filetype='nifti')
 
@@ -207,7 +206,7 @@ class PFile(medimg.MedImgReader):
         Parameters
         ----------
         filepath : str
-            path to pfile.7 or pfile.tgz
+            path to pfile.7 or pfile.zip
         load_data : bool [default False]
             load all data and run reconstruction
         full_parse : bool [default False]
@@ -223,15 +222,15 @@ class PFile(medimg.MedImgReader):
         recon_type : NoneType or str
             muxepi only, if recon_type is 'sense', then run sense recon
         aux_file : None or str
-            path to pfile.tgz that contains valid vrgf.dat and ref.dat files
+            path to pfile.zip that contains valid vrgf.dat and ref.dat files
 
         """
         super(PFile, self).__init__(filepath, load_data, timezone)       # sets self.filepath
         self.full_parsed = False                        # indicates if fully parsed
         self.dirpath = os.path.dirname(self.filepath)   # what contains the input file
         self.basename = os.path.basename(self.filepath)
-        # TODO setting the file name and extension should be different for .7 and .7.tgz
-        # if pfile_arc.tgz, file_name = pfile_arc, file_ext = .tgz
+        # TODO setting the file name and extension should be different for .7 and .7.zip
+        # if pfile_arc.zip, file_name = pfile_arc, file_ext = .zip
         # if P?????.7,   file_name = P?????, file_ext = .7
         self.file_name, self.file_ext = os.path.splitext(self.filepath)
         self.num_jobs = num_jobs
@@ -244,32 +243,26 @@ class PFile(medimg.MedImgReader):
 
 
         log.debug('parsing %s' % filepath)
-        if tarfile.is_tarfile(self.filepath):  # tgz; find json with a ['header'] section
-            log.debug('tgz')
-            with tarfile.open(self.filepath) as archive:
-                for ti in archive:
-                    if not ti.isreg():
-                        continue
-                    try:
-                        _hdr = json.load(archive.extractfile(ti), object_hook=util.datetime_decoder)['header']
-                    except ValueError as e:  # json file does not exist
-                        log.debug('%s; not a json file' % e)
-                    except KeyError as e:  # header section does not exist
-                        log.debug('%s; header section does not exist' % e)
-                    else:
-                        log.debug('_min_parse_tgz')
-                        self.exam_uid = _hdr.get('session')
-                        self.series_no = _hdr.get('session_no')
-                        self.series_desc = _hdr.get('session_desc')
-                        self.acquisition_id = _hdr.get('acquisition')
-                        self.acq_no = _hdr.get('acquisition_no')
-                        self.timestamp = _hdr.get('timestamp')
-                        self.group_name = _hdr.get('group')
-                        self.project_name = _hdr.get('project')
-                        self.metadata_status = 'pending'
-                        break
+        if zipfile.is_zipfile(self.filepath):  # zip; find json header in the comment
+            log.debug('zip')
+            with zipfile.ZipFile(self.filepath) as zip_pfile:
+                try:
+                    _hdr = json.loads(zip_pfile.comment, object_hook=util.datetime_decoder)['header']
+                except (TypeError, ValueError) as e:  # json file does not exist
+                    log.debug('%s; not a json file' % e)
+                except KeyError as e:  # header section does not exist
+                    log.debug('%s; header section does not exist' % e)
                 else:
-                    raise PFileError('no json file with header section found. bailing', log_level=logging.WARNING)
+                    log.debug('parse_zip')
+                    self.exam_uid = _hdr.get('session')
+                    self.series_no = _hdr.get('session_no')
+                    self.series_desc = _hdr.get('session_desc')
+                    self.acquisition_id = _hdr.get('acquisition')
+                    self.acq_no = _hdr.get('acquisition_no')
+                    self.timestamp = _hdr.get('timestamp')
+                    self.group_name = _hdr.get('group')
+                    self.project_name = _hdr.get('project')
+                    self.metadata_status = 'pending'
         else:  # .7 or .7.gz, doing it old world style
             try:
                 self.version = get_version(self.filepath)
@@ -314,17 +307,17 @@ class PFile(medimg.MedImgReader):
         """
         Parse the minimum sorting information from a pfile.7.
 
-        Does not work if input file is a tgz.  If Pfile was init'd with a tgz input, the tgz can be
+        Does not work if input file is a zip.  If Pfile was init'd with a zip input, the zip can be
         unpacked into a temporary directory, and then this function can parse the unpacked pfile.
 
         Parameters
         ----------
         filepath : str
-            path to a pfile.7.  Does not accept pfile.tgz.
+            path to a pfile.7.  Does not accept pfile.zip.
 
         """
         filepath = filepath or self.filepath  # use filepath if provided, else fall back to self.filepath
-        if tarfile.is_tarfile(filepath):
+        if zipfile.is_zipfile(filepath):
             raise PFileError('_min_parse() expects a .7 or .7.gz')
         log.debug('_min_parse of %s' % filepath)
 
@@ -390,20 +383,20 @@ class PFile(medimg.MedImgReader):
         Attempts to import pfile version specific parser from pfile submodule.  Full parse is
         not possible without access to the pfile submodule.
 
-        Does not work if input file is a tgz.  If Pfile was init'd with a tgz input, the tgz can be
+        Does not work if input file is a zip.  If Pfile was init'd with a zip input, the zip can be
         unpacked into a temporary directory, and then this function can parse the unpacked pfile.
 
         Parameters
         ----------
         filepath : str
-            path to a pfile.7.  Does not accept pfile.tgz.
+            path to a pfile.7.  Does not accept pfile.zip.
 
         """
         filepath = filepath or self.filepath
-        if tarfile.is_tarfile(filepath):
-            log.warning('unpacking tgz to full_parse. this may take several minutes.')
+        if zipfile.is_zipfile(filepath):
+            log.warning('unpacking zip to full_parse. this may take several minutes.')
             with tempfile.TemporaryDirectory() as tempdir_path:
-                with tarfile.open(filepath) as archive:
+                with zipfile.ZipFile(filepath) as archive:
                     archive.extractall(path=tempdir_path)
                 subdir = os.listdir(tempdir_path)[0]
                 fpath = glob.glob(os.path.join(tempdir_path, subdir, 'P?????.7*'))[0]
@@ -413,8 +406,14 @@ class PFile(medimg.MedImgReader):
 
         log.debug('_full_parse of %s' % filepath)
         try:
-            pfile = getattr(__import__('pfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
+            pfile = getattr(__import__('gepfile.pfile%d' % self.version, globals()), 'pfile%d' % self.version)
         except ImportError:
+            raise ImportError("""
+                No pfile parser for v%d.
+                Pfile data loading requires the proprietary gepfile module to be installed from the scitran.data root folder.
+
+                git clone https://github.com/cni/pfile.git scitran/data/medimg/gepfile
+                """)
             raise ImportError('no pfile parser for v%d' % self.version)
 
         with gzip.open(filepath, 'rb') if is_gzip(filepath) else open(filepath, 'rb') as fileobj:
@@ -753,7 +752,7 @@ class PFile(medimg.MedImgReader):
         """
         Load the data and run the appropriate reconstruction.
 
-        Load data always works on the __init__ filepath.  it will determine if the file is a tgz, or not, and
+        Load data always works on the __init__ filepath.  it will determine if the file is a zip, or not, and
         take the appropriate action to fully parse and prepare to reconstruct.
 
         Some parameters are repeated from __init__, to allow resetting those parameters at the time of data load time.
@@ -775,14 +774,14 @@ class PFile(medimg.MedImgReader):
         self.aux_file = aux_file or self.aux_file
         self.tempdir = tempdir or self.tempdir
 
-        if tarfile.is_tarfile(self.filepath):
-            log.debug('loading data from tgz %s' % self.filepath)
+        if zipfile.is_zipfile(self.filepath):
+            log.debug('loading data from zip %s' % self.filepath)
             with tempfile.TemporaryDirectory(dir=self.tempdir) as temp_dirpath:
                 log.debug('now working in temp_dirpath=%s' % temp_dirpath)
-                with tarfile.open(self.filepath) as archive:
+                with zipfile.ZipFile(self.filepath) as archive:
                     archive.extractall(path=temp_dirpath)
 
-                temp_datadir = os.path.join(temp_dirpath, os.listdir(temp_dirpath)[0])    # tgz always has subdir that contains data
+                temp_datadir = os.path.join(temp_dirpath, os.listdir(temp_dirpath)[0])    # zip always has subdir that contains data
                 for f in os.listdir(temp_datadir):
                     fpath = os.path.join(temp_datadir, f)
                     try:
@@ -970,7 +969,7 @@ class PFile(medimg.MedImgReader):
         """
         Do mux_epi image reconstruction and populate self.data.
 
-        Always involves a tempdir.  If input is a pfile.tgz, the tempdir was created during
+        Always involves a tempdir.  If input is a pfile.zip, the tempdir was created during
         unpacking will be re-used during recon. If input is a pfile.7, then the temp during
         will be created during this recon.
 
@@ -1016,8 +1015,8 @@ class PFile(medimg.MedImgReader):
             if self.num_mux_cal_cycle < 2:
                 log.debug('num_mux_cal_cycle: %d. looking for calibration from a different acq.' % self.num_mux_cal_cycle)
                 if self.aux_file:
-                    if tarfile.is_tarfile(self.aux_file):
-                        with tarfile.open(self.aux_file) as aux_archive:
+                    if zipfile.is_zipfile(self.aux_file):
+                        with zipfile.ZipFile(self.aux_file) as aux_archive:
                             log.debug('inspecting aux file: %s' % self.aux_file)
                             aux_archive.extractall(path=temp_dirpath)
                         aux_subdir = os.listdir(temp_dirpath)[0]
@@ -1104,7 +1103,7 @@ class PFile(medimg.MedImgReader):
         Parameters
         ----------
         filepath : str
-            path to input file, can be .7, .7.gz.  cannot be 7.tgz.
+            path to input file, can be .7, .7.gz.  cannot be 7.zip.
 
         Returns
         -------
