@@ -15,7 +15,7 @@ before_install:
     - sudo apt-get install -qq libjpeg-dev && sudo ln -s /usr/lib/x86_64-linux-gnu/libjpeg.so /usr/lib
 
 install:
-    - pip install --no-index -f --trusted-host travis-wheels.scikit-image.org http://travis-wheels.scikit-image.org nose numpy==1.9.2 scipy=0.16 Pillow pytz nose
+    - pip install --no-index --trusted-host travis-wheels.scikit-image.org -f http://travis-wheels.scikit-image.org nose numpy==1.9.2 scipy==0.14 Pillow pytz
     - pip install webapp2 requests[security] webob db-sqlite3 sphinx numpydoc coverage mne
     - pip install git+https://github.com/nipy/nibabel.git
     - pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch

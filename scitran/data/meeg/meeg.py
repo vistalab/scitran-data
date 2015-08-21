@@ -198,6 +198,10 @@ class MEEGReader(data.Reader):
     # the following are all handled by the super class Reader
 
     @property
+    def nims_metadata_status(self):
+        return super(MEEGReader, self).nims_metadata_status
+
+    @property
     def nims_file_ext(self):
         return super(MEEGReader, self).nims_file_ext
 
