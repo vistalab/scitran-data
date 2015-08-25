@@ -567,10 +567,6 @@ class Reader(object):
         pass
 
     @abc.abstractproperty
-    def nims_metadata_status(self):
-        pass
-
-    @abc.abstractproperty
     def nims_group_id(self):
         """Group ID
 
@@ -638,6 +634,13 @@ class Reader(object):
 
     # these have sensible global defaults, so we could make them properties,
     # but then the class wouldn't be abstact
+
+    @abc.abstractproperty
+    def nims_metadata_status(self):
+        """This says whether or not metadata (e.g., session) is available"""
+        # NOTE: If you get "(unknown)" for e.g. session even though it has
+        # been populated, you need to set self.metadata_status = 'complete'
+        return self.metadata_status
 
     @abc.abstractproperty
     def nims_file_ext(self):

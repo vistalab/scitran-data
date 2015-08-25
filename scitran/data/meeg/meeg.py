@@ -133,7 +133,7 @@ class MEEGReader(data.Reader):
         self.project_name = info['proj_name']
         self.session_id = meas_date.strftime('%Y%m%d')
         self.acquisition = info['description']
-        self.subject = subject_info['his_id']
+        self.session_subject = subject_info['his_id']
 
         #
         # Additional session properties
@@ -146,6 +146,9 @@ class MEEGReader(data.Reader):
                              datetime.min.time())
         self.subj_hand = hand_dict[subject_info['hand']]
         self.subj_sex = sex_dict[subject_info['sex']]
+
+        # Parsing is complete
+        self.metadata_status = 'complete'
 
     def __del__(self):
         shutil.rmtree(self._temp_dir)
