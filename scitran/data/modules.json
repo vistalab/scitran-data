@@ -15,5 +15,6 @@
     "mr.montage": "medimg",
     "mr.nifti": "medimg",
     "mr.behavior": "data",
-    "mr.gephysio": "data"
+    "mr.gephysio": "data",
+    "meeg.FIF": "meeg"
 }

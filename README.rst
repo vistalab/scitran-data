@@ -33,11 +33,13 @@ development version is currently using the following:
 package          version
 ================ ====================
 Pillow           2.6.1
-numpy            1.9.0
+numpy            1.9.2
 nibabel          1.4.0dev
 pydicom          0.9.9
 dcmstack         0.7.0dev
 pytz             2014.10
+scipy            0.14.0
+mne              0.9
 ================ ====================
 
 
@@ -69,11 +71,13 @@ installation on fresh ubuntu 14.04
 .. code:: bash
 
     pip install numpy==1.9.0
+    pip install scipy==0.14
     pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch
     pip install git+https://github.com/nipy/nibabel.git
     pip install git+https://github.com/moloney/dcmstack.git@6d49fe01235c08ae63c76fa2f3943b49c9b9832d
     pip install pillow
     pip install pytz
+    pip install mne
 
 - install scitran data from github
 
@@ -159,3 +163,13 @@ to run tests locally.  clone the `testdata` repository into `scitran/data/test/t
 .. code:: bash
 
     git clone https://github/com/scitran/testdata.git <path to clone of scitran-data>/scitran/data/test/testdata
+
+Probing site data
+-----------------
+
+To probe functionality, you can set the API to insecure mode in ``config.toml``.
+The API can the directly be browsed at e.g. https://localhost:8443/api.
+Type in your email address, click ``Generate Custom Links``, and then browse
+different tabs like ``/projects`` link.
+`JSONView <https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc?hl=en>`_
+is a helpful Chrome plugin for this process.

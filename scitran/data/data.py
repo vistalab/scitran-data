@@ -21,6 +21,11 @@ domain, and several seperate data type specific classes.
 see :doc:`extending_data` for more information on creating a new reader
 subclass.
 
+SciTran data are organized in a group, project, session, acquisition hierarchy.
+A group is approximately equivalent to a university research lab.
+The group "owns" the project. If the provided group does not exist,
+data will end up in the "unknown" group.
+By default, live.sh provisions a "scitran" group.
 """
 
 import os
@@ -519,8 +524,8 @@ class Reader(object):
     """
     Abstract base class that provides interfaces, and functions for readers.
 
-    Cannot be instantiated.  See :doc:`extending_data` for more information on subclassing
-    Reader to create a new data reader.
+    Cannot be instantiated.  See :doc:`extending_data` for more information on
+    subclassing Reader to create a new data reader.
 
     Parameters
     ----------
@@ -528,7 +533,8 @@ class Reader(object):
         filepath as string
     load_data : boolean [default False]
         Indicate if parse should return with all data loaded.
-
+    timezone : str
+        The time zone to use.
     """
 
     __metaclass__ = abc.ABCMeta
@@ -561,69 +567,106 @@ class Reader(object):
         pass
 
     @abc.abstractproperty
-    def nims_metadata_status(self):
-        pass
-
-    @abc.abstractproperty
     def nims_group_id(self):
+        """Group ID
+
+        This is roughly equivalent to a university research lab.
+        """
         pass
 
     @abc.abstractproperty
     def nims_project(self):
+        """Project ID"""
         pass
 
     @abc.abstractproperty
     def nims_session_id(self):
+        """Session ID (unique ID)
+
+        For DICOM this is the study instance UID.
+        """
         pass
 
     @abc.abstractproperty
     def nims_session_label(self):
+        """Session label (human-readable)"""
         pass
 
     @abc.abstractproperty
     def nims_session_subject(self):
+        """Identifier for the subject
+
+        For DICOM this is the patient ID.
+        """
         pass
 
     @abc.abstractproperty
     def nims_acquisition_id(self):
+        """Acquisition ID (unique ID)
+
+        An acquisition is roughly equivalent to a DICOM series.
+        For DICOM we use the series instance UID.
+        """
         pass
 
     @abc.abstractproperty
     def nims_acquisition_label(self):
+        """Acquisition label (human readable)"""
         pass
 
     @abc.abstractproperty
     def nims_acquisition_description(self):
+        """Description of the acquisition
+
+        Should come from the data.
+        """
         pass
 
     @abc.abstractproperty
     def nims_file_name(self):
+        """Filename to use on disk
+
+        Globally unique names are nice, but not required.
+        We store all files for an acquisition in the same directory,
+        so some uniqueness is needed.
+        """
         pass
+
+    # these have sensible global defaults, so we could make them properties,
+    # but then the class wouldn't be abstact
+
+    @abc.abstractproperty
+    def nims_metadata_status(self):
+        """This says whether or not metadata (e.g., session) is available"""
+        # NOTE: If you get "(unknown)" for e.g. session even though it has
+        # been populated, you need to set self.metadata_status = 'complete'
+        return self.metadata_status
 
     @abc.abstractproperty
     def nims_file_ext(self):
-        pass
+        """The file extension to use"""
+        return '.zip'
 
     @abc.abstractproperty
     def nims_file_domain(self):
-        pass
+        """The file domain"""
+        return self.domain
 
     @abc.abstractproperty
     def nims_file_type(self):
-        pass
-
-    @abc.abstractproperty
-    def nims_file_kinds(self):
-        pass
+        """The file type"""
+        return self.filetype
 
     @abc.abstractproperty
     def nims_file_state(self):
-        pass
+        """The state of the file"""
+        return self.state
 
     @abc.abstractproperty
     def nims_timestamp(self):
         if self.timestamp and self.timezone:
-            return pytz.timezone(self.timezone).localize(self.timestamp).astimezone(pytz.timezone('UTC')).replace(tzinfo=None)
+            tz = pytz.timezone(self.timezone).localize(self.timestamp)
+            return tz.astimezone(pytz.timezone('UTC')).replace(tzinfo=None)
         return self.timestamp
 
     @abc.abstractproperty
@@ -674,9 +717,9 @@ class abstractclassmethod(classmethod):
 
     __isabstractmethod__ = True
 
-    def __init__(self, callable):
-        callable.__isabstractmethod__ = True
-        super(abstractclassmethod, self).__init__(callable)
+    def __init__(self, callable_):
+        callable_.__isabstractmethod__ = True
+        super(abstractclassmethod, self).__init__(callable_)
 
 
 class Writer(object):
