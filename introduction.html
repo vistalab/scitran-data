@@ -82,7 +82,7 @@ instance to use them. E.g., you can run our image reconstruction pipeline.</p>
 <td>2.6.1</td>
 </tr>
 <tr class="row-odd"><td>numpy</td>
-<td>1.9.0</td>
+<td>1.9.2</td>
 </tr>
 <tr class="row-even"><td>nibabel</td>
 <td>1.4.0dev</td>
@@ -95,6 +95,12 @@ instance to use them. E.g., you can run our image reconstruction pipeline.</p>
 </tr>
 <tr class="row-odd"><td>pytz</td>
 <td>2014.10</td>
+</tr>
+<tr class="row-even"><td>scipy</td>
+<td>0.14.0</td>
+</tr>
+<tr class="row-odd"><td>mne</td>
+<td>0.9</td>
 </tr>
 </tbody>
 </table>
@@ -131,11 +137,13 @@ source data_env/bin/bin/activate
 through pypi, these installation commands will change.  (subject to change)</li>
 </ul>
 <div class="code bash highlight-python"><div class="highlight"><pre>pip install numpy==1.9.0
+pip install scipy==0.14
 pip install git+https://github.com/scitran/pydicom.git@0.9.9_value_vr_mismatch
 pip install git+https://github.com/nipy/nibabel.git
 pip install git+https://github.com/moloney/dcmstack.git@6d49fe01235c08ae63c76fa2f3943b49c9b9832d
 pip install pillow
 pip install pytz
+pip install mne
 </pre></div>
 </div>
 <ul class="simple">
@@ -198,6 +206,15 @@ to run tests locally.  clone the <cite>testdata</cite> repository into <cite>sci
 </pre></div>
 </div>
 </div>
+<div class="section" id="probing-site-data">
+<h2>Probing site data<a class="headerlink" href="#probing-site-data" title="Permalink to this headline">¶</a></h2>
+<p>To probe functionality, you can set the API to insecure mode in <code class="docutils literal"><span class="pre">config.toml</span></code>.
+The API can the directly be browsed at e.g. <a class="reference external" href="https://localhost:8443/api">https://localhost:8443/api</a>.
+Type in your email address, click <code class="docutils literal"><span class="pre">Generate</span> <span class="pre">Custom</span> <span class="pre">Links</span></code>, and then browse
+different tabs like <code class="docutils literal"><span class="pre">/projects</span></code> link.
+<a class="reference external" href="https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc?hl=en">JSONView</a>
+is a helpful Chrome plugin for this process.</p>
+</div>
 </div>
 
 
@@ -214,6 +231,7 @@ to run tests locally.  clone the <cite>testdata</cite> repository into <cite>sci
 <li><a class="reference internal" href="#installation-on-fresh-ubuntu-14-04">installation on fresh ubuntu 14.04</a></li>
 <li><a class="reference internal" href="#basic-conversion">Basic Conversion</a></li>
 <li><a class="reference internal" href="#developer-notes">Developer Notes</a></li>
+<li><a class="reference internal" href="#probing-site-data">Probing site data</a></li>
 </ul>
 </li>
 </ul>
