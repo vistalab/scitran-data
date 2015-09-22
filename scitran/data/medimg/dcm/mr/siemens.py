@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 SIEMENS_TYPE_DIS2D = ['ORIGINAL', 'PRIMARY', 'M', 'RETRO', 'NORM', 'DIS2D', 'FM4_2', 'FIL']
 # dis2d = distorted pixel and remapped, 2d distortion correct, retro = Retro image, or retrospective gating
 
-TAG_BVALUE = 'CsaSeries.MrPhoenixProtocol.sDiffusion.alBValue[1]'  # B_value
+TAG_BVALUE = 'CsaSeries.MrPhoenixProtocol.sDiffusion.alBValue'  # B_value
 TAG_BVEC = 'CsaImage.DiffusionGradientDirection'
 MAX_LOC_DCMS = dcm.MAX_LOC_DCMS
 MetaExtractor = dcm.MetaExtractor
@@ -184,8 +184,21 @@ def parse_all(self):
         self.is_localizer = bool(len(set(norm_diff)) > 1)
 
     if self.is_dwi:
-        self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[0:self.num_slices]])
+        # Read the BVALS from TAG_BVALUE - accounting for multi-shell case
+        me = MetaExtractor(self._dcm_list[0])
+        bvals = range(sum(tag.startswith(TAG_BVALUE) for tag in me))
+        self.bvals = np.empty(0)
+        for i in bvals:
+            self.bvals = np.append(self.bvals, np.array([MetaExtractor(d).get(TAG_BVALUE + '[%d]' % (i+1), 0.) for d in self._dcm_list[0:self.num_slices]]))
+        # Read the BVECS from the TAG_BVEC
         self.bvecs = np.array([MetaExtractor(d).get(TAG_BVEC, [0., 0., 0.]) for d in self._dcm_list[0:self.num_slices]]).transpose()
+        # If the bvals array is longer than self.bvecs[0] (multi-shell case) then resize
+        if len(self.bvals) > len(self.bvecs[0]):
+            bvecs = np.zeros((3, len(self.bvals)))
+            bvecs[0] = np.resize(self.bvecs[0], (1, len(self.bvals)))
+            bvecs[1] = np.resize(self.bvecs[1], (1, len(self.bvals)))
+            bvecs[2] = np.resize(self.bvecs[2], (1, len(self.bvals)))
+            self.bvecs = bvecs
 
     mr.infer_scan_type(self)  # infer scan type again after determining all info
 
