@@ -299,7 +299,7 @@ def parse_standard_mr_tags(self):
     self.flip_angle = self.getelem(self._hdr, 'FlipAngle', float)
     self.pixel_bandwidth = self.getelem(self._hdr, 'PixelBandwidth', float)
     phase_encode = self.getelem(self._hdr, 'InPlanePhaseEncodingDirection')
-    self.phase_encode = int(phase_encode == 'COL') if phase_encode else None
+    self.phase_encode = int(phase_encode == 'ROW') if phase_encode else None
     self.num_averages = self.getelem(self._hdr, 'NumberOfAverages', int)    # some GE scans show this as 0.5?
     self.num_echos = self.getelem(self._hdr, 'EchoNumbers', int)
     self.protocol_name = self.getelem(self._hdr, 'ProtocolName')
