@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 SIEMENS_TYPE_DIS2D = ['ORIGINAL', 'PRIMARY', 'M', 'RETRO', 'NORM', 'DIS2D', 'FM4_2', 'FIL']
 # dis2d = distorted pixel and remapped, 2d distortion correct, retro = Retro image, or retrospective gating
 
-TAG_BVALUE = 'CsaSeries.MrPhoenixProtocol.sDiffusion.alBValue[1]'  # B_value
+TAG_BVALUE = 'CsaImage.B_value'  # B_value (ref: http://www.na-mic.org/Wiki/index.php/NAMIC_Wiki:DTI:DICOM_for_DWI_and_DTI )
 TAG_BVEC = 'CsaImage.DiffusionGradientDirection'
 MAX_LOC_DCMS = dcm.MAX_LOC_DCMS
 MetaExtractor = dcm.MetaExtractor
@@ -184,8 +184,8 @@ def parse_all(self):
         self.is_localizer = bool(len(set(norm_diff)) > 1)
 
     if self.is_dwi:
-        self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[0:self.num_slices]])
-        self.bvecs = np.array([MetaExtractor(d).get(TAG_BVEC, [0., 0., 0.]) for d in self._dcm_list[0:self.num_slices]]).transpose()
+        self.bvals = np.array([MetaExtractor(d).get(TAG_BVALUE, 0.) for d in self._dcm_list[:]])
+        self.bvecs = np.array([MetaExtractor(d).get(TAG_BVEC, [0., 0., 0.]) for d in self._dcm_list[:]]).transpose()
 
     mr.infer_scan_type(self)  # infer scan type again after determining all info
 
