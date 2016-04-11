@@ -421,7 +421,7 @@ def partial_vol_check(self):        # AKA _pre_convert.
     """
     if 'MOSAIC' not in self.image_type and self.num_slices:
         if len(self._dcm_list) < self.num_slices:                   # check if have at least 1 whole volume
-            raise NIMSDicomError('cannot reconstruct. total dicoms < num slices')
+            raise DicomError('cannot reconstruct. total dicoms < num slices')
             # TODO: add comment to notes
         partial_vol_dcms = len(self._dcm_list) % self.num_slices    # remove partial volumes
         if partial_vol_dcms:
