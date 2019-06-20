@@ -169,7 +169,7 @@ def parse_all(self):
 
     # TODO separatation of concern; identification vs dicom grouping
     recon_mode_flag = np.unique([self.getelem(d, TAG_RECON_FLAG, int, 0) for d in self._dcm_list])
-    if recon_mode_flag == [1] and self.psd_type not in ['fieldmap']:
+    if self.psd_type not in ['fieldmap']:
         log.debug('recon_mode: 1, might be multicoil')
         vol_counter = 0
         ref_position = self.getelem(self._hdr, 'ImagePositionPatient')
